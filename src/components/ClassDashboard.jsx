@@ -27,22 +27,27 @@ export default function ClassDashboard({
   const todayDayName = dayNamesIndo[new Date().getDay()];
   const todayIsoDate = new Date().toISOString().split('T')[0];
 
+  // Safe arrays
+  const safeSchedules = schedules || [];
+  const safeTasks = tasks || [];
+  const safeAnnouncements = announcements || [];
+
   // Filter items for Today
-  const todaySchedules = schedules
+  const todaySchedules = safeSchedules
     .filter(s => s.day === todayDayName)
     .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
 
-  const todayTasks = tasks
+  const todayTasks = safeTasks
     .filter(t => t.dueDate === todayIsoDate || t.dueDate >= todayIsoDate)
     .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''))
     .slice(0, 4);
 
-  const recentAnnouncement = announcements.length > 0 ? announcements[0] : null;
+  const recentAnnouncement = safeAnnouncements.length > 0 ? safeAnnouncements[0] : null;
 
   // Overview Counts
-  const tasksDueCount = tasks.filter(t => t.dueDate === todayIsoDate).length;
+  const tasksDueCount = safeTasks.filter(t => t.dueDate === todayIsoDate).length;
   const classesTodayCount = todaySchedules.length;
-  const announcementsCount = announcements.length;
+  const announcementsCount = safeAnnouncements.length;
 
   const coordinatorMember = currentClass?.members?.find(m => m.role === 'komti' || m.role === 'coordinator') || 
     (currentClass?.members?.length > 0 ? currentClass.members[0] : { name: 'Komti Kelas', role: 'Komti' });

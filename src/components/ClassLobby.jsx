@@ -18,6 +18,7 @@ import {
 export default function ClassLobby({ 
   currentUser, 
   classes = [], 
+  classesLoading = false,
   onSelectClass, 
   onRefreshClasses, 
   onOpenProfile,
@@ -216,8 +217,25 @@ export default function ClassLobby({
             </div>
           </div>
 
-          {/* Empty State or Class Cards Grid */}
-          {classes.length === 0 ? (
+          {/* Loading Skeleton, Empty State, or Class Cards */}
+          {classesLoading ? (
+            <div className="max-w-xl">
+              <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-7 shadow-xs space-y-5 animate-pulse">
+                <div className="flex items-center justify-between">
+                  <div className="w-20 h-6 bg-[#E2E8F0] rounded-full" />
+                  <div className="w-24 h-5 bg-[#E2E8F0] rounded-full" />
+                </div>
+                <div className="space-y-2">
+                  <div className="w-52 h-6 bg-[#E2E8F0] rounded-lg" />
+                  <div className="w-32 h-4 bg-[#F1F5F9] rounded" />
+                </div>
+                <div className="pt-4 border-t border-[#F1F5F9] flex justify-between items-center">
+                  <div className="w-28 h-4 bg-[#F1F5F9] rounded" />
+                  <div className="w-32 h-9 bg-[#E2E8F0] rounded-xl" />
+                </div>
+              </div>
+            </div>
+          ) : classes.length === 0 ? (
             <div className="bg-white border border-[#E2E8F0] rounded-2xl p-12 text-center space-y-4 shadow-2xs">
               <div className="w-12 h-12 rounded-2xl bg-[#F1F5F9] text-[#64748B] flex items-center justify-center mx-auto">
                 <BookOpen size={24} />

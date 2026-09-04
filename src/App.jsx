@@ -24,14 +24,15 @@ export default function App() {
   // Class Management State
   const [classes, setClasses] = useState([]);
   const [currentClass, setCurrentClass] = useState(null);
-  const [classesLoading, setClassesLoading] = useState(false);
+  const [classesLoading, setClassesLoading] = useState(true);
 
-  // Class Domain Data
-  const [schedules, setSchedules] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [files, setFiles] = useState([]);
-  const [announcements, setAnnouncements] = useState([]);
-  const [groups, setGroups] = useState([]);
+  // Class Domain Data (null until fetched from database to prevent flashing 0s)
+  const [schedules, setSchedules] = useState(null);
+  const [tasks, setTasks] = useState(null);
+  const [files, setFiles] = useState(null);
+  const [announcements, setAnnouncements] = useState(null);
+  const [groups, setGroups] = useState(null);
+  const [contentLoading, setContentLoading] = useState(false);
 
   // Modals
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -104,32 +105,46 @@ export default function App() {
   }, [user]);
 
   // 3. Load Class Content when currentClass changes
-  const loadClassContent = async () => {
-    if (!currentClass) return;
+  const loadClassContent = async (cls = currentClass) => {
+    if (!cls?.id) return;
+    setContentLoading(true);
     try {
       const [schData, taskData, fileData, annData, grpData] = await Promise.all([
-        dbService.schedules.list(currentClass.id),
-        dbService.tasks.list(currentClass.id),
-        dbService.files.list(currentClass.id),
-        dbService.announcements.list(currentClass.id),
-        dbService.groups.list(currentClass.id)
+        dbService.schedules.list(cls.id),
+        dbService.tasks.list(cls.id),
+        dbService.files.list(cls.id),
+        dbService.announcements.list(cls.id),
+        dbService.groups.list(cls.id)
       ]);
 
-      setSchedules(schData);
-      setTasks(taskData);
-      setFiles(fileData);
-      setAnnouncements(annData);
-      setGroups(grpData);
+      setSchedules(schData || []);
+      setTasks(taskData || []);
+      setFiles(fileData || []);
+      setAnnouncements(annData || []);
+      setGroups(grpData || []);
     } catch (err) {
       console.error('Error loading class data:', err);
+      setSchedules([]);
+      setTasks([]);
+      setFiles([]);
+      setAnnouncements([]);
+      setGroups([]);
+    } finally {
+      setContentLoading(false);
     }
   };
 
   useEffect(() => {
-    if (currentClass) {
-      loadClassContent();
+    if (currentClass?.id) {
+      loadClassContent(currentClass);
+    } else {
+      setSchedules(null);
+      setTasks(null);
+      setFiles(null);
+      setAnnouncements(null);
+      setGroups(null);
     }
-  }, [currentClass]);
+  }, [currentClass?.id]);
 
   // Handlers for Data Mutations
   const handleAddSchedule = async (item) => {
@@ -354,6 +369,7 @@ export default function App() {
                 <ClassLobby
                   currentUser={user}
                   classes={classes}
+                  classesLoading={classesLoading}
                   onSelectClass={(cls) => {
                     setCurrentClass(cls);
                     navigate(`/class/${cls.id}/dashboard`);
@@ -380,6 +396,7 @@ export default function App() {
                   classes={classes}
                   currentClass={currentClass}
                   setCurrentClass={setCurrentClass}
+                  contentLoading={contentLoading}
                   schedules={schedules}
                   tasks={tasks}
                   files={files}
@@ -440,6 +457,7 @@ function ClassWorkspace({
   classes,
   currentClass,
   setCurrentClass,
+  contentLoading,
   schedules,
   tasks,
   files,
@@ -503,7 +521,9 @@ function ClassWorkspace({
     }
   }, [classId, classes, currentClass, user]);
 
-  if (!currentClass) {
+  const isDataReady = !contentLoading && schedules !== null && tasks !== null && files !== null && announcements !== null;
+
+  if (!currentClass || !isDataReady) {
     return (
       <div className="h-screen w-screen bg-[#FDFBF7] flex flex-col items-center justify-center space-y-4 font-sans select-none">
         <div className="relative flex flex-col items-center">
@@ -511,7 +531,7 @@ function ClassWorkspace({
             <img src="/logo.png" alt="Classy" className="w-full h-full object-contain animate-pulse" />
           </div>
           <h2 className="font-bold text-lg text-[#0F172A] tracking-tight">Classy</h2>
-          <p className="text-xs text-[#64748B] mt-0.5 font-medium">Memuat ruang kelas...</p>
+          <p className="text-xs text-[#64748B] mt-0.5 font-medium">Memuat data kelas...</p>
           <div className="w-36 h-1.5 bg-[#E2E8F0] rounded-full overflow-hidden mt-4">
             <div className="h-full bg-[#0F172A] rounded-full animate-classy-progress" />
           </div>
