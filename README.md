@@ -1,16 +1,27 @@
-# React + Vite
+# Classy — Ruang Informasi & Kolaborasi Kelas
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Website Utama: **[https://classy.exars.my.id](https://classy.exars.my.id)**
 
-Currently, two official plugins are available:
+Platform manajemen jadwal, tugas terintegrasi Google Drive, materi perkuliahan, dan ruang kolaborasi untuk mahasiswa.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Fitur Utama
 
-## React Compiler
+- 📅 **Jadwal Kuliah Mingguan**: Tampilan visual per hari dengan identifikasi warna tiap mata kuliah dan integrasi jam kuliah.
+- 📝 **Tugas Kuliah & Google Drive**: Sinkronisasi tugas dan unggahan berkas ke Google Drive kelas secara otomatis.
+- 📚 **Materi Perkuliahan**: Penyimpanan dan berbagi file materi perkuliahan.
+- 👥 **Manajemen Anggota**: Akses khusus untuk Komti dan Dosen dalam pengaturan workspace kelas serta peran anggota.
+- 🔐 **Autentikasi & Reset Sandi**: Fitur masuk, daftar, dan pemulihan kata sandi melalui email.
+- 📱 **Progressive Web App (PWA)**: Dapat dipasang (install) di ponsel maupun desktop untuk akses cepat.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Development
 
-## Expanding the Oxlint configuration
+```bash
+# Install dependensi
+npm install
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+# Jalankan development server
+npm run dev
+
+# Build untuk produksi
+npm run build
+```
