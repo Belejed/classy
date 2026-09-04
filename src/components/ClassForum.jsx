@@ -11,7 +11,13 @@ import {
   FileText,
   UserPlus,
   Trash2,
-  X
+  X,
+  Wrench,
+  Clock,
+  Sparkles,
+  AlertCircle,
+  Folder,
+  CheckSquare
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
@@ -140,6 +146,71 @@ export default function ClassForum({
       toast.error('Gagal menghapus kelompok');
     }
   };
+
+  // Maintenance Mode on main branch
+  return (
+    <div className="space-y-6 font-sans">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0]">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold tracking-tight text-[#0F172A]">Class Forum & Groups</h2>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+              Maintenance
+            </span>
+          </div>
+          <p className="text-xs text-[#64748B]">Ruang diskusi kelompok dan forum interaktif mahasiswa.</p>
+        </div>
+      </div>
+
+      {/* Maintenance Hero Card */}
+      <div className="bg-white border border-[#E2E8F0] rounded-3xl p-8 sm:p-12 text-center shadow-xs max-w-2xl mx-auto my-6 space-y-6">
+        <div className="relative inline-block">
+          <div className="w-20 h-20 rounded-3xl bg-amber-50 border border-amber-200/80 text-amber-600 flex items-center justify-center mx-auto shadow-2xs">
+            <Wrench size={34} className="animate-pulse" />
+          </div>
+          <div className="absolute -bottom-1 -right-1 p-1.5 rounded-xl bg-[#0F172A] text-white shadow-xs">
+            <Clock size={14} />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold">
+            <Sparkles size={13} className="text-amber-600" />
+            <span>Fitur Dalam Pengembangan & Pemeliharaan</span>
+          </span>
+          <h3 className="text-xl sm:text-2xl font-bold text-[#0F172A] tracking-tight">
+            Forum Sedang Dioptimalkan
+          </h3>
+          <p className="text-xs sm:text-sm text-[#64748B] max-w-md mx-auto leading-relaxed">
+            Modul kelompok dan ruang chat real-time sedang disiapkan agar lebih stabil, cepat, dan aman. Kami akan segera merilisnya kembali untuk Anda.
+          </p>
+        </div>
+
+        {/* Alternative Actions */}
+        <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] text-left text-xs space-y-2.5 max-w-lg mx-auto">
+          <div className="flex items-center gap-2 text-[#0F172A] font-bold">
+            <AlertCircle size={15} className="text-sky-600" />
+            <span>Sementara itu, Anda dapat menggunakan:</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px] text-[#475569]">
+            <div className="p-2.5 rounded-xl bg-white border border-[#E2E8F0] flex items-center gap-2">
+              <CheckSquare size={14} className="text-emerald-600" />
+              <span><strong>Tasks:</strong> Kumpul tugas & Drive</span>
+            </div>
+            <div className="p-2.5 rounded-xl bg-white border border-[#E2E8F0] flex items-center gap-2">
+              <Folder size={14} className="text-sky-600" />
+              <span><strong>Files:</strong> Akses materi kuliah</span>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-[#94A3B8]">
+          Kelas: <strong>{currentClass?.name || 'Classy'}</strong> · Sistem Classy Academic
+        </p>
+      </div>
+    </div>
+  );
 
   // IF A GROUP IS SELECTED: Show Group Detail
   if (selectedGroup) {
