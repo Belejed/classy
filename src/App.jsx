@@ -304,6 +304,30 @@ export default function App() {
                 }} />
               } 
             />
+            <Route 
+              path="/forgot-password" 
+              element={
+                <Auth 
+                  initialMode="forgot"
+                  onAuthSuccess={(u) => { 
+                    setUser(u); 
+                    navigate('/lobby'); 
+                  }} 
+                />
+              } 
+            />
+            <Route 
+              path="/reset-password" 
+              element={
+                <Auth 
+                  initialMode="update_password"
+                  onAuthSuccess={(u) => { 
+                    setUser(u); 
+                    navigate('/lobby'); 
+                  }} 
+                />
+              } 
+            />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </>
         ) : (
