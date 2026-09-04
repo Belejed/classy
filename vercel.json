@@ -1,14 +1,14 @@
 {
   "redirects": [
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "has": [
         {
           "type": "host",
           "value": "noted-by-blazed.vercel.app"
         }
       ],
-      "destination": "https://classy.exars.my.id/:path*",
+      "destination": "https://classy.exars.my.id/$1",
       "permanent": true
     }
   ],
