@@ -115,7 +115,7 @@ export const authService = {
   resetPassword: async (email) => {
     const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
     const base = isDev ? window.location.origin : 'https://classy.exars.my.id';
-    const redirectTo = `${base}/login#reset`;
+    const redirectTo = `${base}/reset-password`;
     const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo
     });

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../utils/db';
 import { supabase } from '../supabase';
 import toast from 'react-hot-toast';
@@ -15,7 +16,15 @@ import {
 } from 'lucide-react';
 
 export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
-  const [mode, setMode] = useState(initialMode); // 'login' | 'register' | 'forgot' | 'reset_sent' | 'update_password'
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [mode, setMode] = useState(() => {
+    if (location.pathname === '/reset-password') return 'update_password';
+    if (location.pathname === '/forgot-password') return 'forgot';
+    return initialMode;
+  }); // 'login' | 'register' | 'forgot' | 'reset_sent' | 'update_password'
+
   const [loading, setLoading] = useState(false);
 
   // Form Fields
@@ -27,22 +36,43 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
+  // Sync mode with route changes
+  useEffect(() => {
+    if (location.pathname === '/reset-password') {
+      setMode('update_password');
+    } else if (location.pathname === '/forgot-password') {
+      if (mode !== 'reset_sent') {
+        setMode('forgot');
+      }
+    } else if (location.pathname === '/login') {
+      if (mode !== 'register') {
+        setMode('login');
+      }
+    }
+  }, [location.pathname]);
+
   // Detect recovery event or URL hash on load
   useEffect(() => {
     const hash = window.location.hash || '';
     const search = window.location.search || '';
     if (hash.includes('type=recovery') || hash.includes('reset') || search.includes('type=recovery')) {
       setMode('update_password');
+      if (location.pathname !== '/reset-password') {
+        navigate('/reset-password' + hash, { replace: true });
+      }
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setMode('update_password');
+        if (location.pathname !== '/reset-password') {
+          navigate('/reset-password', { replace: true });
+        }
       }
     });
 
     return () => subscription?.unsubscribe?.();
-  }, []);
+  }, [location.pathname]);
 
   const handlePhoneChange = (e) => {
     let val = e.target.value;
@@ -92,12 +122,16 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
       if (currentUser && onAuthSuccess) {
         onAuthSuccess(currentUser);
       } else {
-        setMode('login');
-        setPassword('');
+        navigate('/login');
       }
     } catch (err) {
       console.error('Update password error:', err);
-      toast.error(err.message || 'Gagal memperbarui password');
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('session') || msg.toLowerCase().includes('token') || msg.toLowerCase().includes('missing')) {
+        toast.error('Sesi pemulihan tidak ditemukan atau kedaluwarsa. Silakan minta tautan baru di Lupa Password.');
+      } else {
+        toast.error(msg || 'Gagal memperbarui password');
+      }
     } finally {
       setLoading(false);
     }
@@ -251,7 +285,10 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                     {mode === 'login' && (
                       <button
                         type="button"
-                        onClick={() => setMode('forgot')}
+                        onClick={() => {
+                          setMode('forgot');
+                          navigate('/forgot-password');
+                        }}
                         className="text-[11px] font-semibold text-[#0F172A] hover:underline transition-colors cursor-pointer"
                       >
                         Forgot password?
@@ -365,7 +402,10 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
               <div className="pt-2 border-t border-[#F1F5F9] text-center">
                 <button
                   type="button"
-                  onClick={() => setMode('login')}
+                  onClick={() => {
+                    setMode('login');
+                    navigate('/login');
+                  }}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#475569] hover:text-[#0F172A] transition-colors cursor-pointer"
                 >
                   <ArrowLeft size={14} />
@@ -411,7 +451,10 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
 
                 <button
                   type="button"
-                  onClick={() => setMode('login')}
+                  onClick={() => {
+                    setMode('login');
+                    navigate('/login');
+                  }}
                   className="w-full py-2.5 px-4 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] transition-colors cursor-pointer"
                 >
                   Kembali ke Log in
@@ -480,7 +523,13 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
               <div className="pt-2 border-t border-[#F1F5F9] text-center">
                 <button
                   type="button"
-                  onClick={() => setMode('login')}
+                  onClick={async () => {
+                    try {
+                      await authService.logout();
+                    } catch {}
+                    setMode('login');
+                    navigate('/login');
+                  }}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#475569] hover:text-[#0F172A] transition-colors cursor-pointer"
                 >
                   <ArrowLeft size={14} />

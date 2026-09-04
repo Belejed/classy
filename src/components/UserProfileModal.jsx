@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   X, 
   User, 
@@ -53,6 +54,8 @@ export default function UserProfileModal({
   };
 
   const userInitial = currentUser?.displayName ? currentUser.displayName[0].toUpperCase() : 'U';
+
+  const navigate = useNavigate();
 
   return (
     <ModalPortal onClose={onClose} maxWidth="max-w-md">
@@ -237,8 +240,11 @@ export default function UserProfileModal({
         {/* Account Section: Password & Logout */}
         <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between">
           <button
-            onClick={() => toast('Hubungi admin kampus untuk reset password akun institusi.', { icon: 'ℹ️' })}
-            className="text-xs font-semibold text-[#64748B] hover:text-[#0F172A]"
+            onClick={() => {
+              onClose();
+              navigate('/reset-password');
+            }}
+            className="text-xs font-semibold text-[#64748B] hover:text-[#0F172A] cursor-pointer"
           >
             Change Password
           </button>

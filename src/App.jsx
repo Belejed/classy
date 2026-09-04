@@ -66,6 +66,15 @@ export default function App() {
     };
   }, []);
 
+  // Intercept recovery tokens arriving on any path (e.g. /login#access_token=...&type=recovery)
+  useEffect(() => {
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    if (hash.includes('type=recovery') || search.includes('type=recovery') || hash.includes('reset')) {
+      navigate('/reset-password' + hash, { replace: true });
+    }
+  }, []);
+
   // 2. Load Classes when user is authenticated
   const loadUserClasses = async () => {
     if (!user) return;
@@ -292,6 +301,32 @@ export default function App() {
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
 
       <Routes>
+        {/* Reset & Forgot Password - ALWAYS accessible regardless of auth state */}
+        <Route 
+          path="/reset-password" 
+          element={
+            <Auth 
+              initialMode="update_password"
+              onAuthSuccess={(u) => { 
+                setUser(u); 
+                navigate('/lobby'); 
+              }} 
+            />
+          } 
+        />
+        <Route 
+          path="/forgot-password" 
+          element={
+            <Auth 
+              initialMode="forgot"
+              onAuthSuccess={(u) => { 
+                setUser(u); 
+                navigate('/lobby'); 
+              }} 
+            />
+          } 
+        />
+
         {/* Not Logged In */}
         {!user ? (
           <>
@@ -302,30 +337,6 @@ export default function App() {
                   setUser(u); 
                   navigate('/lobby'); 
                 }} />
-              } 
-            />
-            <Route 
-              path="/forgot-password" 
-              element={
-                <Auth 
-                  initialMode="forgot"
-                  onAuthSuccess={(u) => { 
-                    setUser(u); 
-                    navigate('/lobby'); 
-                  }} 
-                />
-              } 
-            />
-            <Route 
-              path="/reset-password" 
-              element={
-                <Auth 
-                  initialMode="update_password"
-                  onAuthSuccess={(u) => { 
-                    setUser(u); 
-                    navigate('/lobby'); 
-                  }} 
-                />
               } 
             />
             <Route path="*" element={<Navigate to="/login" replace />} />
