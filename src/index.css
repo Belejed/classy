@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --bg-canvas: #FDFBF7;
+  --bg-app: #FDFBF7;
+  --bg-sidebar: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --text-main: #0F172A;
+  --text-muted: #64748B;
+  --text-active: #0F172A;
+  --accent-color: #0F172A;
+  --accent-glow: rgba(15, 23, 42, 0.05);
+  --border-color: #E2E8F0;
+  --border-strong: #0F172A;
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  --font-main: 'Plus Jakarta Sans', sans-serif;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Warm Elegant Dark Theme */
+.theme-dark {
+  --bg-canvas: #0A0A0A;
+  --bg-app: #141414;
+  --bg-sidebar: #0D0D0D;
+  --bg-card: #1C1C1E;
+  --text-main: #EDE8DF;
+  --text-muted: #8E887F;
+  --text-active: #FFFFFF;
+  --accent-color: #FFFFFF;
+  --accent-glow: rgba(255, 255, 255, 0.06);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-strong: #333333;
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+@layer base {
+  body {
+    background-color: #FDFBF7;
+    color: #0F172A;
+    font-family: var(--font-main);
+    @apply antialiased min-h-screen w-full;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Explicitly enforce light theme form inputs with clean background and crisp readable text */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #94A3B8 !important;
+  }
+
+  /* Prevent dark browser autofill colors */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover, 
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-text-fill-color: #0F172A !important;
+    -webkit-box-shadow: 0 0 0px 1000px #FFFFFF inset !important;
+    box-shadow: 0 0 0px 1000px #FFFFFF inset !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+}
+
+/* Smooth Modern Scrollbar */
+.custom-scrollbar::-webkit-scrollbar,
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+@keyframes classyProgress {
+  0% { width: 5%; }
+  35% { width: 45%; }
+  70% { width: 80%; }
+  100% { width: 100%; }
+}
+
+.animate-classy-progress {
+  animation: classyProgress 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
