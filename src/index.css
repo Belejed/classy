@@ -207,12 +207,57 @@
 }
 
 /* Explicit custom classes for ModalPortal and Popups */
+@keyframes classyFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes classyModalPopOut {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+}
+
+@keyframes classySlideOutLeft {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-100%);
+    opacity: 0.8;
+  }
+}
+
 .animate-classy-backdrop {
   animation: classyFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.animate-classy-backdrop-out {
+  animation: classyFadeOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
 .animate-classy-modal {
   animation: classyModalPopIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-classy-modal-out {
+  animation: classyModalPopOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-classy-drawer-out {
+  animation: classySlideOutLeft 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
   will-change: transform, opacity;
 }
 

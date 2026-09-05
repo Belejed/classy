@@ -39,7 +39,17 @@ export default function ClassSidebar({
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isClosingMobileMenu, setIsClosingMobileMenu] = useState(false);
   const switcherRef = useRef(null);
+
+  const handleCloseMobileMenu = () => {
+    if (isClosingMobileMenu) return;
+    setIsClosingMobileMenu(true);
+    setTimeout(() => {
+      setMobileMenuOpen(false);
+      setIsClosingMobileMenu(false);
+    }, 180);
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -118,7 +128,7 @@ export default function ClassSidebar({
 
           {/* Close button on mobile */}
           <button 
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={handleCloseMobileMenu}
             className="md:hidden p-1.5 rounded-xl hover:bg-slate-100 text-slate-500"
           >
             <X size={18} />
@@ -233,7 +243,7 @@ export default function ClassSidebar({
                 key={tab.id}
                 onClick={() => {
                   onSelectTab(tab.id);
-                  setMobileMenuOpen(false);
+                  handleCloseMobileMenu();
                 }}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   isActive
@@ -335,10 +345,14 @@ export default function ClassSidebar({
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
           <div 
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity" 
-            onClick={() => setMobileMenuOpen(false)} 
+            className={`fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity ${
+              isClosingMobileMenu ? 'animate-classy-backdrop-out' : 'animate-classy-backdrop'
+            }`} 
+            onClick={handleCloseMobileMenu} 
           />
-          <div className="relative w-72 max-w-[80vw] bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
+          <div className={`relative w-72 max-w-[80vw] bg-white h-full shadow-2xl flex flex-col z-10 ${
+            isClosingMobileMenu ? 'animate-classy-drawer-out' : 'animate-in slide-in-from-left duration-200'
+          }`}>
             <NavContent />
           </div>
         </div>

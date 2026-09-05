@@ -462,16 +462,8 @@ export default function ClassMembers({
 
       {/* Settings Modal (Komti & Dosen only) */}
       {showSettingsModal && isManager && (
-        <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-[#0F172A]/40 backdrop-blur-xs transition-opacity" 
-              onClick={() => !savingSettings && setShowSettingsModal(false)} 
-            />
-
-            {/* Modal Card */}
-            <div className="relative w-full max-w-lg bg-white rounded-3xl border border-[#E2E8F0] shadow-xl p-6 sm:p-7 space-y-6 z-10 animate-in fade-in zoom-in-95 duration-150 my-auto">
+        <ModalPortal onClose={() => !savingSettings && setShowSettingsModal(false)} maxWidth="max-w-lg">
+          <div className="bg-white rounded-3xl border border-[#E2E8F0] shadow-xl p-6 sm:p-7 space-y-6">
               
               {/* Header */}
               <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
@@ -581,8 +573,6 @@ export default function ClassMembers({
                   </button>
                 </div>
               </form>
-
-            </div>
           </div>
         </ModalPortal>
       )}
