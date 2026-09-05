@@ -344,10 +344,12 @@ export default function ClassSidebar({
         </div>
       )}
 
-      {/* Desktop Fixed Left Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-white border-r border-[#E2E8F0] min-h-screen sticky top-0 h-screen overflow-y-auto">
+      {/* Desktop Fixed Left Sidebar (Does not scroll with the main content) */}
+      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-white border-r border-[#E2E8F0] fixed top-0 left-0 bottom-0 z-30 h-screen overflow-y-auto">
         <NavContent />
       </aside>
+      {/* Spacer to keep flex layout width intact on desktop */}
+      <div className="hidden md:block w-64 shrink-0 pointer-events-none" aria-hidden="true" />
     </>
   );
 }
