@@ -156,9 +156,66 @@ export default function ClassDashboard({
     }
   };
 
+  // Check for upcoming deadlines (< 24 hours) for current user
+  const urgentTasks = useMemo(() => {
+    const now = new Date();
+    const oneDayLater = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    return safeTasks.filter(t => {
+      const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
+      if (isSubmitted || !t.dueDate) return false;
+
+      try {
+        const [y, m, d] = t.dueDate.split('-').map(Number);
+        const [hr, min] = (t.dueTime || '23:59').split(':').map(Number);
+        const dueDateTime = new Date(y, m - 1, d, hr || 23, min || 59);
+        return dueDateTime > now && dueDateTime <= oneDayLater;
+      } catch {
+        return false;
+      }
+    });
+  }, [safeTasks, currentUser]);
+
+  // Check for today's classes with room updates or special notes
+  const todaySchedulesWithNotes = useMemo(() => {
+    return todaySchedules.filter(s => (s.room && s.room.trim()) || (s.description && s.description.trim()));
+  }, [todaySchedules]);
+
   return (
     <div className="space-y-6 font-sans">
-      
+
+      {/* FORCE ALERT BANNER: Urgent Deadlines (< 24 Jam) */}
+      {urgentTasks.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-500 via-rose-500 to-rose-600 rounded-2xl p-4 sm:p-4.5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-start sm:items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 border border-white/30">
+              <Clock size={20} className="text-white animate-pulse" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-black/20 tracking-wider">
+                  ⚠️ Peringatan Tenggat Tugas
+                </span>
+                <span className="text-xs text-white/90">
+                  {urgentTasks.length} tugas mendekati batas waktu (&lt; 24 jam)
+                </span>
+              </div>
+              <p className="text-xs font-bold text-white mt-0.5 truncate">
+                Tugas: {urgentTasks.map(t => `"${t.title}" (${t.dueTime || '23:59'} WIB)`).join(', ')}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigateTab('tasks')}
+            className="px-4 py-2 rounded-xl bg-white text-rose-700 text-xs font-bold hover:bg-rose-50 shadow-sm transition-all shrink-0 cursor-pointer self-start sm:self-auto"
+          >
+            Kumpulkan Sekarang →
+          </button>
+        </div>
+      )}
+
       {/* 1. TOP HERO: BIG ANNOUNCEMENT BANNER */}
       {currentAnnouncement ? (
         <div 
@@ -610,6 +667,28 @@ export default function ClassDashboard({
                 </a>
               ) : null}
             </div>
+
+            {/* Official WhatsApp Class Group Button */}
+            {currentClass?.waGroupLink && (
+              <a
+                href={currentClass.waGroupLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-between gap-2 shadow-xs transition-colors cursor-pointer group"
+                title="Buka Grup WhatsApp Resmi Kelas"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                    <MessageCircle size={16} className="text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold leading-tight truncate">Grup WhatsApp Kelas</p>
+                    <span className="text-[10px] text-emerald-100 block">Gabung diskusi & info resmi</span>
+                  </div>
+                </div>
+                <ExternalLink size={14} className="text-white/80 group-hover:translate-x-0.5 transition-transform shrink-0" />
+              </a>
+            )}
 
             {/* Dosen Pengampu Directory Quick Card */}
             <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-2">

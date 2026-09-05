@@ -229,17 +229,22 @@ export const dbService = {
         let userRole = currentMember?.role || (isOwner ? 'komti' : 'student');
         if (userRole === 'coordinator') userRole = 'komti';
 
+        // An owner is always approved; otherwise use member's status (default 'approved' for backwards compatibility)
+        const membershipStatus = isOwner ? 'approved' : (currentMember?.status || 'approved');
+
         return {
           id: c.id,
           name: c.name,
           classIdentifier: meta.classIdentifier || c.description || 'TI-3A',
           lecturer: meta.lecturer || 'Dosen Pengampu',
           academicPeriod: meta.academicPeriod || '2026/2027 Ganjil',
+          waGroupLink: meta.waGroupLink || '',
           joinCode: c.invite_code,
           ownerId: c.owner_id,
           userRole, // 'komti' | 'lecturer' | 'student'
+          membershipStatus, // 'approved' | 'pending' | 'rejected'
           members: c.members || [],
-          memberCount: (c.members || []).length || 1,
+          memberCount: (c.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1,
           createdAt: c.created_at
         };
       });
@@ -262,10 +267,11 @@ export const dbService = {
         classIdentifier: meta.classIdentifier || data.description || 'TI-3A',
         lecturer: meta.lecturer || 'Dosen Pengampu',
         academicPeriod: meta.academicPeriod || '2026/2027 Ganjil',
+        waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
         ownerId: data.owner_id,
         members: data.members || [],
-        memberCount: (data.members || []).length || 1,
+        memberCount: (data.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1,
         createdAt: data.created_at
       };
     },
@@ -290,11 +296,11 @@ export const dbService = {
         academicPeriod: meta.academicPeriod || '2026/2027',
         joinCode: data.invite_code,
         members: data.members || [],
-        memberCount: (data.members || []).length || 1
+        memberCount: (data.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1
       };
     },
 
-    create: async (userId, userEmail, userName, { name, classIdentifier, lecturer, academicPeriod, creatorRole = 'komti' }) => {
+    create: async (userId, userEmail, userName, { name, classIdentifier, lecturer, academicPeriod, waGroupLink = '', creatorRole = 'komti' }) => {
       // Rule: 1 user can only have 1 class
       const existingClasses = await dbService.classes.list(userId, userEmail);
       if (existingClasses.length > 0) {
@@ -307,7 +313,8 @@ export const dbService = {
       const meta = {
         classIdentifier: (classIdentifier || 'TI-3A').trim(),
         lecturer: (lecturer || 'Dosen Pengampu').trim(),
-        academicPeriod: (academicPeriod || '2026/2027').trim()
+        academicPeriod: (academicPeriod || '2026/2027').trim(),
+        waGroupLink: (waGroupLink || '').trim()
       };
 
       const finalRole = (creatorRole === 'lecturer' || creatorRole === 'dosen') ? 'lecturer' : 'komti';
@@ -328,6 +335,7 @@ export const dbService = {
             email: userEmail,
             phoneNumber: (phoneNumber || '').trim(),
             role: finalRole,
+            status: 'approved',
             joinedAt: new Date().toISOString()
           }
         ]
@@ -346,7 +354,7 @@ export const dbService = {
           color: 'indigo'
         });
       } catch (logErr) {
-        console.warn('Could not record initial class log:', logErr);
+        console.warn('Could not record create log:', logErr);
       }
 
       return {
@@ -355,9 +363,11 @@ export const dbService = {
         classIdentifier: meta.classIdentifier,
         lecturer: meta.lecturer,
         academicPeriod: meta.academicPeriod,
+        waGroupLink: meta.waGroupLink,
         joinCode: newDbRecord.invite_code,
         ownerId: newDbRecord.owner_id,
         userRole: finalRole,
+        membershipStatus: 'approved',
         members: newDbRecord.members,
         memberCount: 1,
         createdAt: newDbRecord.created_at
@@ -365,7 +375,7 @@ export const dbService = {
     },
 
     joinByCode: async (userId, userEmail, userName, joinCode, defaultRole = 'student', phoneNumber = '') => {
-      // Rule: 1 user can only have 1 class
+      // Rule: 1 user can only have 1 active class
       const existingClasses = await dbService.classes.list(userId, userEmail);
       const cleanCode = (joinCode || '').trim().toUpperCase();
       const { data, error } = await supabase.from('workspaces').select('*').ilike('invite_code', cleanCode).maybeSingle();
@@ -379,36 +389,52 @@ export const dbService = {
       }
 
       const existingMembers = data.members || [];
-      const alreadyJoined = existingMembers.some(m => m.userId === userId || m.email?.toLowerCase() === userEmail?.toLowerCase());
+      const currentMemberIndex = existingMembers.findIndex(m => m.userId === userId || m.email?.toLowerCase() === userEmail?.toLowerCase());
 
-      let updatedMembers = existingMembers;
-      if (!alreadyJoined) {
+      let updatedMembers = [...existingMembers];
+      let userStatus = 'pending';
+
+      if (currentMemberIndex === -1) {
+        // New join request -> starts as 'pending' for komti approval
         const newMember = {
           userId,
           name: userName || userEmail.split('@')[0],
           email: userEmail,
           phoneNumber: (phoneNumber || '').trim(),
           role: defaultRole,
+          status: 'pending',
           joinedAt: new Date().toISOString()
         };
-        updatedMembers = [
-          ...existingMembers,
-          newMember
-        ];
+        updatedMembers.push(newMember);
+
         const { error: updErr } = await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', data.id);
         if (updErr) throw updErr;
 
-        // Log member join
+        // Log request join
         try {
           await dbService.logs.create(data.id, {
-            actionType: 'member_join',
-            title: `${newMember.name} bergabung ke dalam kelas`,
-            details: `Mahasiswa ${newMember.name} (${userEmail}) berhasil bergabung ke kelas dengan kode undangan ${cleanCode}.`,
+            actionType: 'member_request',
+            title: `${newMember.name} meminta bergabung ke kelas`,
+            details: `Mahasiswa ${newMember.name} (${userEmail}) meminta izin bergabung dengan kode ${cleanCode}. Menunggu persetujuan Komti/Dosen.`,
             actor: { name: newMember.name, email: userEmail, role: defaultRole },
-            color: 'emerald'
+            color: 'amber'
           });
         } catch (logErr) {
-          console.warn('Could not record join log:', logErr);
+          console.warn('Could not record join request log:', logErr);
+        }
+      } else {
+        // Member already exists, retain their existing status or re-request if previously denied
+        const existing = updatedMembers[currentMemberIndex];
+        userStatus = existing.status || 'approved';
+        if (userStatus === 'denied' || userStatus === 'rejected') {
+          // Allow re-requesting
+          updatedMembers[currentMemberIndex] = {
+            ...existing,
+            status: 'pending',
+            joinedAt: new Date().toISOString()
+          };
+          userStatus = 'pending';
+          await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', data.id);
         }
       }
 
@@ -428,13 +454,76 @@ export const dbService = {
         classIdentifier: meta.classIdentifier || data.description || 'TI-3A',
         lecturer: meta.lecturer || 'Dosen Pengampu',
         academicPeriod: meta.academicPeriod || '2026/2027',
+        waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
         ownerId: data.owner_id,
         userRole,
+        membershipStatus: userStatus,
         members: updatedMembers,
-        memberCount: updatedMembers.length,
+        memberCount: updatedMembers.filter(m => (m.status || 'approved') === 'approved').length,
         createdAt: data.created_at
       };
+    },
+
+    approveMember: async (classId, targetUserId) => {
+      const { data, error } = await supabase.from('workspaces').select('*').eq('id', classId).maybeSingle();
+      if (error || !data) throw new Error('Kelas tidak ditemukan.');
+
+      const members = data.members || [];
+      const targetMember = members.find(m => m.userId === targetUserId);
+      const updatedMembers = members.map(m => m.userId === targetUserId ? { ...m, status: 'approved' } : m);
+
+      const { error: updErr } = await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', classId);
+      if (updErr) throw updErr;
+
+      try {
+        await dbService.logs.create(classId, {
+          actionType: 'member_approve',
+          title: `Permintaan masuk disetujui`,
+          details: `${targetMember?.name || 'Mahasiswa'} (${targetMember?.email || ''}) telah disetujui bergabung ke dalam kelas.`,
+          actor: { name: 'Komti/Dosen', role: 'komti' },
+          color: 'emerald'
+        });
+      } catch {}
+
+      return updatedMembers;
+    },
+
+    denyMember: async (classId, targetUserId) => {
+      const { data, error } = await supabase.from('workspaces').select('*').eq('id', classId).maybeSingle();
+      if (error || !data) throw new Error('Kelas tidak ditemukan.');
+
+      const members = data.members || [];
+      const targetMember = members.find(m => m.userId === targetUserId);
+      // Remove or mark as denied
+      const updatedMembers = members.filter(m => m.userId !== targetUserId);
+
+      const { error: updErr } = await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', classId);
+      if (updErr) throw updErr;
+
+      try {
+        await dbService.logs.create(classId, {
+          actionType: 'member_deny',
+          title: `Permintaan masuk ditolak`,
+          details: `Permintaan masuk ${targetMember?.name || 'Mahasiswa'} (${targetMember?.email || ''}) ditolak oleh Komti/Dosen.`,
+          actor: { name: 'Komti/Dosen', role: 'komti' },
+          color: 'rose'
+        });
+      } catch {}
+
+      return updatedMembers;
+    },
+
+    cancelJoinRequest: async (classId, userId) => {
+      const { data, error } = await supabase.from('workspaces').select('*').eq('id', classId).maybeSingle();
+      if (error || !data) throw new Error('Kelas tidak ditemukan.');
+
+      const members = data.members || [];
+      const updatedMembers = members.filter(m => m.userId !== userId);
+
+      const { error: updErr } = await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', classId);
+      if (updErr) throw updErr;
+      return updatedMembers;
     },
 
     updateMemberRole: async (classId, targetUserId, newRole) => {
@@ -481,7 +570,7 @@ export const dbService = {
       } catch {}
     },
 
-    update: async (classId, { name, classIdentifier, lecturer, academicPeriod }) => {
+    update: async (classId, { name, classIdentifier, lecturer, academicPeriod, waGroupLink }) => {
       const { data, error } = await supabase.from('workspaces').select('*').eq('id', classId).maybeSingle();
       if (error || !data) throw new Error('Kelas tidak ditemukan.');
 
@@ -495,6 +584,7 @@ export const dbService = {
       if (classIdentifier !== undefined) meta.classIdentifier = classIdentifier.trim();
       if (lecturer !== undefined) meta.lecturer = lecturer.trim();
       if (academicPeriod !== undefined) meta.academicPeriod = academicPeriod.trim();
+      if (waGroupLink !== undefined) meta.waGroupLink = waGroupLink.trim();
 
       const updates = {
         description: JSON.stringify(meta)
@@ -512,10 +602,11 @@ export const dbService = {
         classIdentifier: meta.classIdentifier || '26B',
         lecturer: meta.lecturer || '',
         academicPeriod: meta.academicPeriod || 'Semester 1',
+        waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
         ownerId: data.owner_id,
         members: data.members || [],
-        memberCount: (data.members || []).length || 1,
+        memberCount: (data.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1,
         createdAt: data.created_at
       };
     }

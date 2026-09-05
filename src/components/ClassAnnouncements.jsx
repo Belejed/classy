@@ -193,17 +193,37 @@ export default function ClassAnnouncements({
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9]">
-              {isManager ? (
-                <button
-                  type="button"
-                  onClick={() => setAnnouncementToDelete(selectedAnnouncement)}
-                  className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer transition-colors border border-rose-200/60 sm:border-transparent"
+            <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9] gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                {/* Share to WhatsApp Button */}
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                    `📢 *[PENGUMUMAN KELAS: ${currentClass?.name || 'Classy'}]*\n` +
+                    `*${selectedAnnouncement.title}*\n\n` +
+                    `${selectedAnnouncement.message}\n\n` +
+                    `Dipublikasikan oleh: ${selectedAnnouncement.author}\n` +
+                    `🔗 Akses web kelas: https://classy.exars.my.id`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                  title="Bagikan pengumuman ini langsung ke WhatsApp / Grup Kelas"
                 >
-                  <Trash2 size={13} />
-                  <span>Hapus</span>
-                </button>
-              ) : <div />}
+                  <Share2 size={13} />
+                  <span>Kirim ke WA</span>
+                </a>
+
+                {isManager && (
+                  <button
+                    type="button"
+                    onClick={() => setAnnouncementToDelete(selectedAnnouncement)}
+                    className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer transition-colors border border-rose-200/60 sm:border-transparent"
+                  >
+                    <Trash2 size={13} />
+                    <span>Hapus</span>
+                  </button>
+                )}
+              </div>
 
               <button
                 onClick={() => setSelectedAnnouncement(null)}

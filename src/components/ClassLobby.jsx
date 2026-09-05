@@ -12,7 +12,11 @@ import {
   BookOpen, 
   LogOut, 
   Search,
-  UserCheck
+  UserCheck,
+  Clock,
+  AlertCircle,
+  RefreshCw,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function ClassLobby({ 
@@ -21,6 +25,7 @@ export default function ClassLobby({
   classesLoading = false,
   onSelectClass, 
   onRefreshClasses, 
+  onCancelJoinRequest,
   onOpenProfile,
   onLogout 
 }) {
@@ -33,6 +38,7 @@ export default function ClassLobby({
   const [previewClass, setPreviewClass] = useState(null);
   const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Create Class Form State
   const [newClassName, setNewClassName] = useState('');
@@ -78,16 +84,31 @@ export default function ClassLobby({
         'student',
         currentUser.phoneNumber || ''
       );
-      toast.success(`Berhasil bergabung ke ${joined.name}!`);
       setShowJoinModal(false);
       setJoinCodeInput('');
       setPreviewClass(null);
       await onRefreshClasses();
-      onSelectClass(joined);
+
+      if (joined.membershipStatus === 'pending') {
+        toast.success(`Permintaan terkirim! Mohon tunggu persetujuan Komti/Dosen untuk masuk ke ${joined.name}.`, { duration: 5000 });
+      } else {
+        toast.success(`Berhasil bergabung ke ${joined.name}!`);
+        onSelectClass(joined);
+      }
     } catch (err) {
       toast.error(err.message || 'Gagal bergabung ke kelas');
     } finally {
       setIsJoining(false);
+    }
+  };
+
+  const handleCancelRequest = async (classId) => {
+    if (!onCancelJoinRequest) return;
+    setIsCancelling(true);
+    try {
+      await onCancelJoinRequest(classId);
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -265,57 +286,115 @@ export default function ClassLobby({
               </div>
             </div>
           ) : (
-            <div className="max-w-xl">
-              {classes.map((cls) => (
-                <div
-                  key={cls.id}
-                  className="bg-white border border-[#E2E8F0] hover:border-[#0F172A]/30 rounded-3xl p-6 sm:p-7 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-5"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#F1F5F9] text-[#334155] border border-[#E2E8F0]">
-                        {cls.classIdentifier || 'Rombel'}
-                      </span>
-                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                        {cls.userRole === 'komti' || cls.userRole === 'coordinator' ? '👑 Komti' : cls.userRole === 'lecturer' ? '🎓 Dosen' : '👤 Mahasiswa'}
-                      </span>
-                    </div>
+            <div className="max-w-xl space-y-4">
+              {classes.map((cls) => {
+                const isPending = cls.membershipStatus === 'pending';
 
-                    <div>
-                      <h3 className="font-bold text-xl text-[#0F172A] tracking-tight leading-snug">
-                        {cls.name}
-                      </h3>
-                      <div className="mt-2 space-y-1 text-xs text-[#64748B]">
-                        <p className="flex items-center gap-1.5">
-                          <span>👨‍🏫</span>
-                          <span className="font-medium text-[#334155]">{cls.lecturer || 'Dosen Pengampu'}</span>
+                if (isPending) {
+                  return (
+                    <div
+                      key={cls.id}
+                      className="bg-amber-50/70 border-2 border-amber-300 rounded-3xl p-6 sm:p-7 shadow-xs space-y-4 relative overflow-hidden"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-150 text-amber-900 border border-amber-300 flex items-center gap-1.5">
+                          <Clock size={12} className="animate-spin text-amber-700" />
+                          <span>Menunggu Persetujuan</span>
+                        </span>
+                        <span className="text-[11px] font-mono text-amber-800">
+                          Kode: {cls.joinCode}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <h3 className="font-bold text-xl text-[#0F172A] tracking-tight leading-snug">
+                          {cls.name}
+                        </h3>
+                        <p className="text-xs text-amber-900 leading-relaxed">
+                          Permintaan bergabung Anda telah terkirim. Untuk mencegah akun penyusup, Komti atau Dosen kelas ini harus menyetujui akun Anda terlebih dahulu sebelum Anda dapat mengakses ruang kelas.
                         </p>
-                        {cls.academicPeriod && (
-                          <p className="flex items-center gap-1.5">
-                            <span>📅</span>
-                            <span>{cls.academicPeriod}</span>
-                          </p>
-                        )}
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl bg-white/90 border border-amber-200 text-xs text-[#475569] space-y-1">
+                        <p><strong className="text-[#0F172A]">Rombel:</strong> {cls.classIdentifier || '-'}</p>
+                        <p><strong className="text-[#0F172A]">Dosen:</strong> {cls.lecturer || 'Dosen Pengampu'}</p>
+                        <p><strong className="text-[#0F172A]">Periode:</strong> {cls.academicPeriod || '-'}</p>
+                      </div>
+
+                      <div className="pt-3 border-t border-amber-200/80 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          disabled={isCancelling}
+                          onClick={() => handleCancelRequest(cls.id)}
+                          className="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          Batalkan Permintaan
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onRefreshClasses()}
+                          className="px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                        >
+                          <RefreshCw size={13} />
+                          <span>Cek Status</span>
+                        </button>
                       </div>
                     </div>
-                  </div>
+                  );
+                }
 
-                  <div className="pt-4 border-t border-[#F1F5F9] flex items-center justify-between">
-                    <span className="text-xs text-[#64748B] flex items-center gap-1.5 font-medium">
-                      <Users size={14} className="text-[#94A3B8]" />
-                      <span>{cls.memberCount} Anggota terdaftar</span>
-                    </span>
+                return (
+                  <div
+                    key={cls.id}
+                    className="bg-white border border-[#E2E8F0] hover:border-[#0F172A]/30 rounded-3xl p-6 sm:p-7 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-5"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#F1F5F9] text-[#334155] border border-[#E2E8F0]">
+                          {cls.classIdentifier || 'Rombel'}
+                        </span>
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                          {cls.userRole === 'komti' || cls.userRole === 'coordinator' ? '👑 Komti' : cls.userRole === 'lecturer' ? '🎓 Dosen' : '👤 Mahasiswa'}
+                        </span>
+                      </div>
 
-                    <button
-                      onClick={() => onSelectClass(cls)}
-                      className="px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold transition-all flex items-center gap-2 shadow-xs hover:gap-3"
-                    >
-                      <span>Masuk ke Kelas</span>
-                      <ArrowRight size={14} />
-                    </button>
+                      <div>
+                        <h3 className="font-bold text-xl text-[#0F172A] tracking-tight leading-snug">
+                          {cls.name}
+                        </h3>
+                        <div className="mt-2 space-y-1 text-xs text-[#64748B]">
+                          <p className="flex items-center gap-1.5">
+                            <span>👨‍🏫</span>
+                            <span className="font-medium text-[#334155]">{cls.lecturer || 'Dosen Pengampu'}</span>
+                          </p>
+                          {cls.academicPeriod && (
+                            <p className="flex items-center gap-1.5">
+                              <span>📅</span>
+                              <span>{cls.academicPeriod}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-[#F1F5F9] flex items-center justify-between">
+                      <span className="text-xs text-[#64748B] flex items-center gap-1.5 font-medium">
+                        <Users size={14} className="text-[#94A3B8]" />
+                        <span>{cls.memberCount} Anggota terdaftar</span>
+                      </span>
+
+                      <button
+                        onClick={() => onSelectClass(cls)}
+                        className="px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold transition-all flex items-center gap-2 shadow-xs hover:gap-3 cursor-pointer"
+                      >
+                        <span>Masuk ke Kelas</span>
+                        <ArrowRight size={14} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

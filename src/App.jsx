@@ -452,6 +452,41 @@ export default function App() {
     await loadUserClasses();
   };
 
+  const handleApproveMember = async (classId, targetUserId) => {
+    const updatedMembers = await dbService.classes.approveMember(classId, targetUserId);
+    setCurrentClass(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        members: updatedMembers,
+        memberCount: updatedMembers.filter(m => (m.status || 'approved') === 'approved').length
+      };
+    });
+    await loadUserClasses();
+    handleRefreshLogs();
+  };
+
+  const handleDenyMember = async (classId, targetUserId) => {
+    const updatedMembers = await dbService.classes.denyMember(classId, targetUserId);
+    setCurrentClass(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        members: updatedMembers,
+        memberCount: updatedMembers.filter(m => (m.status || 'approved') === 'approved').length
+      };
+    });
+    await loadUserClasses();
+    handleRefreshLogs();
+  };
+
+  const handleCancelJoinRequest = async (classId) => {
+    if (!user?.uid) return;
+    await dbService.classes.cancelJoinRequest(classId, user.uid);
+    await loadUserClasses();
+    toast.success('Permintaan bergabung telah dibatalkan.');
+  };
+
   const handleRemoveMember = async (classId, targetUserId) => {
     const isSelf = targetUserId === user?.uid;
     const targetMember = currentClass?.members?.find(m => m.userId === targetUserId);
@@ -659,6 +694,7 @@ export default function App() {
                     navigate(`/class/${cls.id}/dashboard`);
                   }}
                   onRefreshClasses={loadUserClasses}
+                  onCancelJoinRequest={handleCancelJoinRequest}
                   onOpenProfile={() => setShowProfileModal(true)}
                   onLogout={handleLogout}
                 />
@@ -787,6 +823,11 @@ function ClassWorkspace({
 
     const matched = classes.find(c => c.id === classId);
     if (matched) {
+      if (matched.membershipStatus === 'pending') {
+        toast.error('Keanggotaan Anda masih menunggu persetujuan Komti/Dosen.');
+        navigate('/lobby');
+        return;
+      }
       setCurrentClass(matched);
     } else if (classes.length > 0) {
       // Direct load via URL: fetch from db
@@ -794,8 +835,17 @@ function ClassWorkspace({
         if (cls) {
           const isOwner = cls.ownerId === user?.uid;
           const memberObj = cls.members?.find(m => m.userId === user?.uid || m.email?.toLowerCase() === user?.email?.toLowerCase());
+          const isApproved = isOwner || (memberObj && (memberObj.status || 'approved') === 'approved');
+
+          if (!isApproved) {
+            toast.error('Keanggotaan Anda masih menunggu persetujuan Komti/Dosen.');
+            navigate('/lobby');
+            return;
+          }
+
           if (isOwner || memberObj) {
             cls.userRole = memberObj?.role || (isOwner ? 'komti' : 'student');
+            cls.membershipStatus = 'approved';
             setCurrentClass(cls);
           } else {
             toast.error('Anda bukan anggota kelas ini.');
@@ -934,6 +984,8 @@ function ClassWorkspace({
                 currentUser={user}
                 onUpdateMemberRole={handleUpdateMemberRole}
                 onRemoveMember={handleRemoveMember}
+                onApproveMember={handleApproveMember}
+                onDenyMember={handleDenyMember}
                 onUpdateClassSettings={handleUpdateClassSettings}
                 onNavigateTab={(targetTab) => navigate(`/class/${currentClass.id}/${targetTab}`)}
               />

@@ -1155,26 +1155,39 @@ export default function ClassSchedule({
                 )}
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9]">
-                {isManager ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleStartEdit(selectedEvent)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] hover:bg-slate-50 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                    >
-                      <Edit2 size={13} />
-                      <span>Edit Jadwal</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEventToDelete(selectedEvent)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1 cursor-pointer transition-colors border border-rose-200/60 sm:border-transparent"
-                    >
-                      <Trash2 size={13} />
-                      <span>Hapus</span>
-                    </button>
-                  </div>
-                ) : <div />}
+              <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9] gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {isManager && (
+                    <>
+                      <button
+                        onClick={() => handleStartEdit(selectedEvent)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] hover:bg-slate-50 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                      >
+                        <Edit2 size={13} />
+                        <span>Edit Jadwal</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEventToDelete(selectedEvent)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1 cursor-pointer transition-colors border border-rose-200/60 sm:border-transparent"
+                      >
+                        <Trash2 size={13} />
+                        <span>Hapus</span>
+                      </button>
+                    </>
+                  )}
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                      `*INFORMASI JADWAL / RUANGAN KULIAH*\n*Kelas:* ${currentClass?.name || 'Kuliah'}\n\n*Mata Kuliah:* ${selectedEvent.title || selectedEvent.course || '-'}\n*Hari/Waktu:* ${selectedEvent.day}, ${selectedEvent.startTime || ''} – ${selectedEvent.endTime || ''} WIB\n*Ruangan:* ${selectedEvent.room || '-'}\n*Dosen:* ${selectedLecturerInfo.lecturerName || selectedEvent.lecturer || '-'}${selectedEvent.description ? `\n*Catatan:* ${selectedEvent.description}` : ''}\n\nPortal Kelas: ${typeof window !== 'undefined' ? window.location.origin : ''}`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <MessageCircle size={13} />
+                    <span>Share ke WA</span>
+                  </a>
+                </div>
 
                 <button
                   onClick={() => setSelectedEvent(null)}
