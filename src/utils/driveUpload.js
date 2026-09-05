@@ -110,3 +110,63 @@ export async function checkDriveFiles(fileIds = []) {
   }
   return {};
 }
+
+/**
+ * Move a file in Google Drive to the 'Trash' folder instead of permanently deleting it
+ */
+export async function moveFileToDriveTrash(fileUrlOrId) {
+  if (!fileUrlOrId) return null;
+  const fileId = (fileUrlOrId.includes('/') || fileUrlOrId.includes('?'))
+    ? extractDriveFileId(fileUrlOrId)
+    : fileUrlOrId;
+
+  if (!fileId) return null;
+
+  try {
+    const res = await fetch('/api/trash-drive-file', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ fileId })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn('Gagal memindahkan berkas ke folder Trash di Google Drive:', err);
+  }
+  return null;
+}
+
+/**
+ * Move multiple files in Google Drive to the 'Trash' folder in batch
+ */
+export async function moveFilesToDriveTrash(fileUrlsOrIds = []) {
+  const validIds = fileUrlsOrIds.map(f => {
+    if (!f) return null;
+    return (f.includes('/') || f.includes('?')) ? extractDriveFileId(f) : f;
+  }).filter(Boolean);
+
+  if (!validIds.length) return null;
+
+  try {
+    const res = await fetch('/api/trash-drive-file', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ fileIds: validIds })
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('Gagal memindahkan daftar berkas ke folder Trash di Google Drive:', err);
+  }
+  return null;
+}
+

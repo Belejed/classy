@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import handler from './api/upload-drive.js'
 
 import checkHandler from './api/check-drive-file.js'
+import trashHandler from './api/trash-drive-file.js'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -18,8 +19,9 @@ export default defineConfig(({ mode }) => {
           server.middlewares.use(async (req, res, next) => {
             const isUpload = req.url.startsWith('/api/upload-drive');
             const isCheck = req.url.startsWith('/api/check-drive-file');
+            const isTrash = req.url.startsWith('/api/trash-drive-file');
 
-            if (isUpload || isCheck) {
+            if (isUpload || isCheck || isTrash) {
               if (req.method === 'POST') {
                 let bodyStr = '';
                 req.on('data', chunk => { bodyStr += chunk; });
@@ -44,6 +46,7 @@ export default defineConfig(({ mode }) => {
                   try {
                     if (isUpload) await handler(req, fakeRes);
                     else if (isCheck) await checkHandler(req, fakeRes);
+                    else if (isTrash) await trashHandler(req, fakeRes);
                   } catch (e) {
                     res.statusCode = 500;
                     res.end(JSON.stringify({ error: e.message }));

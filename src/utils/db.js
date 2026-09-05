@@ -862,7 +862,31 @@ export const dbService = {
     },
 
     delete: async (fileId) => {
-      await supabase.from('notes').delete().eq('id', fileId);
+      if (typeof fileId === 'string' && fileId.startsWith('sub_')) {
+        // Remove from task submissions
+        const { data: allTasks } = await supabase.from('tasks').select('*');
+        for (const task of (allTasks || [])) {
+          let meta = {};
+          try {
+            meta = typeof task.description === 'string' && task.description.startsWith('{') ? JSON.parse(task.description) : {};
+          } catch {
+            continue;
+          }
+          const subs = meta.submissions || [];
+          const foundIndex = subs.findIndex(s => ('sub_' + (s.id || `${s.userId}_${task.id}`)) === fileId || s.id === fileId);
+          if (foundIndex !== -1) {
+            subs.splice(foundIndex, 1);
+            meta.submissions = subs;
+            await supabase.from('tasks').update({
+              description: JSON.stringify(meta),
+              updated_at: new Date().toISOString()
+            }).eq('id', task.id);
+            break;
+          }
+        }
+      } else {
+        await supabase.from('notes').delete().eq('id', fileId);
+      }
     }
   },
 

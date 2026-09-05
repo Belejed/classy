@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { authService, dbService } from './utils/db';
+import { moveFileToDriveTrash, moveFilesToDriveTrash } from './utils/driveUpload';
 
 // Classy Components
 import Auth from './components/Auth';
@@ -207,6 +208,17 @@ export default function App() {
   };
 
   const handleSubmitAssignment = async (taskId, submissionData) => {
+    // If student previously submitted a file with a different URL, move the old one to Trash in Drive
+    const currentTask = tasks?.find(t => t.id === taskId);
+    const existingSub = currentTask?.submissions?.find(s => s.userId === submissionData.userId);
+    if (existingSub?.fileUrl && existingSub.fileUrl !== submissionData.fileUrl) {
+      try {
+        await moveFileToDriveTrash(existingSub.fileUrl);
+      } catch (trashErr) {
+        console.warn('Gagal memindahkan berkas tugas lama ke folder Trash di Drive:', trashErr);
+      }
+    }
+
     const sub = await dbService.tasks.submit(taskId, submissionData);
     const refreshed = await dbService.tasks.list(currentClass.id);
     setTasks(refreshed);
@@ -235,14 +247,33 @@ export default function App() {
 
   const handleDeleteTask = async (taskId) => {
     const taskToDelete = tasks?.find(t => t.id === taskId);
+
+    // If this task has submissions with Google Drive URLs, move them to Trash in Drive
+    if (taskToDelete?.submissions && taskToDelete.submissions.length > 0) {
+      const subUrls = taskToDelete.submissions.map(s => s.fileUrl).filter(Boolean);
+      if (subUrls.length > 0) {
+        try {
+          await moveFilesToDriveTrash(subUrls);
+        } catch (trashErr) {
+          console.warn('Gagal memindahkan berkas tugas ke folder Trash di Drive:', trashErr);
+        }
+      }
+    }
+
     await dbService.tasks.delete(taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
+
+    // Refresh files since task submissions were deleted
+    try {
+      const freshFiles = await dbService.files.list(currentClass.id);
+      setFiles(freshFiles);
+    } catch {}
 
     try {
       await dbService.logs.create(currentClass.id, {
         actionType: 'task_delete',
         title: `Tugas dihapus`,
-        details: `${user?.displayName || 'Komti'} menghapus tugas "${taskToDelete?.title || taskId}".`,
+        details: `${user?.displayName || 'Komti'} menghapus tugas "${taskToDelete?.title || taskId}". Berkas di Google Drive dipindahkan ke folder Trash.`,
         actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
         targetName: taskToDelete?.title || '',
         color: 'rose'
@@ -258,8 +289,31 @@ export default function App() {
   };
 
   const handleDeleteFile = async (fileId) => {
+    const fileToDelete = files?.find(f => f.id === fileId);
+
+    // If file has a Google Drive link, move it to 'Trash' folder in Drive instead of permanent deletion
+    if (fileToDelete?.storageUrl) {
+      try {
+        await moveFileToDriveTrash(fileToDelete.storageUrl);
+      } catch (trashErr) {
+        console.warn('Gagal memindahkan file ke folder Trash di Drive:', trashErr);
+      }
+    }
+
     await dbService.files.delete(fileId);
     setFiles(prev => prev.filter(f => f.id !== fileId));
+
+    try {
+      await dbService.logs.create(currentClass.id, {
+        actionType: 'file_delete',
+        title: `Berkas dihapus`,
+        details: `${user?.displayName || 'Komti'} menghapus berkas "${fileToDelete?.name || fileId}". Berkas di Google Drive dipindahkan ke folder Trash.`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        targetName: fileToDelete?.name || '',
+        color: 'rose'
+      });
+      handleRefreshLogs();
+    } catch {}
   };
 
   const handleCreateAnnouncement = async (item) => {

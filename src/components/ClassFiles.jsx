@@ -278,13 +278,14 @@ export default function ClassFiles({
   };
 
   const handleDelete = async (fileId) => {
-    if (!window.confirm('Hapus berkas ini dari repositori?')) return;
+    if (!window.confirm('Hapus berkas ini dari repositori web? Berkas di Google Drive tidak akan dihapus permanen, melainkan dipindahkan ke folder "Trash".')) return;
+    toast.loading('Menghapus berkas dan memindahkan ke folder Trash di Drive...', { id: 'delete-file' });
     try {
       await onDeleteFile(fileId);
       setSelectedFile(null);
-      toast.success('Berkas berhasil dihapus');
+      toast.success('Berkas berhasil dihapus & dipindahkan ke folder Trash di Google Drive', { id: 'delete-file' });
     } catch {
-      toast.error('Gagal menghapus berkas');
+      toast.error('Gagal menghapus berkas', { id: 'delete-file' });
     }
   };
 
@@ -461,13 +462,26 @@ export default function ClassFiles({
             </button>
           </div>
 
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0"
-          >
-            <Upload size={13} />
-            <span>Upload Berkas</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href="https://drive.google.com/drive/folders/1BK-P0mPQF9MSy0wsQ-tqNgVCXHXuCwmf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#CBD5E1] bg-white text-[#0F172A] hover:bg-slate-50 text-xs font-semibold shadow-2xs transition-colors shrink-0"
+              title="Buka Folder Google Drive Kelas (Termasuk Folder Trash)"
+            >
+              <ExternalLink size={12} className="text-emerald-600" />
+              <span className="hidden sm:inline">Google Drive</span>
+            </a>
+
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0"
+            >
+              <Upload size={13} />
+              <span>Upload Berkas</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -693,9 +707,10 @@ export default function ClassFiles({
                 <button
                   onClick={() => handleDelete(selectedFile.id)}
                   className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl flex items-center gap-1.5 transition-colors"
+                  title="Hapus dari web & pindahkan ke folder Trash di Google Drive"
                 >
                   <Trash2 size={14} />
-                  <span>Hapus Berkas</span>
+                  <span>Hapus Berkas (Pindah ke Trash)</span>
                 </button>
               ) : <div />}
 
