@@ -158,8 +158,6 @@ export default function ClassSchedule({
   onDeleteSchedule,
   onNavigateToTask
 }) {
-  const [viewMode, setViewMode] = useState('timetable'); // 'timetable' | 'calendar' | 'day' | 'list'
-  
   // Calendar View State
   const [calendarDate, setCalendarDate] = useState(() => new Date());
   const [selectedCalendarDateStr, setSelectedCalendarDateStr] = useState(() => {
@@ -171,7 +169,6 @@ export default function ClassSchedule({
   });
   const [calendarFilter, setCalendarFilter] = useState('all'); // 'all' | 'tasks' | 'classes'
   const [selectedTaskDetail, setSelectedTaskDetail] = useState(null);
-  const [listFilter, setListFilter] = useState('all'); // 'all' | 'schedules' | 'tasks'
 
   // In-app Delete Confirmation Modal
   const [eventToDelete, setEventToDelete] = useState(null);
@@ -512,69 +509,24 @@ export default function ClassSchedule({
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2.5 border-b border-[#E2E8F0]">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold tracking-tight text-[#0F172A]">Class Schedule & Calendar</h2>
-            {viewMode === 'calendar' ? (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                {(tasks || []).length} Tenggat Tugas
-              </span>
-            ) : (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                {String(startHour).padStart(2, '0')}:00 – {String(endHour).padStart(2, '0')}:00 WIB
-              </span>
-            )}
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+              {String(startHour).padStart(2, '0')}:00 – {String(endHour).padStart(2, '0')}:00 WIB
+            </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
               {(schedules || []).length} Jadwal Kuliah
             </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+              {(tasks || []).length} Tenggat Tugas
+            </span>
           </div>
-          <p className="text-xs text-[#64748B]">
-            Kalender jadwal perkuliahan mingguan dan tenggat pengumpulan tugas kuliah terpadu.
+          <p className="text-xs text-[#64748B] mt-0.5">
+            Jadwal perkuliahan mingguan terpadu dan kalender tenggat tugas kuliah dalam 1 layar.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* View Mode Switcher */}
-          <div className="flex items-center p-1 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold shadow-2xs">
-            <button
-              onClick={() => setViewMode('timetable')}
-              className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
-                viewMode === 'timetable' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
-              }`}
-              title="Tampilan Grid Jam Utama"
-            >
-              <Clock size={13} />
-              <span>Timetable Jam</span>
-            </button>
-            <button
-              onClick={() => setViewMode('calendar')}
-              className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
-                viewMode === 'calendar' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
-              }`}
-              title="Tampilan Kalender & Agenda Terpadu"
-            >
-              <CalendarDays size={13} />
-              <span>Kalender & Agenda</span>
-            </button>
-            <button
-              onClick={() => setViewMode('day')}
-              className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                viewMode === 'day' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
-              }`}
-              title="Tampilan Agenda Harian"
-            >
-              Harian
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                viewMode === 'list' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
-              }`}
-              title="Tampilan Daftar Ringkas"
-            >
-              Daftar
-            </button>
-          </div>
-
           {/* Add Event Button for Komti / Lecturer */}
           {isManager && (
             <button
@@ -588,13 +540,14 @@ export default function ClassSchedule({
         </div>
       </div>
 
-      {/* VIEW 0: COMPACT CALENDAR WITH RIGHT-HAND AGENDA VIEW */}
-      {viewMode === 'calendar' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      {/* UNIFIED 1-SCREEN LAYOUT: LEFT SIDEBAR & RIGHT MAIN */}
+      <div className="flex flex-col lg:flex-row gap-4 items-start w-full">
+
+        {/* LEFT SIDEBAR: MINI-CALENDAR & SELECTED DATE AGENDA */}
+        <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 space-y-4">
           
-          {/* LEFT COLUMN: COMPACT MINI-CALENDAR WIDGET */}
-          <div className="lg:col-span-5 xl:col-span-4 bg-white border border-[#E2E8F0] rounded-2xl p-4 shadow-2xs space-y-4">
-            
+          {/* Card 1: Compact Mini-Calendar Widget */}
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 shadow-2xs space-y-3.5">
             {/* Header: Month & Year Navigator */}
             <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#F1F5F9]">
               <div className="flex items-center gap-1.5">
@@ -724,7 +677,7 @@ export default function ClassSchedule({
             </div>
 
             {/* Bottom Legend */}
-            <div className="pt-3 border-t border-[#F1F5F9] flex items-center justify-between text-[11px] text-[#64748B]">
+            <div className="pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between text-[11px] text-[#64748B]">
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
@@ -739,53 +692,49 @@ export default function ClassSchedule({
             </div>
           </div>
 
-          {/* RIGHT COLUMN: AGENDA TERPILIH (INFO ON THE RIGHT) */}
-          <div className="lg:col-span-7 xl:col-span-8 bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs space-y-4">
-            
-            {/* Right Panel Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#F1F5F9] gap-2">
+          {/* Card 2: Selected Date Agenda Details */}
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 shadow-2xs space-y-3">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#F1F5F9]">
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#94A3B8] px-2 py-0.5 rounded-md bg-slate-100">
+                <span className="text-[9px] font-extrabold uppercase tracking-wider text-[#94A3B8] px-1.5 py-0.5 rounded bg-slate-100">
                   Agenda Terpilih
                 </span>
-                <h4 className="font-bold text-base text-[#0F172A] flex items-center gap-2 mt-1.5">
-                  <Calendar size={16} className="text-[#0F172A]" />
+                <h4 className="font-bold text-xs sm:text-sm text-[#0F172A] flex items-center gap-1.5 mt-1">
+                  <Calendar size={13} className="text-[#0F172A]" />
                   <span>{formatDateIndonesian(selectedCalendarDateStr)}</span>
                 </h4>
               </div>
 
-              <div className="flex items-center gap-2 text-xs">
-                <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200">
-                  {selectedDateTasks.length} Tenggat Tugas
+              <div className="flex items-center gap-1 text-[10px]">
+                <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200">
+                  {selectedDateTasks.length} Tugas
                 </span>
-                <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
-                  {selectedDateClasses.length} Perkuliahan
+                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
+                  {selectedDateClasses.length} Kuliah
                 </span>
               </div>
             </div>
 
-            {/* Two Sub-Columns for Selected Date's Items */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
-              {/* Column A: Tenggat Tugas */}
-              <div className="space-y-2.5">
+            {/* Scrollable list of tasks and classes for selected date */}
+            <div className="space-y-3 max-h-[380px] overflow-y-auto custom-scrollbar pr-1">
+              {/* Tenggat Tugas */}
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h5 className="font-bold text-xs uppercase tracking-wider text-rose-700 flex items-center gap-1.5">
+                  <h5 className="font-bold text-[11px] uppercase tracking-wider text-rose-700 flex items-center gap-1">
                     <span>📝 Tenggat Tugas</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-100">
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-100 font-bold">
                       {selectedDateTasks.length}
                     </span>
                   </h5>
                 </div>
 
                 {selectedDateTasks.length === 0 ? (
-                  <div className="p-6 rounded-xl border border-dashed border-[#CBD5E1] text-center space-y-1 bg-[#F8FAFC]">
-                    <CheckCircle2 size={24} className="mx-auto text-emerald-500/80" />
-                    <p className="text-xs font-semibold text-[#0F172A]">Tidak ada tugas jatuh tempo</p>
-                    <p className="text-[11px] text-[#64748B]">Bebas dari deadline tugas kuliah!</p>
+                  <div className="p-3 rounded-xl border border-dashed border-[#CBD5E1] text-center bg-[#F8FAFC]">
+                    <p className="text-[11px] font-medium text-[#64748B]">Tidak ada tugas jatuh tempo</p>
                   </div>
                 ) : (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {selectedDateTasks.map((t) => {
                       const isOverdue = isTaskOverdue(t.dueDate, t.dueTime);
                       const isSubmitted = hasUserSubmitted(t, currentUser);
@@ -794,7 +743,7 @@ export default function ClassSchedule({
                         <div
                           key={t.id}
                           onClick={() => setSelectedTaskDetail(t)}
-                          className={`p-3.5 rounded-xl border transition-all space-y-2 cursor-pointer hover:shadow-xs ${
+                          className={`p-2.5 rounded-xl border transition-all space-y-1.5 cursor-pointer hover:shadow-2xs ${
                             isSubmitted
                               ? 'bg-emerald-50/40 border-emerald-200'
                               : isOverdue
@@ -803,38 +752,38 @@ export default function ClassSchedule({
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <div>
+                            <div className="min-w-0">
                               {t.course && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-[#CBD5E1] text-[#475569]">
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-white border border-[#CBD5E1] text-[#475569] truncate inline-block">
                                   {t.course}
                                 </span>
                               )}
-                              <h6 className="font-bold text-sm text-[#0F172A] mt-1 line-clamp-2">{t.title}</h6>
+                              <h6 className="font-bold text-xs text-[#0F172A] mt-0.5 line-clamp-2 leading-snug">{t.title}</h6>
                             </div>
 
                             <div className="shrink-0">
                               {isSubmitted ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                                  <Check size={11} />
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-0.5">
+                                  <Check size={9} />
                                   <span>Sudah</span>
                                 </span>
                               ) : isOverdue ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1">
-                                  <AlertTriangle size={11} />
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-0.5">
+                                  <AlertTriangle size={9} />
                                   <span>Terlewat</span>
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
                                   Belum
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between text-xs text-[#64748B] pt-1">
-                            <span className="flex items-center gap-1 font-mono font-medium">
-                              <Clock size={12} className="text-[#94A3B8]" />
-                              <span>Batas: {t.dueTime || '23:59'} WIB</span>
+                          <div className="flex items-center justify-between text-[11px] text-[#64748B] pt-0.5">
+                            <span className="flex items-center gap-1 font-mono">
+                              <Clock size={11} className="text-[#94A3B8]" />
+                              <span>{t.dueTime || '23:59'} WIB</span>
                             </span>
 
                             <button
@@ -845,10 +794,10 @@ export default function ClassSchedule({
                                   onNavigateToTask(t.id);
                                 }
                               }}
-                              className="px-2.5 py-1 rounded-lg bg-[#0F172A] text-white text-[11px] font-semibold hover:bg-[#1E293B] flex items-center gap-1 transition-colors cursor-pointer"
+                              className="px-2 py-0.5 rounded-lg bg-[#0F172A] text-white text-[10px] font-semibold hover:bg-[#1E293B] flex items-center gap-1 transition-colors cursor-pointer"
                             >
                               <span>Buka</span>
-                              <ArrowRight size={11} />
+                              <ArrowRight size={10} />
                             </button>
                           </div>
                         </div>
@@ -858,25 +807,23 @@ export default function ClassSchedule({
                 )}
               </div>
 
-              {/* Column B: Jadwal Kuliah */}
-              <div className="space-y-2.5">
+              {/* Jadwal Kuliah */}
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h5 className="font-bold text-xs uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
+                  <h5 className="font-bold text-[11px] uppercase tracking-wider text-indigo-700 flex items-center gap-1">
                     <span>📚 Jadwal Kuliah ({selectedDateDayName})</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-100">
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-100 font-bold">
                       {selectedDateClasses.length}
                     </span>
                   </h5>
                 </div>
 
                 {selectedDateClasses.length === 0 ? (
-                  <div className="p-6 rounded-xl border border-dashed border-[#CBD5E1] text-center space-y-1 bg-[#F8FAFC]">
-                    <BookOpen size={24} className="mx-auto text-[#94A3B8]" />
-                    <p className="text-xs font-semibold text-[#0F172A]">Tidak ada jadwal perkuliahan</p>
-                    <p className="text-[11px] text-[#64748B]">Hari bebas kuliah atau jadwal mandiri.</p>
+                  <div className="p-3 rounded-xl border border-dashed border-[#CBD5E1] text-center bg-[#F8FAFC]">
+                    <p className="text-[11px] font-medium text-[#64748B]">Tidak ada jadwal perkuliahan</p>
                   </div>
                 ) : (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {selectedDateClasses
                       .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'))
                       .map((cls) => {
@@ -885,22 +832,22 @@ export default function ClassSchedule({
                           <div
                             key={cls.id}
                             onClick={() => setSelectedEvent(cls)}
-                            className={`p-3.5 rounded-xl border transition-all space-y-1.5 cursor-pointer hover:shadow-xs ${styles.bg}`}
+                            className={`p-2.5 rounded-xl border transition-all space-y-1 cursor-pointer hover:shadow-2xs ${styles.bg}`}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-white border border-[#CBD5E1]">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className="font-mono text-[11px] font-bold px-1.5 py-0.2 rounded bg-white border border-[#CBD5E1]">
                                 {cls.startTime} – {cls.endTime}
                               </span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase ${styles.badge}`}>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${styles.badge}`}>
                                 {cls.code || cls.type}
                               </span>
                             </div>
 
-                            <h6 className="font-bold text-sm text-[#0F172A]">{cls.title || cls.course}</h6>
+                            <h6 className="font-bold text-xs text-[#0F172A] leading-snug">{cls.title || cls.course}</h6>
 
-                            <div className="flex items-center gap-3 text-xs opacity-85">
-                              {cls.room && <span className="flex items-center gap-1"><MapPin size={12} /> {cls.room}</span>}
-                              {cls.lecturer && <span className="flex items-center gap-1"><User size={12} /> {cls.lecturer}</span>}
+                            <div className="flex items-center gap-2.5 text-[10px] opacity-85">
+                              {cls.room && <span className="flex items-center gap-1"><MapPin size={10} /> {cls.room}</span>}
+                              {cls.lecturer && <span className="flex items-center gap-1 truncate"><User size={10} /> {cls.lecturer.split(',')[0]}</span>}
                             </div>
                           </div>
                         );
@@ -908,15 +855,13 @@ export default function ClassSchedule({
                   </div>
                 )}
               </div>
-
             </div>
           </div>
-        </div>
-      )}
 
-      {/* VIEW 1: DETAILED HOURLY TIMETABLE GRID (DYNAMIC FIT 1 SCREEN) */}
-      {viewMode === 'timetable' && (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-2xs overflow-hidden">
+        </div>
+
+        {/* RIGHT MAIN AREA: TIMETABLE JAM GRID */}
+        <div className="flex-1 min-w-0 w-full bg-white border border-[#E2E8F0] rounded-2xl shadow-2xs overflow-hidden">
           
           {/* Scrollable Container with horizontal scroll on mobile/tablet */}
           <div className="overflow-x-auto custom-scrollbar w-full">
@@ -963,10 +908,10 @@ export default function ClassSchedule({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (dayTasks.length === 1) setSelectedTaskDetail(dayTasks[0]);
-                            else {
-                              setSelectedDay(dayName);
-                              setViewMode('day');
+                            if (dayTasks.length === 1) {
+                              setSelectedTaskDetail(dayTasks[0]);
+                            } else if (dayTasks[0]?.dueDate) {
+                              setSelectedCalendarDateStr(dayTasks[0].dueDate);
                             }
                           }}
                           className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 border border-rose-200 block mt-0.5 mx-auto cursor-pointer hover:bg-rose-200 transition-colors"
@@ -1129,359 +1074,8 @@ export default function ClassSchedule({
             )}
           </div>
         </div>
-      )}
 
-      {/* VIEW 2: AGENDA DAY VIEW */}
-      {viewMode === 'day' && (
-        <div className="space-y-4">
-          {/* Day Selector Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            {DAYS_OF_WEEK.map((d) => {
-              const isSelected = d === selectedDay;
-              const isToday = d === todayDayName;
-              return (
-                <button
-                  key={d}
-                  onClick={() => setSelectedDay(d)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-colors ${
-                    isSelected
-                      ? 'bg-[#0F172A] text-white'
-                      : 'bg-white border border-[#E2E8F0] text-[#475569] hover:bg-[#F8FAFC]'
-                  }`}
-                >
-                  <span>{d}</span>
-                  {isToday && <span className="ml-1 text-[9px] opacity-75 font-normal">(Hari Ini)</span>}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Selected Day Agenda Timeline */}
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
-              <div>
-                <h3 className="font-bold text-base text-[#0F172A]">Jadwal Hari {selectedDay}</h3>
-                <p className="text-xs text-[#64748B]">Urutan perkuliahan dan agenda terorganisir per jam.</p>
-              </div>
-              <span className="text-xs text-[#64748B]">
-                {schedules.filter(s => s.day === selectedDay).length} jadwal
-              </span>
-            </div>
-
-            {/* Tasks due on this day */}
-            {(() => {
-              const dayTasksForDayView = (tasks || []).filter(t => getTaskDayOfWeek(t.dueDate) === selectedDay);
-              if (dayTasksForDayView.length === 0) return null;
-              return (
-                <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-xs uppercase tracking-wider text-rose-800 flex items-center gap-1.5">
-                      <AlertTriangle size={14} className="text-rose-600" />
-                      <span>Tenggat Tugas Hari {selectedDay} ({dayTasksForDayView.length})</span>
-                    </h4>
-                    <span className="text-[10px] text-rose-600 font-medium hidden sm:inline">
-                      Klik kartu tugas untuk lihat detail
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {dayTasksForDayView.map((t) => {
-                      const isOverdue = isTaskOverdue(t.dueDate, t.dueTime);
-                      const isSubmitted = hasUserSubmitted(t, currentUser);
-
-                      return (
-                        <div
-                          key={t.id}
-                          onClick={() => setSelectedTaskDetail(t)}
-                          className={`p-3 rounded-xl border bg-white flex items-center justify-between gap-3 shadow-2xs hover:shadow-xs transition-all cursor-pointer ${
-                            isSubmitted
-                              ? 'border-emerald-200 hover:border-emerald-400'
-                              : isOverdue
-                              ? 'border-rose-300 hover:border-rose-500'
-                              : 'border-amber-200 hover:border-amber-400'
-                          }`}
-                        >
-                          <div className="min-w-0 space-y-0.5">
-                            <div className="flex items-center gap-1.5">
-                              {t.course && (
-                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-[#475569] truncate">
-                                  {t.course}
-                                </span>
-                              )}
-                              <span className="text-[10px] text-[#64748B] font-mono">
-                                🕒 {t.dueTime || '23:59'} WIB
-                              </span>
-                            </div>
-                            <p className="font-bold text-xs text-[#0F172A] truncate">{t.title}</p>
-                          </div>
-
-                          <div className="shrink-0">
-                            {isSubmitted ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                Terkumpul
-                              </span>
-                            ) : isOverdue ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
-                                Terlewat
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                                Pending
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {schedules.filter(s => s.day === selectedDay).length === 0 ? (
-              <div className="py-12 text-center space-y-1 text-[#64748B]">
-                <p className="text-xs font-semibold text-[#0F172A]">Tidak ada jadwal perkuliahan pada hari {selectedDay}.</p>
-                <p className="text-[11px]">Hari bebas kuliah atau untuk belajar mandiri / kerja kelompok.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {schedules
-                  .filter(s => s.day === selectedDay)
-                  .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'))
-                  .map((evt) => {
-                    const styles = getEventTypeStyles(evt);
-
-                    return (
-                      <div
-                        key={evt.id}
-                        onClick={() => setSelectedEvent(evt)}
-                        className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer transition-all ${styles.bg}`}
-                      >
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-white border border-[#CBD5E1]">
-                              {evt.startTime} – {evt.endTime}
-                            </span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase ${styles.badge}`}>
-                              {evt.code || evt.type}
-                            </span>
-                          </div>
-                          
-                          <h4 className="font-bold text-sm text-[#0F172A]">{evt.title}</h4>
-                          
-                          <div className="flex items-center gap-3 text-xs opacity-85">
-                            {evt.lecturer && <span className="flex items-center gap-1"><User size={12} /> {evt.lecturer}</span>}
-                            {evt.room && <span className="flex items-center gap-1"><MapPin size={12} /> {evt.room}</span>}
-                          </div>
-
-                          {evt.description && (
-                            <p className="text-xs text-[#64748B] pt-1 line-clamp-1 italic">
-                              {evt.description}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-                          {isManager && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartEdit(evt);
-                              }}
-                              className="px-2.5 py-1.5 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] hover:bg-slate-50 flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-                              title="Edit Jadwal"
-                            >
-                              <Edit2 size={12} />
-                              <span className="hidden sm:inline">Edit</span>
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedEvent(evt);
-                            }}
-                            className="px-3.5 py-1.5 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer"
-                          >
-                            Lihat Detail
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* VIEW 3: COMPACT LIST VIEW */}
-      {viewMode === 'list' && (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#F1F5F9] gap-2">
-            <div>
-              <h3 className="font-bold text-sm text-[#0F172A]">Daftar Seluruh Agenda & Jadwal</h3>
-              <p className="text-xs text-[#64748B]">Daftar lengkap jadwal kelas dan tenggat tugas kuliah.</p>
-            </div>
-
-            {/* List Filter Tabs */}
-            <div className="flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold">
-              <button
-                onClick={() => setListFilter('all')}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  listFilter === 'all' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
-                }`}
-              >
-                Semua ({(schedules || []).length + (tasks || []).length})
-              </button>
-              <button
-                onClick={() => setListFilter('schedules')}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  listFilter === 'schedules' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
-                }`}
-              >
-                Kuliah ({(schedules || []).length})
-              </button>
-              <button
-                onClick={() => setListFilter('tasks')}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  listFilter === 'tasks' ? 'bg-rose-600 text-white shadow-2xs' : 'text-rose-700 hover:bg-rose-50'
-                }`}
-              >
-                Tugas ({(tasks || []).length})
-              </button>
-            </div>
-          </div>
-
-          {/* Tasks Section in List View */}
-          {(listFilter === 'all' || listFilter === 'tasks') && (tasks || []).length > 0 && (
-            <div className="space-y-2.5 pb-2">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-rose-600" />
-                <h4 className="font-bold text-xs uppercase tracking-wider text-rose-800 flex items-center gap-1.5">
-                  <span>📝 Tenggat Tugas Kuliah ({(tasks || []).length})</span>
-                </h4>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pl-4">
-                {(tasks || [])
-                  .slice()
-                  .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''))
-                  .map(t => {
-                    const isOverdue = isTaskOverdue(t.dueDate, t.dueTime);
-                    const isSubmitted = hasUserSubmitted(t, currentUser);
-
-                    return (
-                      <div
-                        key={t.id}
-                        onClick={() => setSelectedTaskDetail(t)}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 shadow-2xs ${
-                          isSubmitted
-                            ? 'bg-emerald-50/40 border-emerald-200 hover:border-emerald-400'
-                            : isOverdue
-                            ? 'bg-rose-50/40 border-rose-300 hover:border-rose-500'
-                            : 'bg-amber-50/40 border-amber-200 hover:border-amber-400'
-                        }`}
-                      >
-                        <div className="min-w-0 space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            {t.course && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-white border border-[#CBD5E1] text-[#475569]">
-                                {t.course}
-                              </span>
-                            )}
-                            <span className="font-mono text-[10px] text-[#64748B]">
-                              📅 {formatDateIndonesian(t.dueDate)} · {t.dueTime || '23:59'} WIB
-                            </span>
-                          </div>
-                          <p className="font-bold text-xs text-[#0F172A] truncate">{t.title}</p>
-                        </div>
-
-                        <div className="shrink-0 flex items-center gap-1.5">
-                          {isSubmitted ? (
-                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                              Terkumpul
-                            </span>
-                          ) : isOverdue ? (
-                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
-                              Terlewat
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                              Pending
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
-
-          {/* Schedules Section in List View */}
-          {(listFilter === 'all' || listFilter === 'schedules') && (
-            <div className="space-y-5">
-              {DAYS_OF_WEEK.map((dayName) => {
-                const dayEvents = schedules
-                  .filter(s => s.day === dayName)
-                  .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
-
-                if (dayEvents.length === 0) return null;
-
-                return (
-                  <div key={dayName} className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#0F172A]" />
-                      <h4 className="font-bold text-xs uppercase tracking-wider text-[#0F172A]">
-                        {dayName} ({dayEvents.length} Jadwal)
-                      </h4>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pl-4">
-                      {dayEvents.map(evt => (
-                        <div
-                          key={evt.id}
-                          onClick={() => setSelectedEvent(evt)}
-                          className="p-3 rounded-xl border border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-[#F8FAFC] transition-all cursor-pointer flex items-center justify-between gap-3"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs font-bold text-[#0F172A]">
-                                {evt.startTime} – {evt.endTime}
-                              </span>
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 uppercase">
-                                {evt.type}
-                              </span>
-                            </div>
-                            <p className="font-bold text-xs text-[#0F172A] truncate mt-0.5">{evt.title}</p>
-                            <p className="text-[10px] text-[#64748B] truncate">
-                              {evt.room ? `📍 ${evt.room}` : ''} {evt.lecturer ? `· 👤 ${evt.lecturer}` : ''}
-                            </p>
-                          </div>
-
-                          {isManager && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartEdit(evt);
-                              }}
-                              className="p-1.5 rounded-lg border border-[#CBD5E1] text-[#64748B] hover:text-[#0F172A] hover:bg-white transition-colors shrink-0 cursor-pointer"
-                              title="Edit Jadwal"
-                            >
-                              <Edit2 size={12} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
+      </div>
       {/* MODAL 1: EVENT DETAIL MODAL */}
       {selectedEvent && (() => {
         const selectedLecturerInfo = parseLecturerInfo(selectedEvent.lecturer, selectedEvent.description, selectedEvent.lecturerPhone);
