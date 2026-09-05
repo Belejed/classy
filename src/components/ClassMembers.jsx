@@ -463,7 +463,7 @@ export default function ClassMembers({
       {/* Settings Modal (Komti & Dosen only) */}
       {showSettingsModal && isManager && (
         <ModalPortal onClose={() => !savingSettings && setShowSettingsModal(false)} maxWidth="max-w-lg">
-          <div className="bg-white rounded-3xl border border-[#E2E8F0] shadow-xl p-6 sm:p-7 space-y-6">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#E2E8F0] shadow-2xl w-full p-5 sm:p-7 space-y-5 max-h-[88vh] sm:max-h-[85vh] overflow-y-auto">
               
               {/* Header */}
               <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
