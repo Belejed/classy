@@ -169,6 +169,7 @@ export default function ClassSchedule({
   });
   const [calendarFilter, setCalendarFilter] = useState('all'); // 'all' | 'tasks' | 'classes'
   const [selectedTaskDetail, setSelectedTaskDetail] = useState(null);
+  const [mobileTab, setMobileTab] = useState('agenda'); // 'agenda' | 'table'
 
   // In-app Delete Confirmation Modal
   const [eventToDelete, setEventToDelete] = useState(null);
@@ -540,11 +541,37 @@ export default function ClassSchedule({
         </div>
       </div>
 
+      {/* Mobile View Mode Switcher (Agenda vs Timetable) */}
+      <div className="lg:hidden flex items-center p-1 rounded-2xl bg-slate-100 border border-[#E2E8F0] shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setMobileTab('agenda')}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${
+            mobileTab === 'agenda' 
+              ? 'bg-[#0F172A] text-white shadow-2xs' 
+              : 'text-[#64748B] hover:text-[#0F172A]'
+          }`}
+        >
+          📋 Agenda & Hari Ini
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('table')}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${
+            mobileTab === 'table' 
+              ? 'bg-[#0F172A] text-white shadow-2xs' 
+              : 'text-[#64748B] hover:text-[#0F172A]'
+          }`}
+        >
+          🗓️ Tabel Mingguan
+        </button>
+      </div>
+
       {/* UNIFIED 1-SCREEN LAYOUT: LEFT SIDEBAR & RIGHT MAIN */}
       <div className="flex flex-col lg:flex-row gap-4 items-start w-full">
 
         {/* LEFT SIDEBAR: MINI-CALENDAR & SELECTED DATE AGENDA */}
-        <div className="w-full lg:w-[320px] xl:w-[340px] shrink-0 space-y-4">
+        <div className={`w-full lg:w-[320px] xl:w-[340px] shrink-0 space-y-4 ${mobileTab === 'agenda' ? 'block' : 'hidden lg:block'}`}>
           
           {/* Card 1: Compact Mini-Calendar Widget */}
           <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 shadow-2xs space-y-3.5">
@@ -863,7 +890,14 @@ export default function ClassSchedule({
         </div>
 
         {/* RIGHT MAIN AREA: TIMETABLE JAM GRID */}
-        <div className="flex-1 min-w-0 w-full bg-white border border-[#E2E8F0] rounded-2xl shadow-2xs overflow-hidden">
+        <div className={`flex-1 min-w-0 w-full bg-white border border-[#E2E8F0] rounded-2xl shadow-2xs overflow-hidden ${
+          mobileTab === 'table' ? 'block' : 'hidden lg:block'
+        }`}>
+          {/* Mobile Scroll Hint */}
+          <div className="lg:hidden px-3.5 py-2 bg-amber-50/70 border-b border-amber-200/60 flex items-center justify-between text-[11px] text-amber-900 font-medium">
+            <span>👉 Geser ke samping (scroll) untuk melihat jadwal hari lainnya</span>
+            <span className="font-bold text-amber-700">Senin - Minggu</span>
+          </div>
           
           {/* Scrollable Container with horizontal scroll on mobile/tablet */}
           <div className="overflow-x-auto custom-scrollbar w-full">

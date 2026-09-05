@@ -315,11 +315,12 @@ export default function ClassSidebar({
   return (
     <>
       {/* Mobile Top Header */}
-      <header className="md:hidden w-full bg-white border-b border-[#E2E8F0] sticky top-0 z-30 px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+      <header className="md:hidden w-full bg-white/95 backdrop-blur-md border-b border-[#E2E8F0] sticky top-0 z-30 px-3.5 h-14 flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-2.5 min-w-0">
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="p-1.5 rounded-xl border border-[#CBD5E1] text-[#0F172A] hover:bg-slate-50"
+            className="p-2 rounded-xl border border-[#CBD5E1] text-[#0F172A] hover:bg-slate-50 transition-colors shrink-0"
+            title="Buka Menu Lengkap"
           >
             <Menu size={18} />
           </button>
@@ -327,19 +328,59 @@ export default function ClassSidebar({
             <h2 className="font-bold text-xs text-[#0F172A] truncate">
               {currentClass?.name || 'Classy'}
             </h2>
-            <p className="text-[10px] text-[#64748B] capitalize">
-              {activeTab} · {getRoleLabel()}
+            <p className="text-[10px] text-[#64748B] truncate">
+              {currentClass?.classIdentifier || 'TI-3A'} · <span className="capitalize">{activeTab}</span>
             </p>
           </div>
         </div>
 
-        <button
-          onClick={onOpenProfile}
-          className="w-7 h-7 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-xs font-bold"
-        >
-          {currentUser?.displayName ? currentUser.displayName[0].toUpperCase() : 'U'}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getRoleBadgeStyle()}`}>
+            {getRoleLabel()}
+          </span>
+          <button
+            onClick={onOpenProfile}
+            className="w-8 h-8 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-xs font-bold shadow-2xs"
+            title="Profil Pengguna"
+          >
+            {currentUser?.displayName ? currentUser.displayName[0].toUpperCase() : 'U'}
+          </button>
+        </div>
       </header>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] shadow-lg px-2 py-1 flex items-center justify-around">
+        {[
+          { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+          { id: 'schedule', label: 'Jadwal', icon: Calendar },
+          { id: 'tasks', label: 'Tugas', icon: CheckSquare },
+          { id: 'announcements', label: 'Info', icon: Megaphone },
+          { id: 'members', label: 'Anggota', icon: Users },
+        ].map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onSelectTab(item.id)}
+              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+                isActive ? 'text-[#0F172A]' : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              <div className={`p-1.5 rounded-xl transition-all ${
+                isActive ? 'bg-[#0F172A] text-white shadow-2xs scale-105' : 'bg-transparent'
+              }`}>
+                <Icon size={17} />
+              </div>
+              <span className={`text-[10px] tracking-tight mt-0.5 ${
+                isActive ? 'font-bold text-[#0F172A]' : 'font-medium text-[#64748B]'
+              }`}>
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
 
       {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (

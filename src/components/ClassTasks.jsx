@@ -716,7 +716,7 @@ export default function ClassTasks({
               <div
                 key={task.id}
                 onClick={() => setSelectedTask(task)}
-                className={`bg-white border p-5 rounded-2xl shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                className={`bg-white border p-4 sm:p-5 rounded-2xl shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
                   isFileMissing 
                     ? 'border-rose-300 bg-rose-50/15' 
                     : isOverdue && !isSubmitted

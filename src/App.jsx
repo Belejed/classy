@@ -903,7 +903,7 @@ function ClassWorkspace({
       {/* Main Workspace Content Column */}
       <div className="flex-1 min-w-0 min-h-screen flex flex-col bg-[#FDFBF7]">
         <ErrorBoundary>
-          <main className={`flex-1 min-w-0 w-full ${activeTab === 'schedule' ? 'max-w-[1500px] mx-auto px-3 sm:px-6 py-2 sm:py-3' : 'max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8'}`}>
+          <main className={`flex-1 min-w-0 w-full pb-20 md:pb-8 ${activeTab === 'schedule' ? 'max-w-[1500px] mx-auto px-3 sm:px-6 py-2 sm:py-3' : 'max-w-6xl mx-auto px-3.5 sm:px-8 py-4 sm:py-8'}`}>
             {activeTab === 'dashboard' && (
               <ClassDashboard
                 currentClass={currentClass}

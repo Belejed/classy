@@ -132,6 +132,17 @@ export default function ClassMembers({
     try {
       await onApproveMember(currentClass.id, member.userId);
       toast.success(`${member.name || member.email} berhasil disetujui masuk kelas!`);
+
+      // Otomatis siapkan link kirim notifikasi WA / Email ke member yang disetujui
+      const cleanPhone = (member.phoneNumber || '').replace(/[^0-9]/g, '').replace(/^0/, '62');
+      if (cleanPhone) {
+        const waText = `Halo ${member.name || ''}! Permintaan pendaftaran Anda ke kelas *${currentClass?.name || 'Classy'}* telah DISETUJUI oleh Komti/Dosen. Silakan akses portal kelas: ${typeof window !== 'undefined' ? window.location.origin : ''}`;
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(waText)}`, '_blank');
+      } else if (member.email) {
+        const mailSubject = `[Persetujuan Kelas] Pendaftaran Anda ke ${currentClass?.name || 'Classy'} Disetujui`;
+        const mailBody = `Halo ${member.name || ''},\n\nPermintaan pendaftaran Anda ke kelas ${currentClass?.name || 'Classy'} telah disetujui oleh Pengurus Kelas.\nSilakan akses kelas di: ${typeof window !== 'undefined' ? window.location.origin : ''}\n\nSalam,\nPengurus Kelas`;
+        window.open(`mailto:${member.email}?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`, '_blank');
+      }
     } catch (err) {
       toast.error(err.message || 'Gagal menyetujui anggota');
     } finally {
@@ -466,21 +477,21 @@ export default function ClassMembers({
                 </div>
 
                 {/* Role Badge & Actions */}
-                <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+                <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 w-full sm:w-auto">
                   {isPendingMember ? (
                     // Approval Actions for Pending Users
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                       <button
                         disabled={processingId === member.userId}
                         onClick={() => handleDeny(member)}
-                        className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                        className="flex-1 sm:flex-initial px-4 py-2 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 text-center"
                       >
                         Tolak
                       </button>
                       <button
                         disabled={processingId === member.userId}
                         onClick={() => handleApprove(member)}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 text-center"
                       >
                         <Check size={13} />
                         <span>Setujui</span>
@@ -488,15 +499,39 @@ export default function ClassMembers({
                     </div>
                   ) : (
                     <>
+                      {/* Direct Contact Icons (WA & Email) */}
+                      <div className="flex items-center gap-0.5 sm:gap-1">
+                        {member.phoneNumber && (
+                          <a
+                            href={`https://wa.me/${(member.phoneNumber || '').replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Halo ${member.name || ''}, saya Komti/Pengurus kelas ${currentClass?.name || ''}...`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={`Chat WhatsApp ke ${member.phoneNumber}`}
+                            className="p-1.5 sm:p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-colors"
+                          >
+                            <Phone size={14} />
+                          </a>
+                        )}
+                        {member.email && (
+                          <a
+                            href={`mailto:${member.email}?subject=${encodeURIComponent(`[Kelas ${currentClass?.name || ''}] Informasi Perkuliahan`)}`}
+                            title={`Kirim email ke ${member.email}`}
+                            className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-[#0F172A] hover:bg-slate-100 transition-colors"
+                          >
+                            <Mail size={14} />
+                          </a>
+                        )}
+                      </div>
+
                       {/* Role Selector for Manager, or Static Badge for Student */}
                       {isManager && !isTargetSelfOrOwner ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
                           <label className="text-[10px] font-semibold text-[#64748B] hidden sm:inline-block">Peran:</label>
                           <select
                             disabled={processingId === member.userId}
                             value={rawRole}
                             onChange={(e) => handleRoleChange(member.userId, e.target.value)}
-                            className="text-xs font-semibold px-2.5 py-1 rounded-xl border border-[#CBD5E1] bg-white text-[#0F172A] focus:outline-none focus:border-[#0F172A] shadow-2xs cursor-pointer disabled:opacity-50"
+                            className="text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-[#CBD5E1] bg-white text-[#0F172A] focus:outline-none focus:border-[#0F172A] shadow-2xs cursor-pointer disabled:opacity-50"
                           >
                             <option value="student">Mahasiswa</option>
                             <option value="komti">Komti (Admin)</option>
@@ -515,7 +550,7 @@ export default function ClassMembers({
                           disabled={processingId === member.userId}
                           onClick={() => handleKickMember(member)}
                           title="Keluarkan dari kelas"
-                          className="p-1.5 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
+                          className="p-2 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
                         >
                           <Trash2 size={15} />
                         </button>

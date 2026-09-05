@@ -7,7 +7,8 @@ import {
   AlertCircle, 
   Paperclip, 
   Trash2,
-  Share2
+  Share2,
+  Mail
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
@@ -212,6 +213,27 @@ export default function ClassAnnouncements({
                   <Share2 size={13} />
                   <span>Kirim ke WA</span>
                 </a>
+
+                {/* Email broadcast button */}
+                {(() => {
+                  const emails = (currentClass?.members || [])
+                    .filter(m => m && (m.status || 'approved') === 'approved' && m.email)
+                    .map(m => m.email)
+                    .join(',');
+                  if (!emails) return null;
+                  const mailSub = `[PENGUMUMAN KELAS: ${currentClass?.name || 'Classy'}] ${selectedAnnouncement.title}`;
+                  const mailBody = `${selectedAnnouncement.message}\n\nDipublikasikan oleh: ${selectedAnnouncement.author}\nPortal Kelas: ${typeof window !== 'undefined' ? window.location.origin : ''}`;
+                  return (
+                    <a
+                      href={`mailto:?bcc=${encodeURIComponent(emails)}&subject=${encodeURIComponent(mailSub)}&body=${encodeURIComponent(mailBody)}`}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      title="Kirim email ke seluruh anggota kelas (BCC)"
+                    >
+                      <Mail size={13} />
+                      <span>Email Anggota</span>
+                    </a>
+                  );
+                })()}
 
                 {isManager && (
                   <button
