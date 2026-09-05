@@ -105,12 +105,20 @@ _Powered by Noted by Blazed Academic Hub_`;
  * Format Task / Assignment Deadline Reminder template
  */
 export const formatTaskReminderMessage = (task) => {
+  let cleanDesc = task.description;
+  if (typeof cleanDesc === 'string' && cleanDesc.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(cleanDesc);
+      cleanDesc = parsed.text || '';
+    } catch {}
+  }
+
   return `⚠️ *PENGINGAT DEADLINE TUGAS KULIAH* 📚
 ━━━━━━━━━━━━━━━━━━━━
 📌 *Tugas:* ${task.title}
-${task.subject ? `📖 *Mata Kuliah:* ${task.subject}\n` : ''}🚨 *Prioritas:* ${task.priority || 'Normal'}
+${task.subject || task.course ? `📖 *Mata Kuliah:* ${task.subject || task.course}\n` : ''}🚨 *Prioritas:* ${task.priority || 'Normal'}
 📅 *Tenggat Waktu:* ${task.dueDate} ${task.dueTime ? `pukul ${task.dueTime} WIB` : ''}
-${task.description ? `📝 *Keterangan:* ${task.description}\n` : ''}━━━━━━━━━━━━━━━━━━━━
+${cleanDesc ? `📝 *Keterangan:* ${cleanDesc}\n` : ''}━━━━━━━━━━━━━━━━━━━━
 _Jangan sampai terlewat! Segera selesaikan dan submit tugasmu tepat waktu._
-_Noted by Blazed Academic Hub_`;
+_Classy Academic Hub_`;
 };

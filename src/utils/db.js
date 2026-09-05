@@ -574,10 +574,15 @@ export const dbService = {
       if (error) return [];
       return (data || []).map(t => {
         let meta = {};
+        let isJson = false;
         try {
-          meta = typeof t.description === 'string' && t.description.startsWith('{') ? JSON.parse(t.description) : {};
+          if (typeof t.description === 'string' && t.description.trim().startsWith('{')) {
+            meta = JSON.parse(t.description);
+            isJson = true;
+          }
         } catch {
-          meta = { text: t.description };
+          meta = {};
+          isJson = false;
         }
 
         const attachments = Array.isArray(t.attachments) ? t.attachments : [];
@@ -591,7 +596,7 @@ export const dbService = {
           lecturer: meta.lecturer || '',
           dueDate: t.due_date,
           dueTime: t.due_time || '23:59',
-          description: meta.text || t.description || '',
+          description: isJson ? (meta.text || '') : (t.description || ''),
           instructions: meta.instructions || '',
           submissionRequired: meta.submissionRequired !== false,
           attachments,

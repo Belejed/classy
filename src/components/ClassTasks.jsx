@@ -31,6 +31,35 @@ import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
 import ModalPortal from './ModalPortal';
 
+// Helper to safely extract clean text if description or instructions contains raw JSON
+const getCleanDescription = (desc) => {
+  if (!desc || typeof desc !== 'string') return '';
+  const trimmed = desc.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object') {
+        return parsed.text || parsed.description || '';
+      }
+    } catch {}
+  }
+  return desc;
+};
+
+const getCleanInstructions = (inst) => {
+  if (!inst || typeof inst !== 'string') return '';
+  const trimmed = inst.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object') {
+        return parsed.instructions || '';
+      }
+    } catch {}
+  }
+  return inst;
+};
+
 export default function ClassTasks({
   currentClass,
   currentUser,
@@ -551,9 +580,9 @@ export default function ClassTasks({
                     {task.title}
                   </h3>
 
-                  {task.description && (
+                  {getCleanDescription(task.description) && (
                     <p className="text-xs text-[#64748B] line-clamp-2">
-                      {task.description}
+                      {getCleanDescription(task.description)}
                     </p>
                   )}
                 </div>
@@ -640,20 +669,20 @@ export default function ClassTasks({
             </div>
 
             {/* Description & Instructions */}
-            {selectedTask.description && (
+            {getCleanDescription(selectedTask.description) && (
               <div className="space-y-1">
                 <h4 className="font-bold text-xs text-[#0F172A]">Deskripsi Penugasan</h4>
                 <p className="text-xs text-[#475569] leading-relaxed whitespace-pre-wrap bg-[#F8FAFC] p-3 rounded-xl border border-[#E2E8F0]">
-                  {selectedTask.description}
+                  {getCleanDescription(selectedTask.description)}
                 </p>
               </div>
             )}
 
-            {selectedTask.instructions && (
+            {getCleanInstructions(selectedTask.instructions) && (
               <div className="space-y-1">
                 <h4 className="font-bold text-xs text-[#0F172A]">Petunjuk Pengumpulan</h4>
                 <p className="text-xs text-[#475569] leading-relaxed whitespace-pre-wrap bg-amber-50/50 p-3 rounded-xl border border-amber-200/70">
-                  {selectedTask.instructions}
+                  {getCleanInstructions(selectedTask.instructions)}
                 </p>
               </div>
             )}
