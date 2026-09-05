@@ -158,7 +158,7 @@ export default function ClassSchedule({
   onDeleteSchedule,
   onNavigateToTask
 }) {
-  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' | 'timetable' | 'day' | 'list'
+  const [viewMode, setViewMode] = useState('timetable'); // 'timetable' | 'calendar' | 'day' | 'list'
   
   // Calendar View State
   const [calendarDate, setCalendarDate] = useState(() => new Date());
@@ -536,23 +536,24 @@ export default function ClassSchedule({
           {/* View Mode Switcher */}
           <div className="flex items-center p-1 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold shadow-2xs">
             <button
+              onClick={() => setViewMode('timetable')}
+              className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'timetable' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+              title="Tampilan Grid Jam Utama"
+            >
+              <Clock size={13} />
+              <span>Timetable Jam</span>
+            </button>
+            <button
               onClick={() => setViewMode('calendar')}
               className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
                 viewMode === 'calendar' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
-              title="Tampilan Kalender Bulanan & Tenggat Tugas"
+              title="Tampilan Kalender & Agenda Terpadu"
             >
               <CalendarDays size={13} />
-              <span>Kalender</span>
-            </button>
-            <button
-              onClick={() => setViewMode('timetable')}
-              className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                viewMode === 'timetable' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
-              }`}
-              title="Tampilan Grid Jam Lengkap"
-            >
-              Timetable Jam
+              <span>Kalender & Agenda</span>
             </button>
             <button
               onClick={() => setViewMode('day')}
@@ -587,220 +588,167 @@ export default function ClassSchedule({
         </div>
       </div>
 
-      {/* VIEW 0: MONTHLY CALENDAR VIEW (FOR TASKS & LECTURES) */}
+      {/* VIEW 0: COMPACT CALENDAR WITH RIGHT-HAND AGENDA VIEW */}
       {viewMode === 'calendar' && (
-        <div className="space-y-4">
-          {/* Calendar Toolbar: Month Navigation & Filters */}
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-3.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Month & Year Title with Controls */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center rounded-xl border border-[#CBD5E1] bg-slate-50 p-0.5">
-                <button
-                  onClick={handlePrevMonth}
-                  className="p-1.5 rounded-lg text-[#475569] hover:text-[#0F172A] hover:bg-white transition-colors cursor-pointer"
-                  title="Bulan Sebelumnya"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={handleNextMonth}
-                  className="p-1.5 rounded-lg text-[#475569] hover:text-[#0F172A] hover:bg-white transition-colors cursor-pointer"
-                  title="Bulan Berikutnya"
-                >
-                  <ChevronRight size={16} />
-                </button>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          
+          {/* LEFT COLUMN: COMPACT MINI-CALENDAR WIDGET */}
+          <div className="lg:col-span-5 xl:col-span-4 bg-white border border-[#E2E8F0] rounded-2xl p-4 shadow-2xs space-y-4">
+            
+            {/* Header: Month & Year Navigator */}
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#F1F5F9]">
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center rounded-xl border border-[#CBD5E1] bg-slate-50 p-0.5">
+                  <button
+                    onClick={handlePrevMonth}
+                    className="p-1 rounded-lg text-[#475569] hover:text-[#0F172A] hover:bg-white transition-colors cursor-pointer"
+                    title="Bulan Sebelumnya"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={handleNextMonth}
+                    className="p-1 rounded-lg text-[#475569] hover:text-[#0F172A] hover:bg-white transition-colors cursor-pointer"
+                    title="Bulan Berikutnya"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+                <h4 className="font-bold text-sm text-[#0F172A]">
+                  {MONTH_NAMES_ID[calMonth]} {calYear}
+                </h4>
               </div>
-
-              <h3 className="font-bold text-base text-[#0F172A] flex items-center gap-2">
-                <span>{MONTH_NAMES_ID[calMonth]} {calYear}</span>
-              </h3>
 
               <button
                 onClick={handleGoToday}
-                className="ml-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-[#0F172A] border border-slate-200 transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-[#0F172A] border border-slate-200 transition-colors cursor-pointer"
               >
                 Hari Ini
               </button>
             </div>
 
-            {/* Filter Chips & Legend */}
-            <div className="flex items-center flex-wrap gap-2 text-xs">
-              <div className="flex items-center p-0.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
-                <button
-                  onClick={() => setCalendarFilter('all')}
-                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
-                    calendarFilter === 'all' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
-                  }`}
-                >
-                  Semua ({(tasks || []).length + (schedules || []).length})
-                </button>
-                <button
-                  onClick={() => setCalendarFilter('tasks')}
-                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-                    calendarFilter === 'tasks' ? 'bg-rose-600 text-white shadow-2xs' : 'text-rose-700 hover:bg-rose-50'
-                  }`}
-                >
-                  <span>📝 Tugas</span>
-                  <span className="text-[10px] px-1 rounded-full bg-rose-100 text-rose-800">
-                    {(tasks || []).length}
-                  </span>
-                </button>
-                <button
-                  onClick={() => setCalendarFilter('classes')}
-                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-                    calendarFilter === 'classes' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-indigo-700 hover:bg-indigo-50'
-                  }`}
-                >
-                  <span>📚 Kuliah</span>
-                  <span className="text-[10px] px-1 rounded-full bg-indigo-100 text-indigo-800">
-                    {(schedules || []).length}
-                  </span>
-                </button>
+            {/* Filter Pills */}
+            <div className="flex items-center p-0.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs">
+              <button
+                onClick={() => setCalendarFilter('all')}
+                className={`flex-1 py-1 rounded-lg font-semibold transition-colors cursor-pointer text-center text-[11px] ${
+                  calendarFilter === 'all' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
+                }`}
+              >
+                Semua
+              </button>
+              <button
+                onClick={() => setCalendarFilter('tasks')}
+                className={`flex-1 py-1 rounded-lg font-semibold transition-colors cursor-pointer text-center text-[11px] flex items-center justify-center gap-1 ${
+                  calendarFilter === 'tasks' ? 'bg-rose-600 text-white shadow-2xs' : 'text-rose-700 hover:bg-rose-50'
+                }`}
+              >
+                <span>📝 Tugas</span>
+                <span className="text-[10px] px-1 rounded-full bg-rose-100 text-rose-800 font-bold">
+                  {(tasks || []).length}
+                </span>
+              </button>
+              <button
+                onClick={() => setCalendarFilter('classes')}
+                className={`flex-1 py-1 rounded-lg font-semibold transition-colors cursor-pointer text-center text-[11px] flex items-center justify-center gap-1 ${
+                  calendarFilter === 'classes' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-indigo-700 hover:bg-indigo-50'
+                }`}
+              >
+                <span>📚 Kuliah</span>
+                <span className="text-[10px] px-1 rounded-full bg-indigo-100 text-indigo-800 font-bold">
+                  {(schedules || []).length}
+                </span>
+              </button>
+            </div>
+
+            {/* Mini Calendar Month Grid */}
+            <div className="space-y-1">
+              {/* 7 Days Header */}
+              <div className="grid grid-cols-7 text-center">
+                {DAYS_OF_WEEK.map((dayName) => (
+                  <div key={dayName} className="py-1 text-[11px] font-bold text-[#64748B]">
+                    {dayName.slice(0, 3)}
+                  </div>
+                ))}
+              </div>
+
+              {/* Grid of Days (Compact aspect-square cells) */}
+              <div className="grid grid-cols-7 gap-1">
+                {calendarGrid.map((cell, idx) => {
+                  const cellTasks = (tasks || []).filter(t => t.dueDate === cell.dateStr);
+                  const cellClasses = (schedules || []).filter(s => s.day === cell.dayName);
+
+                  const hasTasks = cellTasks.length > 0 && (calendarFilter === 'all' || calendarFilter === 'tasks');
+                  const hasClasses = cellClasses.length > 0 && (calendarFilter === 'all' || calendarFilter === 'classes');
+                  const isSelected = cell.dateStr === selectedCalendarDateStr;
+
+                  return (
+                    <button
+                      key={cell.dateStr + '_' + idx}
+                      type="button"
+                      onClick={() => setSelectedCalendarDateStr(cell.dateStr)}
+                      className={`aspect-square w-full rounded-xl flex flex-col items-center justify-center relative transition-all cursor-pointer text-xs font-semibold ${
+                        isSelected
+                          ? 'bg-[#0F172A] text-white shadow-xs font-bold ring-2 ring-[#0F172A]/30 scale-[1.03] z-10'
+                          : cell.isToday
+                          ? 'bg-sky-50 text-sky-700 font-bold border border-sky-300'
+                          : cell.isCurrentMonth
+                          ? 'text-[#1E293B] hover:bg-slate-100'
+                          : 'text-[#CBD5E1] hover:bg-slate-50'
+                      }`}
+                      title={`${cell.dayName}, ${cell.dateStr}${cellTasks.length ? ` (${cellTasks.length} tugas)` : ''}${cellClasses.length ? ` (${cellClasses.length} perkuliahan)` : ''}`}
+                    >
+                      <span className="leading-none">{cell.dateNum}</span>
+                      
+                      {/* Colored Indicator Dots */}
+                      <div className="flex items-center gap-0.5 h-1.5 mt-1">
+                        {hasTasks && (
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isSelected ? 'bg-rose-400' : 'bg-rose-500'
+                            }`}
+                          />
+                        )}
+                        {hasClasses && (
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isSelected ? 'bg-indigo-300' : 'bg-indigo-500'
+                            }`}
+                          />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </div>
 
-          {/* Calendar Month Grid */}
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-2xs overflow-hidden">
-            {/* 7 Days Header */}
-            <div className="grid grid-cols-7 border-b border-[#E2E8F0] bg-[#F8FAFC]">
-              {DAYS_OF_WEEK.map((dayName) => (
-                <div key={dayName} className="py-2.5 text-center border-r border-[#E2E8F0] last:border-r-0">
-                  <span className="text-xs font-bold text-[#475569]">{dayName}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Grid of Days */}
-            <div className="grid grid-cols-7 border-collapse">
-              {calendarGrid.map((cell, idx) => {
-                const cellTasks = (tasks || []).filter(t => t.dueDate === cell.dateStr);
-                const cellClasses = (schedules || []).filter(s => s.day === cell.dayName);
-
-                const itemsToShow = [];
-                if (calendarFilter === 'all' || calendarFilter === 'tasks') {
-                  cellTasks.forEach(t => itemsToShow.push({ ...t, itemType: 'task' }));
-                }
-                if (calendarFilter === 'all' || calendarFilter === 'classes') {
-                  cellClasses.forEach(c => itemsToShow.push({ ...c, itemType: 'class' }));
-                }
-
-                const isSelected = cell.dateStr === selectedCalendarDateStr;
-
-                return (
-                  <div
-                    key={cell.dateStr + '_' + idx}
-                    onClick={() => setSelectedCalendarDateStr(cell.dateStr)}
-                    className={`min-h-[105px] sm:min-h-[120px] p-1.5 sm:p-2 border-b border-r border-[#E2E8F0] last:border-r-0 transition-all flex flex-col justify-between cursor-pointer ${
-                      isSelected
-                        ? 'bg-amber-50/40 ring-2 ring-inset ring-[#0F172A]'
-                        : cell.isToday
-                        ? 'bg-sky-50/30'
-                        : cell.isCurrentMonth
-                        ? 'bg-white hover:bg-slate-50/80'
-                        : 'bg-slate-50/50 text-[#94A3B8]'
-                    }`}
-                  >
-                    {/* Top Row: Date Number */}
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full transition-all ${
-                          cell.isToday
-                            ? 'bg-[#0F172A] text-white shadow-2xs font-extrabold'
-                            : isSelected
-                            ? 'bg-amber-200 text-amber-950'
-                            : cell.isCurrentMonth
-                            ? 'text-[#0F172A]'
-                            : 'text-[#94A3B8]'
-                        }`}
-                      >
-                        {cell.dateNum}
-                      </span>
-
-                      {/* Small counter if multiple tasks */}
-                      {cellTasks.length > 0 && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 border border-rose-200" title={`${cellTasks.length} tugas jatuh tempo`}>
-                          {cellTasks.length} Tugas
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Middle: Items List */}
-                    <div className="space-y-1 my-1 overflow-hidden">
-                      {itemsToShow.slice(0, 3).map((item, itemIdx) => {
-                        if (item.itemType === 'task') {
-                          const isOverdue = isTaskOverdue(item.dueDate, item.dueTime);
-                          const isSubmitted = hasUserSubmitted(item, currentUser);
-
-                          return (
-                            <div
-                              key={item.id || itemIdx}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedTaskDetail(item);
-                              }}
-                              className={`p-1 rounded-lg text-[10px] sm:text-[11px] font-semibold border flex items-center gap-1 truncate shadow-2xs transition-transform hover:scale-[1.02] cursor-pointer ${
-                                isSubmitted
-                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                  : isOverdue
-                                  ? 'bg-rose-50 text-rose-800 border-rose-200'
-                                  : 'bg-amber-50 text-amber-900 border-amber-200'
-                              }`}
-                              title={`Tugas: ${item.title} (${item.dueTime || '23:59'})`}
-                            >
-                              <span className="shrink-0">
-                                {isSubmitted ? '✅' : isOverdue ? '🔴' : '📝'}
-                              </span>
-                              <span className="truncate flex-1">{item.title}</span>
-                              <span className="text-[9px] opacity-75 font-mono shrink-0 hidden sm:inline">
-                                {item.dueTime}
-                              </span>
-                            </div>
-                          );
-                        }
-
-                        // Class item
-                        return (
-                          <div
-                            key={item.id || itemIdx}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedEvent(item);
-                            }}
-                            className="p-1 rounded-lg text-[10px] sm:text-[11px] font-medium bg-slate-50 text-[#334155] border border-slate-200/80 flex items-center gap-1 truncate hover:bg-slate-100 transition-colors cursor-pointer"
-                            title={`Kuliah: ${item.course || item.title} (${item.startTime} - ${item.endTime})`}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                            <span className="truncate flex-1">{item.course || item.title}</span>
-                            <span className="text-[9px] text-[#64748B] font-mono shrink-0 hidden sm:inline">
-                              {item.startTime}
-                            </span>
-                          </div>
-                        );
-                      })}
-
-                      {itemsToShow.length > 3 && (
-                        <div className="text-[9px] font-bold text-[#64748B] text-center">
-                          +{itemsToShow.length - 3} lainnya
-                        </div>
-                      )}
-                    </div>
-
-                    <div />
-                  </div>
-                );
-              })}
+            {/* Bottom Legend */}
+            <div className="pt-3 border-t border-[#F1F5F9] flex items-center justify-between text-[11px] text-[#64748B]">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+                  <span>Tenggat Tugas</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
+                  <span>Jadwal Kuliah</span>
+                </span>
+              </div>
+              <span className="text-[10px] text-[#94A3B8]">Pilih tanggal</span>
             </div>
           </div>
 
-          {/* Selected Date Detail Panel */}
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs space-y-4">
+          {/* RIGHT COLUMN: AGENDA TERPILIH (INFO ON THE RIGHT) */}
+          <div className="lg:col-span-7 xl:col-span-8 bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs space-y-4">
+            
+            {/* Right Panel Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#F1F5F9] gap-2">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#94A3B8] px-2 py-0.5 rounded-md bg-slate-100">
                   Agenda Terpilih
                 </span>
-                <h4 className="font-bold text-base text-[#0F172A] flex items-center gap-2">
+                <h4 className="font-bold text-base text-[#0F172A] flex items-center gap-2 mt-1.5">
                   <Calendar size={16} className="text-[#0F172A]" />
                   <span>{formatDateIndonesian(selectedCalendarDateStr)}</span>
                 </h4>
@@ -816,8 +764,10 @@ export default function ClassSchedule({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Left Column: Tasks for selected date */}
+            {/* Two Sub-Columns for Selected Date's Items */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Column A: Tenggat Tugas */}
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <h5 className="font-bold text-xs uppercase tracking-wider text-rose-700 flex items-center gap-1.5">
@@ -831,7 +781,7 @@ export default function ClassSchedule({
                 {selectedDateTasks.length === 0 ? (
                   <div className="p-6 rounded-xl border border-dashed border-[#CBD5E1] text-center space-y-1 bg-[#F8FAFC]">
                     <CheckCircle2 size={24} className="mx-auto text-emerald-500/80" />
-                    <p className="text-xs font-semibold text-[#0F172A]">Tidak ada tugas jatuh tempo pada tanggal ini</p>
+                    <p className="text-xs font-semibold text-[#0F172A]">Tidak ada tugas jatuh tempo</p>
                     <p className="text-[11px] text-[#64748B]">Bebas dari deadline tugas kuliah!</p>
                   </div>
                 ) : (
@@ -843,7 +793,8 @@ export default function ClassSchedule({
                       return (
                         <div
                           key={t.id}
-                          className={`p-3.5 rounded-xl border transition-all space-y-2 ${
+                          onClick={() => setSelectedTaskDetail(t)}
+                          className={`p-3.5 rounded-xl border transition-all space-y-2 cursor-pointer hover:shadow-xs ${
                             isSubmitted
                               ? 'bg-emerald-50/40 border-emerald-200'
                               : isOverdue
@@ -858,14 +809,14 @@ export default function ClassSchedule({
                                   {t.course}
                                 </span>
                               )}
-                              <h6 className="font-bold text-sm text-[#0F172A] mt-1">{t.title}</h6>
+                              <h6 className="font-bold text-sm text-[#0F172A] mt-1 line-clamp-2">{t.title}</h6>
                             </div>
 
                             <div className="shrink-0">
                               {isSubmitted ? (
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
                                   <Check size={11} />
-                                  <span>Sudah Dikumpul</span>
+                                  <span>Sudah</span>
                                 </span>
                               ) : isOverdue ? (
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1">
@@ -874,7 +825,7 @@ export default function ClassSchedule({
                                 </span>
                               ) : (
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                                  Belum Dikumpul
+                                  Belum
                                 </span>
                               )}
                             </div>
@@ -887,14 +838,16 @@ export default function ClassSchedule({
                             </span>
 
                             <button
-                              onClick={() => {
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 if (onNavigateToTask) {
                                   onNavigateToTask(t.id);
                                 }
                               }}
-                              className="px-3 py-1 rounded-lg bg-[#0F172A] text-white text-[11px] font-semibold hover:bg-[#1E293B] flex items-center gap-1 transition-colors cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-[#0F172A] text-white text-[11px] font-semibold hover:bg-[#1E293B] flex items-center gap-1 transition-colors cursor-pointer"
                             >
-                              <span>Buka Tugas</span>
+                              <span>Buka</span>
                               <ArrowRight size={11} />
                             </button>
                           </div>
@@ -905,7 +858,7 @@ export default function ClassSchedule({
                 )}
               </div>
 
-              {/* Right Column: Classes for this day of week */}
+              {/* Column B: Jadwal Kuliah */}
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <h5 className="font-bold text-xs uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
@@ -955,6 +908,7 @@ export default function ClassSchedule({
                   </div>
                 )}
               </div>
+
             </div>
           </div>
         </div>
