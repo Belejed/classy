@@ -51,7 +51,15 @@ export default function App() {
     } catch {}
   }, []);
 
-  // 1. Auth Listener
+  // 1. Auth Listener & Minimum Splash Duration (2 detik)
+  const [minSplashDone, setMinSplashDone] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinSplashDone(true);
+    }, 2000); // 2 detik
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = authService.onAuthStateChanged((currentUser) => {
@@ -517,11 +525,11 @@ export default function App() {
     toast.success('Berhasil keluar.');
   };
 
-  // Loading Screen: Minimalist fast breathing logo without text or progress bar
-  if (authLoading) {
+  // Loading Screen: Minimalist breathing logo without border/box (durasi 2 detik)
+  if (authLoading || !minSplashDone) {
     return (
       <div className="h-screen w-screen bg-[#FDFBF7] flex items-center justify-center font-sans select-none">
-        <div className="w-16 h-16 rounded-2xl bg-white border border-[#E2E8F0] shadow-sm flex items-center justify-center p-2.5 animate-classy-breathing">
+        <div className="w-20 h-20 flex items-center justify-center animate-classy-breathing">
           <img src="/logo.png" alt="Classy" className="w-full h-full object-contain" />
         </div>
       </div>
@@ -808,7 +816,7 @@ function ClassWorkspace({
   if (!currentClass || !isDataReady) {
     return (
       <div className="h-screen w-screen bg-[#FDFBF7] flex items-center justify-center font-sans select-none">
-        <div className="w-16 h-16 rounded-2xl bg-white border border-[#E2E8F0] shadow-sm flex items-center justify-center p-2.5 animate-classy-breathing">
+        <div className="w-20 h-20 flex items-center justify-center animate-classy-breathing">
           <img src="/logo.png" alt="Classy" className="w-full h-full object-contain" />
         </div>
       </div>

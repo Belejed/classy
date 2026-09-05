@@ -261,22 +261,22 @@
   will-change: transform, opacity;
 }
 
-/* Breathing Logo Animation for Fast Clean Loading */
+/* Breathing Logo Animation for Clean Loading */
 @keyframes classyBreathing {
   0%, 100% {
-    transform: scale(1);
-    opacity: 0.88;
+    transform: scale(0.96);
+    opacity: 0.85;
   }
   50% {
-    transform: scale(1.08);
+    transform: scale(1.06);
     opacity: 1;
-    box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.08));
   }
 }
 
 .animate-classy-breathing {
-  animation: classyBreathing 1.4s ease-in-out infinite;
-  will-change: transform, opacity, box-shadow;
+  animation: classyBreathing 1.5s ease-in-out infinite;
+  will-change: transform, opacity, filter;
 }
 
 
