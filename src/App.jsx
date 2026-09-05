@@ -288,28 +288,35 @@ export default function App() {
     return created;
   };
 
-  const handleDeleteFile = async (fileId) => {
-    const fileToDelete = files?.find(f => f.id === fileId);
+  const handleDeleteFile = async (fileId, fileObj = null) => {
+    const targetFile = fileObj || files?.find(f => f.id === fileId);
+
+    // Extract storageUrl or drive fileId
+    const targetUrlOrId = targetFile?.driveFileId || targetFile?.storageUrl || (typeof fileId === 'object' ? (fileId?.driveFileId || fileId?.storageUrl) : null);
 
     // If file has a Google Drive link, move it to 'Trash' folder in Drive instead of permanent deletion
-    if (fileToDelete?.storageUrl) {
+    if (targetUrlOrId) {
       try {
-        await moveFileToDriveTrash(fileToDelete.storageUrl);
+        const trashResult = await moveFileToDriveTrash(targetUrlOrId);
+        console.log('Moved file to Drive Trash:', trashResult);
       } catch (trashErr) {
         console.warn('Gagal memindahkan file ke folder Trash di Drive:', trashErr);
       }
     }
 
-    await dbService.files.delete(fileId);
-    setFiles(prev => prev.filter(f => f.id !== fileId));
+    const idToDelete = typeof fileId === 'string' ? fileId : targetFile?.id;
+    if (idToDelete) {
+      await dbService.files.delete(idToDelete);
+      setFiles(prev => prev ? prev.filter(f => f.id !== idToDelete) : []);
+    }
 
     try {
       await dbService.logs.create(currentClass.id, {
         actionType: 'file_delete',
         title: `Berkas dihapus`,
-        details: `${user?.displayName || 'Komti'} menghapus berkas "${fileToDelete?.name || fileId}". Berkas di Google Drive dipindahkan ke folder Trash.`,
+        details: `${user?.displayName || 'Komti'} menghapus berkas "${targetFile?.name || idToDelete}". Berkas di Google Drive dipindahkan ke folder Trash.`,
         actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
-        targetName: fileToDelete?.name || '',
+        targetName: targetFile?.name || '',
         color: 'rose'
       });
       handleRefreshLogs();

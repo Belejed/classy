@@ -772,6 +772,7 @@ export const dbService = {
           fileSize: meta.fileSize || '1.2 MB',
           fileType: meta.fileType || f.title.split('.').pop()?.toLowerCase() || 'pdf',
           storageUrl: meta.storageUrl || '',
+          driveFileId: meta.driveFileId || '',
           createdAt: f.updated_at
         };
       });
@@ -826,7 +827,8 @@ export const dbService = {
         uploadedBy: fileItem.uploadedBy || 'Member',
         fileSize: fileItem.fileSize || '1.0 MB',
         fileType: fileItem.fileType || fileItem.name.split('.').pop()?.toLowerCase() || 'pdf',
-        storageUrl: fileItem.storageUrl || ''
+        storageUrl: fileItem.storageUrl || '',
+        driveFileId: fileItem.driveFileId || ''
       };
 
       const row = {
@@ -857,6 +859,7 @@ export const dbService = {
         fileSize: meta.fileSize,
         fileType: meta.fileType,
         storageUrl: meta.storageUrl,
+        driveFileId: meta.driveFileId,
         createdAt: row.updated_at
       };
     },

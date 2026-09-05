@@ -139,6 +139,7 @@ export default function ClassFiles({
     try {
       let fileUrl = '';
       let fileSize = '1.2 MB';
+      let driveFileId = null;
       const targetFolder = uploadFolder.trim() || 'Materi Kuliah';
 
       if (selectedFileObj) {
@@ -150,6 +151,7 @@ export default function ClassFiles({
             folderName: targetFolder
           });
           fileUrl = driveRes.webViewLink || driveRes.previewUrl;
+          driveFileId = driveRes.fileId || null;
           fileSize = driveRes.fileSize || `${(selectedFileObj.size / (1024 * 1024)).toFixed(2)} MB`;
           toast.success('Tersimpan di Google Drive!', { id: 'drive-upload' });
         } catch (driveErr) {
@@ -172,7 +174,8 @@ export default function ClassFiles({
         uploadedBy: currentUser?.displayName || 'Member',
         fileSize,
         fileType: uploadName.split('.').pop()?.toLowerCase() || 'pdf',
-        storageUrl: fileUrl
+        storageUrl: fileUrl,
+        driveFileId
       });
 
       toast.success('File berhasil ditambahkan ke repositori!');
@@ -287,7 +290,7 @@ export default function ClassFiles({
     setIsDeleting(true);
     toast.loading('Memindahkan berkas ke folder Trash...', { id: 'delete-file' });
     try {
-      await onDeleteFile(fileToDelete.id);
+      await onDeleteFile(fileToDelete.id, fileToDelete);
       setSelectedFile(null);
       setFileToDelete(null);
       toast.success('Berkas berhasil dipindahkan ke folder Trash di Drive', { id: 'delete-file' });

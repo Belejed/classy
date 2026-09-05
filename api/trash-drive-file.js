@@ -1,4 +1,4 @@
-﻿import { google } from 'googleapis';
+import { google } from 'googleapis';
 
 const CLIENT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || 'classy@total-chess-481123-k8.iam.gserviceaccount.com';
 const FALLBACK_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
@@ -118,14 +118,22 @@ async function moveSingleFileToTrash(drive, fileId, trashFolderId) {
       return { success: true, fileId, name: file.name, alreadyInTrash: true };
     }
 
-    const previousParents = (file.parents || []).join(',');
-    const moveRes = await drive.files.update({
+    const previousParents = (file.parents || [])
+      .filter(p => p !== trashFolderId)
+      .join(',');
+
+    const updateParams = {
       fileId,
       addParents: trashFolderId,
-      removeParents: previousParents,
       fields: 'id, name, parents',
       supportsAllDrives: true
-    });
+    };
+
+    if (previousParents) {
+      updateParams.removeParents = previousParents;
+    }
+
+    const moveRes = await drive.files.update(updateParams);
 
     return {
       success: true,
@@ -134,6 +142,7 @@ async function moveSingleFileToTrash(drive, fileId, trashFolderId) {
       parents: moveRes.data.parents
     };
   } catch (err) {
+    console.error(`Error moving file ${fileId} to trash:`, err);
     return {
       success: false,
       fileId,
@@ -186,11 +195,14 @@ export default async function handler(req, res) {
       idsToTrash.map(id => moveSingleFileToTrash(drive, id, trashFolderId))
     );
 
-    return res.status(200).json({
-      success: true,
+    const successfulMoves = results.filter(r => r.success);
+    const allSucceeded = successfulMoves.length === results.length;
+
+    return res.status(allSucceeded ? 200 : 207).json({
+      success: allSucceeded,
       trashFolderId,
       results,
-      message: `${results.filter(r => r.success).length} berkas dipindahkan ke folder Trash di Google Drive`
+      message: `${successfulMoves.length}/${results.length} berkas dipindahkan ke folder Trash di Google Drive`
     });
 
   } catch (error) {
