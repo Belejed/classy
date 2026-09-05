@@ -16,7 +16,8 @@ import {
   Settings, 
   X, 
   LogOut,
-  History
+  History,
+  Phone
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
