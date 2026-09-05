@@ -24,6 +24,7 @@ import {
 import toast from 'react-hot-toast';
 import { uploadToGoogleDrive } from '../utils/driveUpload';
 import ModalPortal from './ModalPortal';
+import ConfirmModal from './ConfirmModal';
 
 const CATEGORIES = ['All', 'Submission', 'Material', 'Assignments', 'Groups', 'Other'];
 
@@ -41,6 +42,10 @@ export default function ClassFiles({
   
   // Preview Modal
   const [selectedFile, setSelectedFile] = useState(null);
+  
+  // In-app Delete Confirmation Modal
+  const [fileToDelete, setFileToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Upload Modal
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -277,15 +282,19 @@ export default function ClassFiles({
     }
   };
 
-  const handleDelete = async (fileId) => {
-    if (!window.confirm('Hapus berkas ini dari repositori web? Berkas di Google Drive tidak akan dihapus permanen, melainkan dipindahkan ke folder "Trash".')) return;
-    toast.loading('Menghapus berkas dan memindahkan ke folder Trash di Drive...', { id: 'delete-file' });
+  const handleConfirmDelete = async () => {
+    if (!fileToDelete) return;
+    setIsDeleting(true);
+    toast.loading('Memindahkan berkas ke folder Trash...', { id: 'delete-file' });
     try {
-      await onDeleteFile(fileId);
+      await onDeleteFile(fileToDelete.id);
       setSelectedFile(null);
-      toast.success('Berkas berhasil dihapus & dipindahkan ke folder Trash di Google Drive', { id: 'delete-file' });
+      setFileToDelete(null);
+      toast.success('Berkas berhasil dipindahkan ke folder Trash di Drive', { id: 'delete-file' });
     } catch {
       toast.error('Gagal menghapus berkas', { id: 'delete-file' });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -701,12 +710,13 @@ export default function ClassFiles({
             </div>
 
             {/* Modal Footer Actions */}
-            <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9] shrink-0">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-3 border-t border-[#F1F5F9] shrink-0">
               {/* Delete Button (Manager or Owner) */}
               {(isManager || selectedFile.uploadedBy === currentUser?.displayName || selectedFile.uploadedBy === currentUser?.email) ? (
                 <button
-                  onClick={() => handleDelete(selectedFile.id)}
-                  className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl flex items-center gap-1.5 transition-colors"
+                  type="button"
+                  onClick={() => setFileToDelete(selectedFile)}
+                  className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3.5 py-2.5 rounded-xl flex items-center justify-center sm:justify-start gap-1.5 transition-colors cursor-pointer border border-rose-200/60 sm:border-transparent"
                   title="Hapus dari web & pindahkan ke folder Trash di Google Drive"
                 >
                   <Trash2 size={14} />
@@ -718,19 +728,21 @@ export default function ClassFiles({
                 {/* Open in New Tab Button */}
                 {selectedFile.storageUrl && (
                   <button
+                    type="button"
                     onClick={() => handleOpenNewTab(selectedFile)}
-                    className="px-3.5 py-2 rounded-xl border border-[#CBD5E1] hover:border-[#0F172A] text-xs font-semibold text-[#0F172A] hover:bg-slate-50 flex items-center gap-1.5 transition-colors"
+                    className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] hover:border-[#0F172A] text-xs font-semibold text-[#0F172A] hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     title="Buka di tab browser baru"
                   >
                     <ExternalLink size={13} />
-                    <span className="hidden sm:inline">Buka di Tab Baru</span>
+                    <span>Buka di Tab Baru</span>
                   </button>
                 )}
 
                 {/* Download Button */}
                 <button
+                  type="button"
                   onClick={() => handleDownload(selectedFile)}
-                  className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] flex items-center gap-1.5 shadow-2xs transition-colors"
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                 >
                   <Download size={13} />
                   <span>Unduh Berkas</span>
@@ -845,6 +857,19 @@ export default function ClassFiles({
           </div>
         </ModalPortal>
       )}
+
+      {/* CONFIRM DELETE MODAL (In-App, Non-native) */}
+      <ConfirmModal
+        isOpen={Boolean(fileToDelete)}
+        onClose={() => !isDeleting && setFileToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Hapus Berkas dari Repositori?"
+        message={`Berkas "${fileToDelete?.name || ''}" akan dihapus dari web kelas dan dipindahkan ke folder "Trash" di Google Drive (tidak dihapus permanen).`}
+        confirmText="Ya, Pindahkan ke Trash"
+        cancelText="Batal"
+        type="danger"
+        isLoading={isDeleting}
+      />
 
     </div>
   );

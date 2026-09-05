@@ -497,7 +497,59 @@ export default function App() {
 
   return (
     <>
-      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+      <Toaster 
+        position="top-center" 
+        gutter={10}
+        containerStyle={{
+          top: 24,
+          zIndex: 99999,
+        }}
+        toastOptions={{ 
+          duration: 3500,
+          className: 'classy-toast',
+          style: {
+            background: '#0F172A',
+            color: '#F8FAFC',
+            borderRadius: '16px',
+            padding: '12px 18px',
+            fontSize: '13px',
+            fontWeight: '600',
+            letterSpacing: '-0.01em',
+            boxShadow: '0 20px 30px -10px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+            maxWidth: '480px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          },
+          success: {
+            duration: 3000,
+            iconTheme: {
+              primary: '#10B981',
+              secondary: '#FFFFFF',
+            },
+            style: {
+              borderLeft: '4px solid #10B981',
+            },
+          },
+          error: {
+            duration: 4000,
+            iconTheme: {
+              primary: '#F43F5E',
+              secondary: '#FFFFFF',
+            },
+            style: {
+              borderLeft: '4px solid #F43F5E',
+            },
+          },
+          loading: {
+            iconTheme: {
+              primary: '#38BDF8',
+              secondary: '#0F172A',
+            },
+            style: {
+              borderLeft: '4px solid #38BDF8',
+            },
+          },
+        }} 
+      />
 
       <Routes>
         {/* Reset & Forgot Password - ALWAYS accessible regardless of auth state */}

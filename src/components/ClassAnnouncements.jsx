@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
+import ConfirmModal from './ConfirmModal';
 
 export default function ClassAnnouncements({
   currentClass,
@@ -21,6 +22,10 @@ export default function ClassAnnouncements({
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+
+  // In-app Delete Confirmation Modal
+  const [announcementToDelete, setAnnouncementToDelete] = useState(null);
+  const [isDeletingAnnouncement, setIsDeletingAnnouncement] = useState(false);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -58,14 +63,18 @@ export default function ClassAnnouncements({
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Hapus pengumuman ini?')) return;
+  const handleConfirmDeleteAnnouncement = async () => {
+    if (!announcementToDelete) return;
+    setIsDeletingAnnouncement(true);
     try {
-      await onDeleteAnnouncement(id);
+      await onDeleteAnnouncement(announcementToDelete.id);
       setSelectedAnnouncement(null);
+      setAnnouncementToDelete(null);
       toast.success('Pengumuman berhasil dihapus');
     } catch {
       toast.error('Gagal menghapus pengumuman');
+    } finally {
+      setIsDeletingAnnouncement(false);
     }
   };
 
@@ -187,11 +196,12 @@ export default function ClassAnnouncements({
             <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9]">
               {isManager ? (
                 <button
-                  onClick={() => handleDelete(selectedAnnouncement.id)}
-                  className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer"
+                  type="button"
+                  onClick={() => setAnnouncementToDelete(selectedAnnouncement)}
+                  className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer transition-colors border border-rose-200/60 sm:border-transparent"
                 >
                   <Trash2 size={13} />
-                  <span>Delete</span>
+                  <span>Hapus</span>
                 </button>
               ) : <div />}
 
@@ -276,6 +286,19 @@ export default function ClassAnnouncements({
           </div>
         </ModalPortal>
       )}
+
+      {/* CONFIRM DELETE MODAL (In-App, Non-native) */}
+      <ConfirmModal
+        isOpen={Boolean(announcementToDelete)}
+        onClose={() => !isDeletingAnnouncement && setAnnouncementToDelete(null)}
+        onConfirm={handleConfirmDeleteAnnouncement}
+        title="Hapus Pengumuman?"
+        message={`Pengumuman "${announcementToDelete?.title || ''}" akan dihapus permanen.`}
+        confirmText="Ya, Hapus"
+        cancelText="Batal"
+        type="danger"
+        isLoading={isDeletingAnnouncement}
+      />
 
     </div>
   );

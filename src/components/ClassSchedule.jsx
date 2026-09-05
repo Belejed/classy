@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
+import ConfirmModal from './ConfirmModal';
 import { parseLecturerInfo } from '../utils/db';
 
 const DAYS_OF_WEEK = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
@@ -171,6 +172,10 @@ export default function ClassSchedule({
   const [calendarFilter, setCalendarFilter] = useState('all'); // 'all' | 'tasks' | 'classes'
   const [selectedTaskDetail, setSelectedTaskDetail] = useState(null);
   const [listFilter, setListFilter] = useState('all'); // 'all' | 'schedules' | 'tasks'
+
+  // In-app Delete Confirmation Modal
+  const [eventToDelete, setEventToDelete] = useState(null);
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
 
   const calYear = calendarDate.getFullYear();
   const calMonth = calendarDate.getMonth(); // 0-indexed
@@ -486,14 +491,18 @@ export default function ClassSchedule({
     }
   };
 
-  const handleDeleteEvent = async (id) => {
-    if (!window.confirm('Hapus jadwal ini?')) return;
+  const handleConfirmDeleteEvent = async () => {
+    if (!eventToDelete) return;
+    setIsDeletingEvent(true);
     try {
-      await onDeleteSchedule(id);
+      await onDeleteSchedule(eventToDelete.id);
       setSelectedEvent(null);
+      setEventToDelete(null);
       toast.success('Jadwal berhasil dihapus');
     } catch (err) {
       toast.error('Gagal menghapus jadwal');
+    } finally {
+      setIsDeletingEvent(false);
     }
   };
 
@@ -1607,8 +1616,9 @@ export default function ClassSchedule({
                       <span>Edit Jadwal</span>
                     </button>
                     <button
-                      onClick={() => handleDeleteEvent(selectedEvent.id)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1 cursor-pointer transition-colors"
+                      type="button"
+                      onClick={() => setEventToDelete(selectedEvent)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1 cursor-pointer transition-colors border border-rose-200/60 sm:border-transparent"
                     >
                       <Trash2 size={13} />
                       <span>Hapus</span>
@@ -1873,6 +1883,19 @@ export default function ClassSchedule({
           </div>
         </ModalPortal>
       )}
+
+      {/* CONFIRM DELETE MODAL (In-App, Non-native) */}
+      <ConfirmModal
+        isOpen={Boolean(eventToDelete)}
+        onClose={() => !isDeletingEvent && setEventToDelete(null)}
+        onConfirm={handleConfirmDeleteEvent}
+        title="Hapus Jadwal Kuliah?"
+        message={`Jadwal "${eventToDelete?.course || eventToDelete?.title || ''}" akan dihapus permanen dari kelas.`}
+        confirmText="Ya, Hapus Jadwal"
+        cancelText="Batal"
+        type="danger"
+        isLoading={isDeletingEvent}
+      />
 
     </div>
   );

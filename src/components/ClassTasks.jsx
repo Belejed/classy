@@ -31,6 +31,7 @@ import {
 import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
 import ModalPortal from './ModalPortal';
+import ConfirmModal from './ConfirmModal';
 
 // Helper to check if a task deadline has passed
 export const isTaskOverdue = (dueDate, dueTime = '23:59') => {
@@ -104,6 +105,10 @@ export default function ClassTasks({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [autoRenameEnabled, setAutoRenameEnabled] = useState(true);
   const [managerTab, setManagerTab] = useState('unsubmitted'); // 'unsubmitted' | 'submitted'
+
+  // In-app Delete Confirmation Modal
+  const [taskToDelete, setTaskToDelete] = useState(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
 
   // File upload state for submission
   const [isSubmittingFile, setIsSubmittingFile] = useState(false);
@@ -432,14 +437,18 @@ export default function ClassTasks({
     }
   };
 
-  const handleDelete = async (taskId) => {
-    if (!window.confirm('Hapus tugas ini?')) return;
+  const handleConfirmDeleteTask = async () => {
+    if (!taskToDelete) return;
+    setIsDeletingTask(true);
     try {
-      await onDeleteTask(taskId);
+      await onDeleteTask(taskToDelete.id);
       setSelectedTask(null);
+      setTaskToDelete(null);
       toast.success('Tugas berhasil dihapus');
     } catch {
       toast.error('Gagal menghapus tugas');
+    } finally {
+      setIsDeletingTask(false);
     }
   };
 
@@ -1262,8 +1271,9 @@ export default function ClassTasks({
             <div className="flex items-center justify-between gap-2 pt-3 border-t border-[#F1F5F9]">
               {isManager ? (
                 <button
-                  onClick={() => handleDelete(selectedTask.id)}
-                  className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl flex items-center gap-1 cursor-pointer min-h-[38px]"
+                  type="button"
+                  onClick={() => setTaskToDelete(selectedTask)}
+                  className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3.5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer min-h-[38px] transition-colors border border-rose-200/60 sm:border-transparent"
                 >
                   <Trash2 size={13} />
                   <span>Hapus Tugas</span>
@@ -1434,6 +1444,19 @@ export default function ClassTasks({
           </div>
         </ModalPortal>
       )}
+
+      {/* CONFIRM DELETE MODAL (In-App, Non-native) */}
+      <ConfirmModal
+        isOpen={Boolean(taskToDelete)}
+        onClose={() => !isDeletingTask && setTaskToDelete(null)}
+        onConfirm={handleConfirmDeleteTask}
+        title="Hapus Penugasan?"
+        message={`Tugas "${taskToDelete?.title || ''}" akan dihapus permanen dari kelas.`}
+        confirmText="Ya, Hapus Tugas"
+        cancelText="Batal"
+        type="danger"
+        isLoading={isDeletingTask}
+      />
     </div>
   );
 }

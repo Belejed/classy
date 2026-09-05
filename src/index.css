@@ -104,3 +104,20 @@
 .animate-classy-progress {
   animation: classyProgress 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
+/* Premium Toast Styling */
+.classy-toast {
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  word-break: break-word !important;
+  user-select: none !important;
+}
+
+@media (max-width: 640px) {
+  .classy-toast {
+    max-width: 90vw !important;
+    font-size: 12px !important;
+    padding: 10px 14px !important;
+  }
+}
+
