@@ -565,7 +565,7 @@ function ClassWorkspace({
       {/* Main Workspace Content Column */}
       <div className="flex-1 min-w-0 min-h-screen flex flex-col bg-[#FDFBF7]">
         <ErrorBoundary>
-          <main className="flex-1 min-w-0 w-full max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
+          <main className={`flex-1 min-w-0 w-full max-w-6xl mx-auto px-4 sm:px-8 ${activeTab === 'schedule' ? 'py-3 sm:py-4' : 'py-6 sm:py-8'}`}>
             {activeTab === 'dashboard' && (
               <ClassDashboard
                 currentClass={currentClass}

@@ -20,10 +20,9 @@ import ModalPortal from './ModalPortal';
 import { parseLecturerInfo } from '../utils/db';
 
 const DAYS_OF_WEEK = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-const START_HOUR = 6;  // 06:00
-const END_HOUR = 21;   // 21:00
-const HOURS_ARRAY = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
-const HOUR_HEIGHT = 68; // px per hour
+const DEFAULT_START_HOUR = 7;  // 07:00
+const DEFAULT_END_HOUR = 18;   // 18:00
+const COMPACT_HOUR_HEIGHT = 42; // px per hour (fits 07:00-18:00 completely within 1 screen without scrolling)
 
 const COURSE_PALETTES = [
   {
@@ -122,13 +121,39 @@ export default function ClassSchedule({
   const role = currentClass?.userRole;
   const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
 
+  // Dynamic schedule boundaries to fit cleanly on 1 screen without unnecessary vertical scrolling
+  const { startHour, endHour } = useMemo(() => {
+    let minH = DEFAULT_START_HOUR;
+    let maxH = DEFAULT_END_HOUR;
+
+    (schedules || []).forEach(s => {
+      if (s.startTime) {
+        const [h] = s.startTime.split(':').map(Number);
+        if (!isNaN(h) && h < minH) minH = Math.max(6, h);
+      }
+      if (s.endTime) {
+        const [h, m] = s.endTime.split(':').map(Number);
+        if (!isNaN(h)) {
+          const ceilH = m > 0 ? h + 1 : h;
+          if (ceilH > maxH) maxH = Math.min(22, ceilH);
+        }
+      }
+    });
+
+    return { startHour: minH, endHour: maxH };
+  }, [schedules]);
+
+  const hoursArray = useMemo(() => {
+    return Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
+  }, [startHour, endHour]);
+
   // Real-time current time indicator
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
-  const isWithinScheduleHours = currentHour >= START_HOUR && currentHour <= END_HOUR;
+  const isWithinScheduleHours = currentHour >= startHour && currentHour < endHour;
   const currentTimeTop = isWithinScheduleHours 
-    ? ((currentHour - START_HOUR) + currentMinute / 60) * HOUR_HEIGHT 
+    ? ((currentHour - startHour) + currentMinute / 60) * COMPACT_HOUR_HEIGHT 
     : null;
 
   // Calculate top offset and height for events on the time grid
@@ -141,14 +166,14 @@ export default function ClassSchedule({
     const endH = isNaN(rawEndH) ? 10 : rawEndH;
     const endM = isNaN(rawEndM) ? 0 : rawEndM;
 
-    const startMinutes = Math.max(startH * 60 + startM, START_HOUR * 60);
-    const endMinutes = Math.min(endH * 60 + endM, (END_HOUR + 1) * 60);
+    const startMinutes = Math.max(startH * 60 + startM, startHour * 60);
+    const endMinutes = Math.min(endH * 60 + endM, endHour * 60);
 
-    const topOffsetMinutes = startMinutes - (START_HOUR * 60);
-    const durationMinutes = Math.max(endMinutes - startMinutes, 30); // minimum 30 min height
+    const topOffsetMinutes = startMinutes - (startHour * 60);
+    const durationMinutes = Math.max(endMinutes - startMinutes, 25);
 
-    const top = (topOffsetMinutes / 60) * HOUR_HEIGHT;
-    const height = Math.max((durationMinutes / 60) * HOUR_HEIGHT, 34);
+    const top = (topOffsetMinutes / 60) * COMPACT_HOUR_HEIGHT;
+    const height = Math.max((durationMinutes / 60) * COMPACT_HOUR_HEIGHT, 28);
 
     return { top, height };
   };
@@ -297,15 +322,18 @@ export default function ClassSchedule({
   };
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-3 font-sans">
       
       {/* Top Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2.5 border-b border-[#E2E8F0]">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold tracking-tight text-[#0F172A]">Class Schedule</h2>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-              07:00 – 21:00
+              {String(startHour).padStart(2, '0')}:00 – {String(endHour).padStart(2, '0')}:00 WIB
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Fit 1 Layar
             </span>
           </div>
           <p className="text-xs text-[#64748B]">
@@ -358,19 +386,19 @@ export default function ClassSchedule({
         </div>
       </div>
 
-      {/* VIEW 1: DETAILED HOURLY TIMETABLE GRID */}
+      {/* VIEW 1: DETAILED HOURLY TIMETABLE GRID (FIT 1 SCREEN) */}
       {viewMode === 'timetable' && (
         <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-2xs overflow-hidden">
           
           {/* Scrollable Container with horizontal scroll on mobile/tablet */}
           <div className="overflow-x-auto custom-scrollbar w-full">
-            <div className="min-w-[840px]">
+            <div className="min-w-[800px]">
               
               {/* Table Header: Days of the Week */}
               <div className="grid grid-cols-8 border-b border-[#E2E8F0] bg-[#F8FAFC]">
                 
                 {/* Top-Left Corner (Time marker label) */}
-                <div className="p-3 border-r border-[#E2E8F0] flex flex-col items-center justify-center text-center">
+                <div className="p-2 border-r border-[#E2E8F0] flex flex-col items-center justify-center text-center">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
                     Jam
                   </span>
@@ -385,11 +413,11 @@ export default function ClassSchedule({
                   return (
                     <div
                       key={dayName}
-                      className={`p-2.5 text-center border-r border-[#E2E8F0] last:border-r-0 transition-colors ${
+                      className={`p-1.5 text-center border-r border-[#E2E8F0] last:border-r-0 transition-colors ${
                         isToday ? 'bg-amber-50/40' : ''
                       }`}
                     >
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex items-center justify-center gap-1">
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${
                           isToday 
                             ? 'bg-[#0F172A] text-white shadow-2xs' 
@@ -398,7 +426,7 @@ export default function ClassSchedule({
                           {dayName}
                         </span>
                       </div>
-                      <span className="text-[10px] text-[#64748B] block mt-1 font-medium">
+                      <span className="text-[9px] text-[#64748B] block mt-0.5 font-medium">
                         {dayEvents.length} jadwal
                       </span>
                     </div>
@@ -409,19 +437,19 @@ export default function ClassSchedule({
               {/* Timetable Body Grid with Hourly Rows */}
               <div 
                 className="relative grid grid-cols-8"
-                style={{ height: `${HOURS_ARRAY.length * HOUR_HEIGHT}px` }}
+                style={{ height: `${hoursArray.length * COMPACT_HOUR_HEIGHT}px` }}
               >
-                {/* Left Time Column (07:00, 08:00, ... 21:00) */}
+                {/* Left Time Column (07:00, 08:00, ...) */}
                 <div className="border-r border-[#E2E8F0] bg-[#F8FAFC]/60 select-none">
-                  {HOURS_ARRAY.map((hr) => (
+                  {hoursArray.map((hr) => (
                     <div
                       key={hr}
-                      className="border-b border-[#E2E8F0] flex flex-col items-center justify-start pt-1.5 text-[11px] font-mono font-bold text-[#64748B] relative"
-                      style={{ height: `${HOUR_HEIGHT}px` }}
+                      className="border-b border-[#E2E8F0] flex flex-col items-center justify-start pt-1 text-[10px] font-mono font-bold text-[#64748B] relative"
+                      style={{ height: `${COMPACT_HOUR_HEIGHT}px` }}
                     >
                       <span>{String(hr).padStart(2, '0')}:00</span>
                       {/* :30 Subtle Marker */}
-                      <span className="text-[9px] text-[#94A3B8] font-normal mt-3 opacity-60">
+                      <span className="text-[8px] text-[#94A3B8] font-normal mt-0.5 opacity-60">
                         :30
                       </span>
                     </div>
@@ -441,7 +469,7 @@ export default function ClassSchedule({
                       }`}
                     >
                       {/* Background Hourly & Half-Hour Grid Lines */}
-                      {HOURS_ARRAY.map((hr) => (
+                      {hoursArray.map((hr) => (
                         <div
                           key={hr}
                           onClick={() => handleOpenAddAtSlot(dayName, hr)}
@@ -449,14 +477,14 @@ export default function ClassSchedule({
                           className={`border-b border-[#E2E8F0] w-full relative group ${
                             isManager ? 'cursor-pointer hover:bg-slate-50/80 transition-colors' : ''
                           }`}
-                          style={{ height: `${HOUR_HEIGHT}px` }}
+                          style={{ height: `${COMPACT_HOUR_HEIGHT}px` }}
                         >
                           {/* Half-Hour Dashed Guide Line */}
                           <div className="absolute left-0 right-0 top-1/2 border-b border-dashed border-[#F1F5F9]" />
                           
                           {/* Manager slot hover indicator */}
                           {isManager && (
-                            <span className="hidden group-hover:block absolute right-1.5 top-1 text-[9px] text-[#94A3B8] font-mono">
+                            <span className="hidden group-hover:block absolute right-1.5 top-0.5 text-[8px] text-[#94A3B8] font-mono">
                               + {String(hr).padStart(2, '0')}:00
                             </span>
                           )}
@@ -486,7 +514,7 @@ export default function ClassSchedule({
                               e.stopPropagation();
                               setSelectedEvent(evt);
                             }}
-                            className={`absolute left-1 right-1 rounded-xl p-2 z-10 cursor-pointer transition-all overflow-hidden flex flex-col justify-between ${styles.bg}`}
+                            className={`absolute left-0.5 right-0.5 rounded-xl p-1.5 z-10 cursor-pointer transition-all overflow-hidden flex flex-col justify-between hover:z-20 hover:shadow-md ${styles.bg}`}
                             style={{
                               top: `${top}px`,
                               height: `${height}px`
@@ -497,29 +525,31 @@ export default function ClassSchedule({
                                 <span className="font-mono text-[9px] font-bold tracking-tight">
                                   {evt.startTime} – {evt.endTime}
                                 </span>
-                                <span className={`text-[8px] font-bold px-1 py-0.2 rounded uppercase shrink-0 ${styles.badge}`}>
-                                  {evt.code || evt.type}
-                                </span>
+                                {height >= 34 && (
+                                  <span className={`text-[8px] font-bold px-1 py-0.2 rounded uppercase shrink-0 ${styles.badge}`}>
+                                    {evt.code || evt.type}
+                                  </span>
+                                )}
                               </div>
 
-                              <h4 className="font-bold text-[11px] leading-snug truncate" title={evt.title}>
+                              <h4 className="font-bold text-[10px] sm:text-[11px] leading-tight line-clamp-2" title={evt.title}>
                                 {evt.title}
                               </h4>
                             </div>
 
                             {/* Footer info (Room / Lecturer) only if slot is tall enough */}
-                            {height >= 50 && (
-                              <div className="flex items-center gap-2 text-[9px] opacity-85 truncate pt-0.5">
+                            {height >= 48 && (
+                              <div className="flex items-center gap-1.5 text-[9px] opacity-85 truncate pt-0.5 border-t border-black/5">
                                 {evt.room && (
-                                  <span className="flex items-center gap-0.5 truncate">
-                                    <MapPin size={9} />
+                                  <span className="flex items-center gap-0.5 truncate font-semibold">
+                                    <MapPin size={8} className="shrink-0" />
                                     {evt.room}
                                   </span>
                                 )}
                                 {evt.lecturer && (
                                   <span className="flex items-center gap-0.5 truncate">
-                                    <User size={9} />
-                                    {evt.lecturer}
+                                    <User size={8} className="shrink-0" />
+                                    {evt.lecturer.split(',')[0]}
                                   </span>
                                 )}
                               </div>
@@ -536,26 +566,26 @@ export default function ClassSchedule({
           </div>
 
           {/* Timetable Footer Legend */}
-          <div className="p-3 bg-[#F8FAFC] border-t border-[#E2E8F0] flex flex-wrap items-center justify-between gap-3 text-xs text-[#64748B]">
-            <div className="flex items-center gap-4 text-[11px]">
+          <div className="px-3 py-1.5 bg-[#F8FAFC] border-t border-[#E2E8F0] flex flex-wrap items-center justify-between gap-2 text-xs text-[#64748B]">
+            <div className="flex items-center gap-3 text-[10px]">
               <span className="font-semibold text-[#0F172A]">Keterangan:</span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-indigo-600" />
                 <span>Mata Kuliah (Warna Berbeda)</span>
               </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-600" />
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-amber-600" />
                 <span>Tugas / Praktikum</span>
               </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-rose-600" />
                 <span>Deadline / Ujian</span>
               </span>
             </div>
 
             {isManager && (
-              <span className="text-[11px] text-[#94A3B8] italic">
-                Tip: Klik pada slot kosong untuk langsung menambah jadwal.
+              <span className="text-[10px] text-[#94A3B8] italic hidden sm:inline">
+                Klik slot kosong untuk tambah jadwal.
               </span>
             )}
           </div>
