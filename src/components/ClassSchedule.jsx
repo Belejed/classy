@@ -11,10 +11,13 @@ import {
   User,
   BookOpen,
   Info,
-  Edit2
+  Edit2,
+  Phone,
+  MessageCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
+import { parseLecturerInfo } from '../utils/db';
 
 const DAYS_OF_WEEK = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 const START_HOUR = 6;  // 06:00
@@ -113,6 +116,7 @@ export default function ClassSchedule({
   const [eventEndTime, setEventEndTime] = useState('09:40');
   const [eventRoom, setEventRoom] = useState('');
   const [eventLecturer, setEventLecturer] = useState(currentClass?.lecturer || '');
+  const [eventLecturerPhone, setEventLecturerPhone] = useState('');
   const [eventDesc, setEventDesc] = useState('');
 
   const role = currentClass?.userRole;
@@ -214,7 +218,9 @@ export default function ClassSchedule({
     setEventStartTime(schedule.startTime || '08:00');
     setEventEndTime(schedule.endTime || '09:40');
     setEventRoom(schedule.room || '');
-    setEventLecturer(schedule.lecturer || '');
+    const parsed = parseLecturerInfo(schedule.lecturer || '', schedule.description || '', schedule.lecturerPhone || '');
+    setEventLecturer(parsed.lecturerName || schedule.lecturer || '');
+    setEventLecturerPhone(schedule.lecturerPhone || parsed.lecturerPhone || '');
     setEventDesc(schedule.description || '');
     setSelectedEvent(null);
     setShowAddModal(true);
@@ -229,6 +235,7 @@ export default function ClassSchedule({
     setEventEndTime(endTimeOverride || '09:40');
     setEventRoom('');
     setEventLecturer(currentClass?.lecturer || '');
+    setEventLecturerPhone('');
     setEventDesc('');
     setShowAddModal(true);
   };
@@ -255,6 +262,7 @@ export default function ClassSchedule({
       endTime: eventEndTime,
       room: eventRoom.trim(),
       lecturer: eventLecturer.trim(),
+      lecturerPhone: eventLecturerPhone.trim(),
       description: eventDesc.trim()
     };
 
@@ -270,6 +278,7 @@ export default function ClassSchedule({
       setEditingSchedule(null);
       setEventTitle('');
       setEventRoom('');
+      setEventLecturerPhone('');
       setEventDesc('');
     } catch (err) {
       toast.error(err.message || 'Gagal menyimpan jadwal');
@@ -736,86 +745,113 @@ export default function ClassSchedule({
       )}
 
       {/* MODAL 1: EVENT DETAIL MODAL */}
-      {selectedEvent && (
-        <ModalPortal onClose={() => setSelectedEvent(null)} maxWidth="max-w-md">
-          <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
-              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#475569]">
-                Detail {selectedEvent.type}
-              </span>
-              <button onClick={() => setSelectedEvent(null)} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A]">
-                <X size={18} />
-              </button>
-            </div>
+      {selectedEvent && (() => {
+        const selectedLecturerInfo = parseLecturerInfo(selectedEvent.lecturer, selectedEvent.description, selectedEvent.lecturerPhone);
+        return (
+          <ModalPortal onClose={() => setSelectedEvent(null)} maxWidth="max-w-md">
+            <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#475569]">
+                  Detail {selectedEvent.type}
+                </span>
+                <button onClick={() => setSelectedEvent(null)} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A]">
+                  <X size={18} />
+                </button>
+              </div>
 
-            <div className="space-y-3">
-              <h3 className="font-bold text-lg text-[#0F172A] leading-snug">
-                {selectedEvent.title}
-              </h3>
+              <div className="space-y-3">
+                <h3 className="font-bold text-lg text-[#0F172A] leading-snug">
+                  {selectedEvent.title}
+                </h3>
 
-              <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2 text-xs text-[#334155]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[#64748B]">Hari:</span>
-                  <strong className="text-[#0F172A]">{selectedEvent.day}</strong>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#64748B]">Jam Kuliah:</span>
-                  <strong className="font-mono text-[#0F172A]">{selectedEvent.startTime} – {selectedEvent.endTime} WIB</strong>
-                </div>
-                {selectedEvent.room && (
+                <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5 text-xs text-[#334155]">
                   <div className="flex items-center justify-between">
-                    <span className="text-[#64748B]">Ruangan:</span>
-                    <strong className="text-[#0F172A]">{selectedEvent.room}</strong>
+                    <span className="text-[#64748B]">Hari:</span>
+                    <strong className="text-[#0F172A]">{selectedEvent.day}</strong>
                   </div>
-                )}
-                {selectedEvent.lecturer && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[#64748B]">Dosen Pengampu:</span>
-                    <strong className="text-[#0F172A]">{selectedEvent.lecturer}</strong>
+                    <span className="text-[#64748B]">Jam Kuliah:</span>
+                    <strong className="font-mono text-[#0F172A]">{selectedEvent.startTime} – {selectedEvent.endTime} WIB</strong>
+                  </div>
+                  {selectedEvent.room && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#64748B]">Ruangan:</span>
+                      <strong className="text-[#0F172A]">{selectedEvent.room}</strong>
+                    </div>
+                  )}
+                  {selectedEvent.lecturer && (
+                    <div className="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/50">
+                      <span className="text-[#64748B] shrink-0">Dosen:</span>
+                      <div className="text-right">
+                        <strong className="text-[#0F172A] block">{selectedLecturerInfo.lecturerName || selectedEvent.lecturer}</strong>
+                        {selectedLecturerInfo.lecturerRole && (
+                          <span className="text-[10px] text-slate-500 font-medium">({selectedLecturerInfo.lecturerRole})</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {selectedLecturerInfo.lecturerPhone && (
+                    <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <Phone size={13} className="text-emerald-600 shrink-0" />
+                        <span className="font-mono text-[#0F172A] font-bold">{selectedLecturerInfo.lecturerPhone}</span>
+                      </div>
+                      {selectedLecturerInfo.cleanPhone && (
+                        <a
+                          href={`https://wa.me/${selectedLecturerInfo.cleanPhone}?text=${encodeURIComponent(`Halo Bapak/Ibu ${selectedLecturerInfo.lecturerName || 'Dosen'}, saya mahasiswa kelas ${currentClass?.name || 'ini'} terkait perkuliahan ${selectedEvent.title}...`)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold transition-colors shadow-2xs"
+                        >
+                          <MessageCircle size={12} />
+                          <span>Chat WA</span>
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {selectedEvent.description && (
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-[#0F172A]">Catatan Tambahan:</span>
+                    <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#334155] whitespace-pre-wrap">
+                      {selectedEvent.description}
+                    </div>
                   </div>
                 )}
               </div>
 
-              {selectedEvent.description && (
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-[#0F172A]">Catatan Tambahan:</span>
-                  <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#334155] whitespace-pre-wrap">
-                    {selectedEvent.description}
+              <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9]">
+                {isManager ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleStartEdit(selectedEvent)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] hover:bg-slate-50 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                    >
+                      <Edit2 size={13} />
+                      <span>Edit Jadwal</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteEvent(selectedEvent.id)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Trash2 size={13} />
+                      <span>Hapus</span>
+                    </button>
                   </div>
-                </div>
-              )}
-            </div>
+                ) : <div />}
 
-            <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9]">
-              {isManager ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleStartEdit(selectedEvent)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] hover:bg-slate-50 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                  >
-                    <Edit2 size={13} />
-                    <span>Edit Jadwal</span>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteEvent(selectedEvent.id)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <Trash2 size={13} />
-                    <span>Hapus</span>
-                  </button>
-                </div>
-              ) : <div />}
-
-              <button
-                onClick={() => setSelectedEvent(null)}
-                className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B]"
-              >
-                Tutup
-              </button>
+                <button
+                  onClick={() => setSelectedEvent(null)}
+                  className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B]"
+                >
+                  Tutup
+                </button>
+              </div>
             </div>
-          </div>
-        </ModalPortal>
-      )}
+          </ModalPortal>
+        );
+      })()}
 
       {/* MODAL 2: ADD / EDIT EVENT MODAL (Komti / Dosen) */}
       {showAddModal && (
@@ -901,26 +937,43 @@ export default function ClassSchedule({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#334155]">Ruangan / Lab</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Lab Komputer 2"
-                    value={eventRoom}
-                    onChange={(e) => setEventRoom(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
-                  />
-                </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-[#334155]">Ruangan / Lab</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Lab Komputer 2"
+                  value={eventRoom}
+                  onChange={(e) => setEventRoom(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-[#334155]">Dosen Pengampu</label>
                   <input
                     type="text"
-                    placeholder="e.g. Pak Budi"
+                    placeholder="e.g. Dr. Budi Santoso, M.Kom."
                     value={eventLecturer}
                     onChange={(e) => setEventLecturer(e.target.value)}
                     className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
                   />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[#334155] flex items-center justify-between">
+                    <span>No. WhatsApp Dosen</span>
+                    <span className="text-[10px] text-[#64748B] font-normal">Opsional</span>
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                    <input
+                      type="tel"
+                      placeholder="e.g. 081234567890"
+                      value={eventLecturerPhone}
+                      onChange={(e) => setEventLecturerPhone(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 

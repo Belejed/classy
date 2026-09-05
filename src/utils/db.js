@@ -140,6 +140,44 @@ export const authService = {
   }
 };
 
+// Helper to parse lecturer name, role, and contact phone number
+export const parseLecturerInfo = (rawLecturer = '', rawNotes = '', explicitPhone = '') => {
+  const text = `${rawLecturer || ''} ${rawNotes || ''} ${explicitPhone || ''}`;
+  
+  // Extract phone number (starts with +628, 628, 08, or 8 followed by 8-12 digits)
+  const phoneMatch = (explicitPhone || text).match(/(?:\+?62|0)?(8\d{8,12})/);
+  let phone = '';
+  let cleanPhone = '';
+  if (phoneMatch) {
+    phone = phoneMatch[0];
+    cleanPhone = '62' + phoneMatch[1];
+  }
+
+  // Extract role if in parentheses (e.g. (pengajar utama))
+  let role = '';
+  const roleMatch = (rawLecturer || '').match(/\(([^)]+)\)/);
+  if (roleMatch) {
+    role = roleMatch[1].trim();
+  }
+
+  // Clean lecturer name
+  let name = (rawLecturer || '')
+    .replace(/(?:\+?62|0)?8\d{8,12}/g, '') // remove phone digits
+    .replace(/\([^)]+\)/g, '') // remove parentheses text
+    .trim();
+
+  return {
+    name,
+    phone,
+    cleanPhone,
+    role,
+    lecturerName: name,
+    lecturerPhone: phone,
+    lecturerCleanPhone: cleanPhone,
+    lecturerRole: role
+  };
+};
+
 // --- DATA SERVICE (CLASSY DOMAIN) ---
 export const dbService = {
   // 1. CLASSES (Workspaces Table)
@@ -419,29 +457,43 @@ export const dbService = {
     list: async (classId) => {
       const { data, error } = await supabase.from('schedules').select('*').eq('workspace_id', classId).order('start_time', { ascending: true });
       if (error) return [];
-      return (data || []).map(s => ({
-        id: s.id,
-        classId: s.workspace_id,
-        title: s.subject || s.title,
-        course: s.subject || '',
-        lecturer: s.lecturer || '',
-        day: s.day || 'Senin',
-        startTime: s.start_time || '08:00',
-        endTime: s.end_time || '10:00',
-        room: s.room || '',
-        type: s.code || 'class',
-        description: s.notes || ''
-      }));
+      return (data || []).map(s => {
+        const parsed = parseLecturerInfo(s.lecturer, s.notes);
+        return {
+          id: s.id,
+          classId: s.workspace_id,
+          title: s.subject || s.title,
+          course: s.subject || '',
+          lecturer: parsed.name || s.lecturer || '',
+          lecturerRaw: s.lecturer || '',
+          lecturerPhone: parsed.phone || '',
+          lecturerCleanPhone: parsed.cleanPhone || '',
+          lecturerRole: parsed.role || '',
+          day: s.day || 'Senin',
+          startTime: s.start_time || '08:00',
+          endTime: s.end_time || '10:00',
+          room: s.room || '',
+          sks: s.sks || 3,
+          type: s.code || 'class',
+          description: s.notes || ''
+        };
+      });
     },
 
     create: async (classId, item) => {
       const id = 'sch_' + Math.random().toString(36).substr(2, 9);
+      const lecturerName = (item.lecturer || '').trim();
+      const lecturerPhone = (item.lecturerPhone || '').trim();
+      const formattedLecturer = lecturerPhone && !lecturerName.includes(lecturerPhone)
+        ? `${lecturerName} (${lecturerPhone})`
+        : lecturerName;
+
       const row = {
         id,
         workspace_id: classId,
         subject: (item.title || item.course || '').trim(),
         code: item.type || 'class',
-        lecturer: (item.lecturer || '').trim(),
+        lecturer: formattedLecturer,
         day: item.day || 'Senin',
         start_time: item.startTime || '08:00',
         end_time: item.endTime || '10:00',
@@ -451,12 +503,17 @@ export const dbService = {
       };
       const { error } = await supabase.from('schedules').insert(row);
       if (error) throw error;
+      const parsed = parseLecturerInfo(row.lecturer, row.notes);
       return {
         id,
         classId,
         title: row.subject,
         course: row.subject,
-        lecturer: row.lecturer,
+        lecturer: parsed.name || row.lecturer,
+        lecturerRaw: row.lecturer,
+        lecturerPhone: parsed.phone || '',
+        lecturerCleanPhone: parsed.cleanPhone || '',
+        lecturerRole: parsed.role || '',
         day: row.day,
         startTime: row.start_time,
         endTime: row.end_time,
@@ -467,10 +524,16 @@ export const dbService = {
     },
 
     update: async (scheduleId, item) => {
+      const lecturerName = (item.lecturer || '').trim();
+      const lecturerPhone = (item.lecturerPhone || '').trim();
+      const formattedLecturer = lecturerPhone && !lecturerName.includes(lecturerPhone)
+        ? `${lecturerName} (${lecturerPhone})`
+        : lecturerName;
+
       const row = {
         subject: (item.title || item.course || '').trim(),
         code: item.type || 'class',
-        lecturer: (item.lecturer || '').trim(),
+        lecturer: formattedLecturer,
         day: item.day || 'Senin',
         start_time: item.startTime || '08:00',
         end_time: item.endTime || '10:00',
@@ -480,11 +543,16 @@ export const dbService = {
       };
       const { error } = await supabase.from('schedules').update(row).eq('id', scheduleId);
       if (error) throw error;
+      const parsed = parseLecturerInfo(row.lecturer, row.notes);
       return {
         id: scheduleId,
         title: row.subject,
         course: row.subject,
-        lecturer: row.lecturer,
+        lecturer: parsed.name || row.lecturer,
+        lecturerRaw: row.lecturer,
+        lecturerPhone: parsed.phone || '',
+        lecturerCleanPhone: parsed.cleanPhone || '',
+        lecturerRole: parsed.role || '',
         day: row.day,
         startTime: row.start_time,
         endTime: row.end_time,
