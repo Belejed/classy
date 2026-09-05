@@ -1,11 +1,12 @@
-const CACHE_NAME = 'classy-app-v1';
+const CACHE_NAME = 'classy-app-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
-  '/apple-touch-icon.png'
+  '/apple-touch-icon.png',
+  '/logo.png'
 ];
 
 self.addEventListener('install', (event) => {

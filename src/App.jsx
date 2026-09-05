@@ -19,6 +19,7 @@ import ClassContacts from './components/ClassContacts';
 import ClassActivityLog from './components/ClassActivityLog';
 import UserProfileModal from './components/UserProfileModal';
 import ErrorBoundary from './components/ErrorBoundary';
+import PwaInstallPrompt from './components/PwaInstallPrompt';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -766,6 +767,9 @@ export default function App() {
           onUpdateUser={(updated) => setUser(updated)}
         />
       )}
+
+      {/* Global PWA Install Banner & Modal */}
+      <PwaInstallPrompt />
     </>
   );
 }

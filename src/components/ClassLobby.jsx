@@ -16,7 +16,8 @@ import {
   Clock,
   AlertCircle,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  Download
 } from 'lucide-react';
 
 export default function ClassLobby({ 
@@ -164,10 +165,22 @@ export default function ClassLobby({
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('classy:open-pwa-install'))}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-[#0F172A] transition-all text-xs font-semibold cursor-pointer active:scale-95"
+              title="Download / Pasang Aplikasi Classy"
+            >
+              <Download size={13} className="text-[#0F172A]" />
+              <span className="hidden sm:inline">Download App</span>
+              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700">
+                PWA
+              </span>
+            </button>
+
             <button
               onClick={onOpenProfile}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#E2E8F0] hover:border-[#CBD5E1] transition-colors text-xs font-semibold text-[#0F172A]"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#E2E8F0] hover:border-[#CBD5E1] transition-colors text-xs font-semibold text-[#0F172A] cursor-pointer"
             >
               <div className="w-6 h-6 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-[10px] font-bold">
                 {currentUser?.displayName ? currentUser.displayName[0].toUpperCase() : 'U'}
