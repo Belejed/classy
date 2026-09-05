@@ -50,11 +50,12 @@ export default function ClassMembers({
   const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(myRole) || currentClass?.ownerId === currentUser?.uid;
 
   // Separate pending join requests from approved members
-  const pendingMembers = members.filter(m => m.status === 'pending');
-  const approvedMembers = members.filter(m => (m.status || 'approved') === 'approved');
+  const pendingMembers = members.filter(m => m && m.status === 'pending');
+  const approvedMembers = members.filter(m => m && (m.status || 'approved') === 'approved');
 
   // Filtered members list
   const filteredMembers = (roleFilter === 'pending' ? pendingMembers : approvedMembers).filter(m => {
+    if (!m) return false;
     const nameMatch = (m.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                       (m.email || '').toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -68,9 +69,9 @@ export default function ClassMembers({
   });
 
   // Counts
-  const komtiCount = approvedMembers.filter(m => m.role === 'komti' || m.role === 'coordinator').length;
-  const lecturerCount = approvedMembers.filter(m => m.role === 'lecturer' || m.role === 'dosen').length;
-  const studentCount = approvedMembers.filter(m => !['komti', 'coordinator', 'lecturer', 'dosen'].includes(m.role)).length;
+  const komtiCount = approvedMembers.filter(m => m && (m.role === 'komti' || m.role === 'coordinator')).length;
+  const lecturerCount = approvedMembers.filter(m => m && (m.role === 'lecturer' || m.role === 'dosen')).length;
+  const studentCount = approvedMembers.filter(m => m && !['komti', 'coordinator', 'lecturer', 'dosen'].includes(m.role)).length;
   const pendingCount = pendingMembers.length;
 
   const handleCopyCode = () => {

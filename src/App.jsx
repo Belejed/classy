@@ -736,10 +736,12 @@ export default function App() {
                   handleCreateGroup={handleCreateGroup}
                   handleSendMessage={handleSendMessage}
                   handleAddGroupFile={handleAddGroupFile}
-                  handleDeleteGroup={handleDeleteGroup}
                   handleUpdateMemberRole={handleUpdateMemberRole}
                   handleRemoveMember={handleRemoveMember}
+                  handleApproveMember={handleApproveMember}
+                  handleDenyMember={handleDenyMember}
                   handleUpdateClassSettings={handleUpdateClassSettings}
+                  classesLoading={classesLoading}
                   logs={logs}
                   onRefreshLogs={handleRefreshLogs}
                   onOpenProfile={() => setShowProfileModal(true)}
@@ -803,7 +805,10 @@ function ClassWorkspace({
   handleDeleteGroup,
   handleUpdateMemberRole,
   handleRemoveMember,
+  handleApproveMember,
+  handleDenyMember,
   handleUpdateClassSettings,
+  classesLoading,
   logs,
   onRefreshLogs,
   onOpenProfile,
@@ -818,10 +823,11 @@ function ClassWorkspace({
   // Ensure currentClass matches the URL classId
   useEffect(() => {
     if (!classId) return;
+    if (classesLoading) return;
 
     if (currentClass?.id === classId) return;
 
-    const matched = classes.find(c => c.id === classId);
+    const matched = (classes || []).find(c => c.id === classId);
     if (matched) {
       if (matched.membershipStatus === 'pending') {
         toast.error('Keanggotaan Anda masih menunggu persetujuan Komti/Dosen.');
@@ -829,12 +835,12 @@ function ClassWorkspace({
         return;
       }
       setCurrentClass(matched);
-    } else if (classes.length > 0) {
+    } else {
       // Direct load via URL: fetch from db
       dbService.classes.get(classId).then((cls) => {
         if (cls) {
           const isOwner = cls.ownerId === user?.uid;
-          const memberObj = cls.members?.find(m => m.userId === user?.uid || m.email?.toLowerCase() === user?.email?.toLowerCase());
+          const memberObj = (cls.members || []).find(m => m.userId === user?.uid || m.email?.toLowerCase() === user?.email?.toLowerCase());
           const isApproved = isOwner || (memberObj && (memberObj.status || 'approved') === 'approved');
 
           if (!isApproved) {
@@ -859,7 +865,7 @@ function ClassWorkspace({
         navigate('/lobby');
       });
     }
-  }, [classId, classes, currentClass, user]);
+  }, [classId, classes, classesLoading, currentClass, user]);
 
   const isDataReady = !contentLoading && schedules !== null && tasks !== null && files !== null && announcements !== null;
 

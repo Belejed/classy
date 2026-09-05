@@ -300,7 +300,7 @@ export const dbService = {
       };
     },
 
-    create: async (userId, userEmail, userName, { name, classIdentifier, lecturer, academicPeriod, waGroupLink = '', creatorRole = 'komti' }) => {
+    create: async (userId, userEmail, userName, { name, classIdentifier, lecturer, academicPeriod, waGroupLink = '', creatorRole = 'komti', phoneNumber = '' }) => {
       // Rule: 1 user can only have 1 class
       const existingClasses = await dbService.classes.list(userId, userEmail);
       if (existingClasses.length > 0) {
