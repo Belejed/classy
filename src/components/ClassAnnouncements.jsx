@@ -111,17 +111,25 @@ export default function ClassAnnouncements({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase ${
-                    isImportant 
-                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                      : ann.type === 'schedule'
-                      ? 'bg-blue-50 text-blue-700'
-                      : ann.type === 'assignment'
-                      ? 'bg-amber-50 text-amber-700'
-                      : 'bg-slate-100 text-slate-700'
-                  }`}>
-                    {ann.type}
-                  </span>
+                  {isImportant ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-600 text-white shadow-xs border border-rose-700 animate-pulse">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-80"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                      </span>
+                      <span>IMPORTANT</span>
+                    </span>
+                  ) : (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase ${
+                      ann.type === 'schedule'
+                        ? 'bg-blue-50 text-blue-700'
+                        : ann.type === 'assignment'
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}>
+                      {ann.type}
+                    </span>
+                  )}
 
                   <span className="text-[11px] text-[#94A3B8]">
                     {new Date(ann.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}

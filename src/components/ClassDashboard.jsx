@@ -53,6 +53,8 @@ export default function ClassDashboard({
     ? safeAnnouncements[Math.min(activeAnnouncementIndex, safeAnnouncements.length - 1)] 
     : null;
 
+  const isImportant = currentAnnouncement?.type?.toLowerCase() === 'important';
+
   // Filter items for Today
   const todaySchedules = safeSchedules
     .filter(s => s.day === todayDayName)
@@ -136,27 +138,51 @@ export default function ClassDashboard({
       {currentAnnouncement ? (
         <div 
           onClick={() => onOpenAnnouncementDetail(currentAnnouncement)}
-          className="relative overflow-hidden bg-gradient-to-br from-white via-indigo-50/25 to-slate-50 border border-indigo-150 rounded-2xl p-5 sm:p-6 shadow-xs transition-all hover:border-indigo-300/80 cursor-pointer group"
+          className={`relative overflow-hidden rounded-2xl p-5 sm:p-6 shadow-xs transition-all cursor-pointer group ${
+            isImportant
+              ? 'bg-gradient-to-br from-rose-50/70 via-white to-rose-50/40 border-2 border-rose-400 ring-4 ring-rose-500/10 hover:border-rose-500'
+              : 'bg-gradient-to-br from-white via-indigo-50/25 to-slate-50 border border-indigo-150 hover:border-indigo-300/80'
+          }`}
         >
           {/* Subtle Ambient Background Highlights */}
-          <div className="absolute -right-10 -top-10 w-44 h-44 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
+          <div className={`absolute -right-10 -top-10 w-44 h-44 rounded-full blur-2xl pointer-events-none ${
+            isImportant ? 'bg-rose-500/10 animate-pulse' : 'bg-indigo-500/5'
+          }`} />
           <div className="absolute -left-10 -bottom-10 w-44 h-44 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
 
           {/* Top Bar: Badges, Date, and Navigation */}
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0]/80">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#0F172A] text-white shadow-2xs">
-                <Megaphone size={12} className="text-amber-400" />
-                <span>PENGUMUMAN UTAMA</span>
+              <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold shadow-2xs ${
+                isImportant 
+                  ? 'bg-rose-900 text-rose-50 border border-rose-800' 
+                  : 'bg-[#0F172A] text-white'
+              }`}>
+                {isImportant ? (
+                  <AlertCircle size={13} className="text-rose-300 animate-pulse" />
+                ) : (
+                  <Megaphone size={12} className="text-amber-400" />
+                )}
+                <span>PENGUMUMAN {isImportant ? 'PENTING' : 'UTAMA'}</span>
               </span>
 
-              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                currentAnnouncement.type === 'important'
-                  ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                  : 'bg-indigo-100/70 text-indigo-800 border border-indigo-200/60'
-              }`}>
-                {currentAnnouncement.type || 'General'}
-              </span>
+              {isImportant ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-rose-600 text-white shadow-sm border border-rose-700 animate-pulse">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-85"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                  </span>
+                  <span>IMPORTANT</span>
+                </span>
+              ) : (
+                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                  currentAnnouncement.type === 'assignment'
+                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                    : 'bg-indigo-100/70 text-indigo-800 border border-indigo-200/60'
+                }`}>
+                  {currentAnnouncement.type || 'General'}
+                </span>
+              )}
 
               <span className="text-xs text-[#94A3B8] hidden sm:inline">·</span>
 
@@ -202,7 +228,11 @@ export default function ClassDashboard({
 
           {/* Announcement Body */}
           <div className="mt-3.5 space-y-2">
-            <h3 className="text-lg sm:text-xl font-extrabold text-[#0F172A] group-hover:text-indigo-900 transition-colors leading-snug">
+            <h3 className={`text-lg sm:text-xl font-extrabold leading-snug transition-colors ${
+              isImportant 
+                ? 'text-rose-950 group-hover:text-rose-700' 
+                : 'text-[#0F172A] group-hover:text-indigo-900'
+            }`}>
               {currentAnnouncement.title}
             </h3>
             <p className="text-sm text-[#334155] leading-relaxed line-clamp-3 sm:line-clamp-4 whitespace-pre-line">
@@ -213,7 +243,9 @@ export default function ClassDashboard({
           {/* Announcement Footer */}
           <div className="mt-4 pt-3 border-t border-[#E2E8F0]/80 flex items-center justify-between text-xs text-[#64748B]">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-[#0F172A] text-white text-[10px] font-bold flex items-center justify-center">
+              <div className={`w-6 h-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${
+                isImportant ? 'bg-rose-600' : 'bg-[#0F172A]'
+              }`}>
                 {currentAnnouncement.author ? currentAnnouncement.author[0].toUpperCase() : 'K'}
               </div>
               <span className="font-semibold text-[#334155]">
@@ -221,7 +253,11 @@ export default function ClassDashboard({
               </span>
             </div>
 
-            <div className="flex items-center gap-1 font-semibold text-[#0F172A] group-hover:text-indigo-600 transition-colors">
+            <div className={`flex items-center gap-1 font-semibold transition-colors ${
+              isImportant 
+                ? 'text-rose-700 group-hover:text-rose-900' 
+                : 'text-[#0F172A] group-hover:text-indigo-600'
+            }`}>
               <span>Buka Detail Lengkap</span>
               <ChevronRight size={14} />
             </div>
