@@ -511,13 +511,13 @@ export default function ClassSchedule({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold tracking-tight text-[#0F172A]">Class Schedule & Calendar</h2>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap shrink-0">
               {String(startHour).padStart(2, '0')}:00 – {String(endHour).padStart(2, '0')}:00 WIB
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap shrink-0">
               {(schedules || []).length} Jadwal Kuliah
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap shrink-0">
               {(tasks || []).length} Tenggat Tugas
             </span>
           </div>
@@ -695,22 +695,22 @@ export default function ClassSchedule({
           {/* Card 2: Selected Date Agenda Details */}
           <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 shadow-2xs space-y-3">
             {/* Header */}
-            <div className="flex items-center justify-between pb-2.5 border-b border-[#F1F5F9]">
-              <div>
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#F1F5F9] gap-2">
+              <div className="min-w-0 flex-1">
                 <span className="text-[9px] font-extrabold uppercase tracking-wider text-[#94A3B8] px-1.5 py-0.5 rounded bg-slate-100">
                   Agenda Terpilih
                 </span>
-                <h4 className="font-bold text-xs sm:text-sm text-[#0F172A] flex items-center gap-1.5 mt-1">
-                  <Calendar size={13} className="text-[#0F172A]" />
-                  <span>{formatDateIndonesian(selectedCalendarDateStr)}</span>
+                <h4 className="font-bold text-xs sm:text-sm text-[#0F172A] flex items-center gap-1.5 mt-1 truncate" title={formatDateIndonesian(selectedCalendarDateStr)}>
+                  <Calendar size={13} className="text-[#0F172A] shrink-0" />
+                  <span className="truncate">{formatDateIndonesian(selectedCalendarDateStr)}</span>
                 </h4>
               </div>
 
-              <div className="flex items-center gap-1 text-[10px]">
-                <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200">
+              <div className="flex items-center gap-1.5 text-[10px] shrink-0">
+                <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200 whitespace-nowrap shrink-0 inline-flex items-center gap-1">
                   {selectedDateTasks.length} Tugas
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
+                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 whitespace-nowrap shrink-0 inline-flex items-center gap-1">
                   {selectedDateClasses.length} Kuliah
                 </span>
               </div>
