@@ -153,18 +153,34 @@ export const parseLecturerInfo = (rawLecturer = '', rawNotes = '', explicitPhone
     cleanPhone = '62' + phoneMatch[1];
   }
 
-  // Extract role if in parentheses (e.g. (pengajar utama))
+  // Extract role if in parentheses, but exclude if it only contains phone numbers
   let role = '';
-  const roleMatch = (rawLecturer || '').match(/\(([^)]+)\)/);
-  if (roleMatch) {
-    role = roleMatch[1].trim();
+  const parenthesesMatches = Array.from((rawLecturer || '').matchAll(/\(([^)]+)\)/g));
+  for (const match of parenthesesMatches) {
+    const content = match[1].trim();
+    // If content is purely digits/phone characters, it's not a role
+    const isPhoneContent = /^[\d\s+-]+$/.test(content);
+    if (!isPhoneContent && content) {
+      role = content;
+      break;
+    }
   }
 
-  // Clean lecturer name
+  // Clean lecturer name:
+  // 1. Remove phone in parentheses like (08128315124) or ( 0812... )
+  // 2. Remove standalone phone numbers
+  // 3. Remove role in parentheses if found
+  // 4. Remove empty or whitespace-only parentheses `()`
   let name = (rawLecturer || '')
-    .replace(/(?:\+?62|0)?8\d{8,12}/g, '') // remove phone digits
-    .replace(/\([^)]+\)/g, '') // remove parentheses text
-    .trim();
+    .replace(/\(\s*(?:\+?62|0)?8\d{8,12}\s*\)/g, '') // remove phone in parentheses
+    .replace(/(?:\+?62|0)?8\d{8,12}/g, '')          // remove raw phone digits
+    .replace(/\(\s*\)/g, '');                       // remove empty parentheses
+
+  if (role) {
+    name = name.replace(new RegExp(`\\(\\s*${escapeRegExp(role)}\\s*\\)`, 'g'), '');
+  }
+
+  name = name.replace(/\s+/g, ' ').trim();
 
   return {
     name,
@@ -177,6 +193,10 @@ export const parseLecturerInfo = (rawLecturer = '', rawNotes = '', explicitPhone
     lecturerRole: role
   };
 };
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // --- DATA SERVICE (CLASSY DOMAIN) ---
 export const dbService = {
