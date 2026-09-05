@@ -596,6 +596,7 @@ function ClassWorkspace({
                 currentClass={currentClass}
                 currentUser={user}
                 tasks={tasks}
+                schedules={schedules}
                 onCreateTask={handleCreateTask}
                 onSubmitAssignment={handleSubmitAssignment}
                 onDeleteTask={handleDeleteTask}
