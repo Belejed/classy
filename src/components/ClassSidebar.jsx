@@ -18,7 +18,8 @@ import {
   X,
   Shield,
   BookOpen,
-  Phone
+  Phone,
+  History
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -59,6 +60,9 @@ export default function ClassSidebar({
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
+  const role = currentClass?.userRole || 'student';
+  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+
   const navTabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'schedule', label: 'Schedule', icon: Calendar },
@@ -67,11 +71,9 @@ export default function ClassSidebar({
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'forum', label: 'Forum', icon: MessageSquare },
     { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
-    { id: 'members', label: 'Members (Komti)', icon: Users, isSpecial: true }
+    { id: 'members', label: 'Members (Komti)', icon: Users, isSpecial: true },
+    ...(isManager ? [{ id: 'logs', label: 'Log Aktivitas', icon: History, isSpecial: true }] : [])
   ];
-
-  const role = currentClass?.userRole || 'student';
-  const isManager = ['komti', 'coordinator', 'lecturer'].includes(role) || currentClass?.ownerId === currentUser?.uid;
 
   const getRoleLabel = () => {
     if (role === 'komti' || role === 'coordinator') return 'Komti';
@@ -248,6 +250,13 @@ export default function ClassSidebar({
                     isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
                   }`}>
                     Manage
+                  </span>
+                )}
+                {tab.id === 'logs' && (
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-bold tracking-wider ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-800'
+                  }`}>
+                    Audit
                   </span>
                 )}
                 {tab.id === 'forum' && (

@@ -316,6 +316,19 @@ export const dbService = {
       const { error } = await supabase.from('workspaces').insert(newDbRecord);
       if (error) throw error;
 
+      // Log class creation
+      try {
+        await dbService.logs.create(newDbRecord.id, {
+          actionType: 'class_create',
+          title: `Ruang kelas "${name.trim()}" dibuat`,
+          details: `${userName || userEmail} membuat ruang kelas baru dengan kode undangan ${joinCode}.`,
+          actor: { name: userName || userEmail, email: userEmail, role: finalRole },
+          color: 'indigo'
+        });
+      } catch (logErr) {
+        console.warn('Could not record initial class log:', logErr);
+      }
+
       return {
         id: newDbRecord.id,
         name: newDbRecord.name,
@@ -350,19 +363,33 @@ export const dbService = {
 
       let updatedMembers = existingMembers;
       if (!alreadyJoined) {
+        const newMember = {
+          userId,
+          name: userName || userEmail.split('@')[0],
+          email: userEmail,
+          phoneNumber: (phoneNumber || '').trim(),
+          role: defaultRole,
+          joinedAt: new Date().toISOString()
+        };
         updatedMembers = [
           ...existingMembers,
-          {
-            userId,
-            name: userName || userEmail.split('@')[0],
-            email: userEmail,
-            phoneNumber: (phoneNumber || '').trim(),
-            role: defaultRole,
-            joinedAt: new Date().toISOString()
-          }
+          newMember
         ];
         const { error: updErr } = await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', data.id);
         if (updErr) throw updErr;
+
+        // Log member join
+        try {
+          await dbService.logs.create(data.id, {
+            actionType: 'member_join',
+            title: `${newMember.name} bergabung ke dalam kelas`,
+            details: `Mahasiswa ${newMember.name} (${userEmail}) berhasil bergabung ke kelas dengan kode undangan ${cleanCode}.`,
+            actor: { name: newMember.name, email: userEmail, role: defaultRole },
+            color: 'emerald'
+          });
+        } catch (logErr) {
+          console.warn('Could not record join log:', logErr);
+        }
       }
 
       let meta = {};
@@ -1043,6 +1070,103 @@ export const dbService = {
 
     delete: async (groupId) => {
       await supabase.from('notes').delete().eq('id', groupId);
+    }
+  },
+
+  // 7. ACTIVITY & AUDIT LOGS (Stored in Notes table with category = 'activity_log')
+  logs: {
+    list: async (classId) => {
+      if (!classId) return [];
+      const { data, error } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('workspace_id', classId)
+        .eq('category', 'activity_log')
+        .order('updated_at', { ascending: false })
+        .limit(150);
+
+      if (error) {
+        console.warn('Error fetching class activity logs:', error);
+        return [];
+      }
+
+      return (data || []).map(row => {
+        let meta = {};
+        try {
+          meta = typeof row.content === 'string' && row.content.startsWith('{') ? JSON.parse(row.content) : { details: row.content };
+        } catch {
+          meta = { details: row.content };
+        }
+
+        return {
+          id: row.id,
+          classId: row.workspace_id,
+          title: row.title,
+          actionType: row.subject || meta.actionType || 'general',
+          actorName: meta.actorName || 'Pengguna',
+          actorEmail: meta.actorEmail || '',
+          actorRole: meta.actorRole || '',
+          targetName: meta.targetName || '',
+          details: meta.details || row.content || '',
+          color: row.color || 'blue',
+          timestamp: row.updated_at
+        };
+      });
+    },
+
+    create: async (classId, { actionType, title, details, actor, targetName, color = 'blue' }) => {
+      if (!classId) return null;
+      try {
+        const id = 'log_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        const meta = {
+          actionType: actionType || 'general',
+          actorName: actor?.name || actor?.displayName || 'Pengguna',
+          actorEmail: actor?.email || '',
+          actorRole: actor?.role || '',
+          targetName: targetName || '',
+          details: details || ''
+        };
+
+        const row = {
+          id,
+          workspace_id: classId,
+          title: title || `${meta.actorName} melakukan aktivitas`,
+          subject: actionType || 'general',
+          category: 'activity_log',
+          content: JSON.stringify(meta),
+          color: color || 'blue',
+          pinned: false,
+          favorite: false,
+          updated_at: new Date().toISOString()
+        };
+
+        const { error } = await supabase.from('notes').insert(row);
+        if (error) {
+          console.warn('Failed to insert activity log:', error);
+        }
+
+        return {
+          id,
+          classId,
+          title: row.title,
+          actionType: row.subject,
+          actorName: meta.actorName,
+          actorRole: meta.actorRole,
+          actorEmail: meta.actorEmail,
+          targetName: meta.targetName,
+          details: meta.details,
+          color: row.color,
+          timestamp: row.updated_at
+        };
+      } catch (err) {
+        console.warn('Error creating activity log:', err);
+        return null;
+      }
+    },
+
+    clear: async (classId) => {
+      if (!classId) return;
+      await supabase.from('notes').delete().eq('workspace_id', classId).eq('category', 'activity_log');
     }
   }
 };

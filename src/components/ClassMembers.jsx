@@ -13,9 +13,10 @@ import {
   Mail, 
   Crown,
   AlertCircle,
-  Settings,
-  X,
-  LogOut
+  Settings, 
+  X, 
+  LogOut,
+  History
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
@@ -25,7 +26,8 @@ export default function ClassMembers({
   currentUser,
   onUpdateMemberRole,
   onRemoveMember,
-  onUpdateClassSettings
+  onUpdateClassSettings,
+  onNavigateTab
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all'); // 'all' | 'komti' | 'lecturer' | 'student'
@@ -222,14 +224,26 @@ export default function ClassMembers({
         {/* Actions: Setting Kelas (Komti/Dosen only) + Join Code */}
         <div className="flex items-center gap-2">
           {isManager && (
-            <button
-              onClick={handleOpenSettings}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-2xs transition-colors"
-              title="Pengaturan Ruang Kelas (Khusus Komti/Dosen)"
-            >
-              <Settings size={14} />
-              <span>Pengaturan Kelas</span>
-            </button>
+            <>
+              {onNavigateTab && (
+                <button
+                  onClick={() => onNavigateTab('logs')}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#0F172A] text-xs font-semibold shadow-2xs transition-colors"
+                  title="Lihat Log Riwayat & Audit Aktivitas Kelas"
+                >
+                  <History size={14} className="text-indigo-600" />
+                  <span>Log Aktivitas</span>
+                </button>
+              )}
+              <button
+                onClick={handleOpenSettings}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-2xs transition-colors"
+                title="Pengaturan Ruang Kelas (Khusus Komti/Dosen)"
+              >
+                <Settings size={14} />
+                <span>Pengaturan Kelas</span>
+              </button>
+            </>
           )}
 
           <button

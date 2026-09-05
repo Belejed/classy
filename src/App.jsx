@@ -15,6 +15,7 @@ import ClassFiles from './components/ClassFiles';
 import ClassAnnouncements from './components/ClassAnnouncements';
 import ClassForum from './components/ClassForum';
 import ClassContacts from './components/ClassContacts';
+import ClassActivityLog from './components/ClassActivityLog';
 import UserProfileModal from './components/UserProfileModal';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -33,6 +34,7 @@ export default function App() {
   const [files, setFiles] = useState(null);
   const [announcements, setAnnouncements] = useState(null);
   const [groups, setGroups] = useState(null);
+  const [logs, setLogs] = useState(null);
   const [contentLoading, setContentLoading] = useState(false);
 
   // Modals
@@ -110,12 +112,13 @@ export default function App() {
     if (!cls?.id) return;
     setContentLoading(true);
     try {
-      const [schData, taskData, fileData, annData, grpData] = await Promise.all([
+      const [schData, taskData, fileData, annData, grpData, logData] = await Promise.all([
         dbService.schedules.list(cls.id),
         dbService.tasks.list(cls.id),
         dbService.files.list(cls.id),
         dbService.announcements.list(cls.id),
-        dbService.groups.list(cls.id)
+        dbService.groups.list(cls.id),
+        dbService.logs.list(cls.id)
       ]);
 
       setSchedules(schData || []);
@@ -123,6 +126,7 @@ export default function App() {
       setFiles(fileData || []);
       setAnnouncements(annData || []);
       setGroups(grpData || []);
+      setLogs(logData || []);
 
       // Auto-sync current user's phone number into class members
       if (user?.uid && user?.phoneNumber && cls?.id) {
@@ -135,8 +139,20 @@ export default function App() {
       setFiles([]);
       setAnnouncements([]);
       setGroups([]);
+      setLogs([]);
     } finally {
       setContentLoading(false);
+    }
+  };
+
+  const handleRefreshLogs = async () => {
+    if (!currentClass?.id) return;
+    try {
+      const freshLogs = await dbService.logs.list(currentClass.id);
+      setLogs(freshLogs);
+      return freshLogs;
+    } catch (err) {
+      console.error('Error refreshing logs:', err);
     }
   };
 
@@ -149,6 +165,7 @@ export default function App() {
       setFiles(null);
       setAnnouncements(null);
       setGroups(null);
+      setLogs(null);
     }
   }, [currentClass?.id]);
 
@@ -173,6 +190,19 @@ export default function App() {
   const handleCreateTask = async (item) => {
     const created = await dbService.tasks.create(currentClass.id, item);
     setTasks(prev => [created, ...prev]);
+
+    try {
+      await dbService.logs.create(currentClass.id, {
+        actionType: 'task_create',
+        title: `Tugas baru: ${item.title}`,
+        details: `${user?.displayName || 'Komti'} menambahkan tugas "${item.title}" untuk mata kuliah ${item.course || '-'}. Tenggat: ${item.dueDate} ${item.dueTime || '23:59'}.`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        targetName: item.title,
+        color: 'blue'
+      });
+      handleRefreshLogs();
+    } catch {}
+
     return created;
   };
 
@@ -187,12 +217,38 @@ export default function App() {
       setFiles(freshFiles);
     } catch {}
 
+    try {
+      const targetTask = refreshed.find(t => t.id === taskId);
+      await dbService.logs.create(currentClass.id, {
+        actionType: 'task_submit',
+        title: `${submissionData.userName} mengumpulkan tugas`,
+        details: `${submissionData.userName} mengumpulkan berkas "${submissionData.fileName}" untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`,
+        actor: { name: submissionData.userName, email: user?.email, role: 'student' },
+        targetName: targetTask?.title || '',
+        color: 'sky'
+      });
+      handleRefreshLogs();
+    } catch {}
+
     return sub;
   };
 
   const handleDeleteTask = async (taskId) => {
+    const taskToDelete = tasks?.find(t => t.id === taskId);
     await dbService.tasks.delete(taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
+
+    try {
+      await dbService.logs.create(currentClass.id, {
+        actionType: 'task_delete',
+        title: `Tugas dihapus`,
+        details: `${user?.displayName || 'Komti'} menghapus tugas "${taskToDelete?.title || taskId}".`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        targetName: taskToDelete?.title || '',
+        color: 'rose'
+      });
+      handleRefreshLogs();
+    } catch {}
   };
 
   const handleUploadFile = async (fileData) => {
@@ -209,12 +265,37 @@ export default function App() {
   const handleCreateAnnouncement = async (item) => {
     const created = await dbService.announcements.create(currentClass.id, item);
     setAnnouncements(prev => [created, ...prev]);
+
+    try {
+      await dbService.logs.create(currentClass.id, {
+        actionType: 'announcement_create',
+        title: `Pengumuman baru: ${item.title}`,
+        details: `${item.author || user?.displayName || 'Komti'} memposting pengumuman: "${item.title}".`,
+        actor: { name: item.author || user?.displayName, email: user?.email, role: currentClass?.userRole },
+        targetName: item.title,
+        color: 'amber'
+      });
+      handleRefreshLogs();
+    } catch {}
+
     return created;
   };
 
   const handleDeleteAnnouncement = async (id) => {
+    const annToDelete = announcements?.find(a => a.id === id);
     await dbService.announcements.delete(id);
     setAnnouncements(prev => prev.filter(a => a.id !== id));
+
+    try {
+      await dbService.logs.create(currentClass.id, {
+        actionType: 'announcement_delete',
+        title: `Pengumuman dihapus`,
+        details: `${user?.displayName || 'Komti'} menghapus pengumuman "${annToDelete?.title || id}".`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        color: 'slate'
+      });
+      handleRefreshLogs();
+    } catch {}
   };
 
   const handleCreateGroup = async (item) => {
@@ -240,6 +321,7 @@ export default function App() {
   };
 
   const handleUpdateMemberRole = async (classId, targetUserId, newRole) => {
+    const targetMember = currentClass?.members?.find(m => m.userId === targetUserId);
     const updatedMembers = await dbService.classes.updateMemberRole(classId, targetUserId, newRole);
     setCurrentClass(prev => {
       if (!prev) return null;
@@ -250,12 +332,42 @@ export default function App() {
         userRole: isSelf ? newRole : prev.userRole
       };
     });
+
+    try {
+      await dbService.logs.create(classId, {
+        actionType: 'member_role',
+        title: `Peran ${targetMember?.name || 'anggota'} diubah`,
+        details: `${user?.displayName || 'Komti'} mengubah peran ${targetMember?.name || 'anggota'} (${targetMember?.email || ''}) menjadi "${newRole}".`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        targetName: targetMember?.name || '',
+        color: 'purple'
+      });
+      handleRefreshLogs();
+    } catch {}
+
     await loadUserClasses();
   };
 
   const handleRemoveMember = async (classId, targetUserId) => {
+    const isSelf = targetUserId === user?.uid;
+    const targetMember = currentClass?.members?.find(m => m.userId === targetUserId);
     const updatedMembers = await dbService.classes.removeMember(classId, targetUserId);
-    if (targetUserId === user?.uid) {
+
+    try {
+      await dbService.logs.create(classId, {
+        actionType: isSelf ? 'member_leave' : 'member_kick',
+        title: isSelf ? `${user?.displayName || 'Anggota'} keluar dari kelas` : `${targetMember?.name || 'Anggota'} dikeluarkan dari kelas`,
+        details: isSelf 
+          ? `Mahasiswa ${user?.displayName || user?.email} telah keluar dari ruang kelas.` 
+          : `${user?.displayName || 'Komti'} mengeluarkan ${targetMember?.name || 'anggota'} (${targetMember?.email || ''}) dari ruang kelas.`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        targetName: targetMember?.name || '',
+        color: isSelf ? 'amber' : 'rose'
+      });
+      handleRefreshLogs();
+    } catch {}
+
+    if (isSelf) {
       setCurrentClass(null);
       await loadUserClasses();
       navigate('/lobby');
@@ -283,6 +395,18 @@ export default function App() {
         userRole: prev.userRole
       };
     });
+
+    try {
+      await dbService.logs.create(classId, {
+        actionType: 'class_update',
+        title: `Pengaturan ruang kelas diperbarui`,
+        details: `${user?.displayName || 'Komti'} memperbarui informasi ruang kelas (${updates.name || currentClass?.name}).`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        color: 'indigo'
+      });
+      handleRefreshLogs();
+    } catch {}
+
     await loadUserClasses();
     return updatedClass;
   };
@@ -425,6 +549,8 @@ export default function App() {
                   handleUpdateMemberRole={handleUpdateMemberRole}
                   handleRemoveMember={handleRemoveMember}
                   handleUpdateClassSettings={handleUpdateClassSettings}
+                  logs={logs}
+                  onRefreshLogs={handleRefreshLogs}
                   onOpenProfile={() => setShowProfileModal(true)}
                   onLogout={handleLogout}
                 />
@@ -486,13 +612,15 @@ function ClassWorkspace({
   handleUpdateMemberRole,
   handleRemoveMember,
   handleUpdateClassSettings,
+  logs,
+  onRefreshLogs,
   onOpenProfile,
   onLogout
 }) {
   const { classId, tab } = useParams();
   const navigate = useNavigate();
 
-  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'contacts', 'members'];
+  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'contacts', 'members', 'logs'];
   const activeTab = validTabs.includes(tab) ? tab : 'dashboard';
 
   // Ensure currentClass matches the URL classId
@@ -656,6 +784,17 @@ function ClassWorkspace({
                 onUpdateMemberRole={handleUpdateMemberRole}
                 onRemoveMember={handleRemoveMember}
                 onUpdateClassSettings={handleUpdateClassSettings}
+                onNavigateTab={(targetTab) => navigate(`/class/${currentClass.id}/${targetTab}`)}
+              />
+            )}
+
+            {activeTab === 'logs' && (
+              <ClassActivityLog
+                currentClass={currentClass}
+                currentUser={user}
+                logs={logs || []}
+                loading={contentLoading}
+                onRefresh={onRefreshLogs}
               />
             )}
           </main>
