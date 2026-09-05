@@ -121,3 +121,90 @@
   }
 }
 
+/* ==========================================================================
+   Smooth Modals, Popups & Dropdowns Animations (Apple & Linear Style)
+   ========================================================================== */
+@keyframes classyFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes classyModalPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes classyZoomIn95 {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes classySlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Base animation driver for animate-in */
+.animate-in {
+  animation-duration: 0.22s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation-name: classyFadeIn;
+}
+
+.zoom-in-95 {
+  animation-name: classyZoomIn95;
+}
+
+.slide-in-from-bottom-2 {
+  animation-name: classySlideUp;
+}
+
+.duration-150 {
+  animation-duration: 150ms !important;
+}
+
+.duration-200 {
+  animation-duration: 200ms !important;
+}
+
+.duration-300 {
+  animation-duration: 300ms !important;
+}
+
+/* Explicit custom classes for ModalPortal and Popups */
+.animate-classy-backdrop {
+  animation: classyFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-classy-modal {
+  animation: classyModalPopIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+
