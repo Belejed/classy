@@ -60,13 +60,27 @@ export default function ClassDashboard({
     .filter(s => s.day === todayDayName)
     .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
 
-  const todayTasks = safeTasks
-    .filter(t => t.dueDate === todayIsoDate || t.dueDate >= todayIsoDate)
-    .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''))
+  // Pending tasks that are not submitted yet by current user
+  const pendingTasks = safeTasks
+    .filter(t => {
+      const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
+      return !isSubmitted;
+    })
+    .filter(t => t.dueDate === todayIsoDate || t.dueDate >= todayIsoDate || !t.dueDate)
+    .sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'))
     .slice(0, 4);
 
+  const hasCompletedTasks = safeTasks.some(t => t.submissions?.some(s => s.userId === currentUser?.uid));
+  const pendingTasksCount = safeTasks.filter(t => {
+    const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
+    return !isSubmitted;
+  }).length;
+
   // Overview Counts
-  const tasksDueCount = safeTasks.filter(t => t.dueDate === todayIsoDate).length;
+  const tasksDueCount = safeTasks.filter(t => {
+    const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
+    return t.dueDate === todayIsoDate && !isSubmitted;
+  }).length;
   const classesTodayCount = todaySchedules.length;
   const announcementsCount = safeAnnouncements.length;
 
@@ -291,10 +305,12 @@ export default function ClassDashboard({
               Tasks Today
             </span>
             <p className="text-xl font-bold text-[#0F172A] tracking-tight">
-              {tasksDueCount} {tasksDueCount === 1 ? 'assignment' : 'assignments'}
+              {pendingTasksCount === 0 ? 'Semua selesai ✨' : `${pendingTasksCount} ${pendingTasksCount === 1 ? 'assignment' : 'assignments'}`}
             </p>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+            pendingTasksCount === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+          }`}>
             <CheckCircle2 size={18} />
           </div>
         </div>
@@ -346,31 +362,44 @@ export default function ClassDashboard({
             <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
               <div>
                 <h3 className="font-bold text-sm text-[#0F172A]">Tasks & Deadlines</h3>
-                <p className="text-[11px] text-[#64748B]">Tugas aktif dan deadline terdekat.</p>
+                <p className="text-[11px] text-[#64748B]">Tugas aktif dan deadline yang perlu dikerjakan.</p>
               </div>
               <button 
                 onClick={() => onNavigateTab('tasks')}
-                className="text-xs font-semibold text-[#0F172A] hover:underline flex items-center gap-1"
+                className="text-xs font-semibold text-[#0F172A] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>View all</span>
                 <ChevronRight size={13} />
               </button>
             </div>
 
-            {todayTasks.length === 0 ? (
-              <div className="py-10 text-center space-y-2 text-[#64748B]">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
-                  <CheckCircle2 size={16} />
+            {pendingTasks.length === 0 ? (
+              <div className="py-10 text-center space-y-2.5">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto ring-8 ring-emerald-50/50 shadow-2xs">
+                  <CheckCircle2 size={24} className="text-emerald-600" />
                 </div>
-                <p className="text-xs font-semibold text-[#0F172A]">Semua Tugas Terselesaikan</p>
-                <p className="text-[11px] text-[#64748B] max-w-[220px] mx-auto">
-                  Tidak ada tugas aktif atau deadline dalam waktu dekat.
-                </p>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-[#0F172A]">
+                    {hasCompletedTasks ? 'Semua Tugas Selesai! 🎉' : 'Belum Ada Tugas Aktif'}
+                  </h4>
+                  <p className="text-[11px] text-[#64748B] max-w-[240px] mx-auto leading-relaxed">
+                    {hasCompletedTasks 
+                      ? 'Kerja bagus! Seluruh tugas aktif kelas sudah berhasil kamu kumpulkan.'
+                      : 'Tidak ada tugas atau deadline yang perlu dikerjakan saat ini.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab('tasks')}
+                  className="mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#0F172A] text-[11px] font-semibold transition-colors cursor-pointer"
+                >
+                  <Check size={12} className="text-emerald-600" />
+                  <span>Lihat Riwayat Pengumpulan</span>
+                </button>
               </div>
             ) : (
               <div className="space-y-2.5">
-                {todayTasks.map((t) => {
-                  const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
+                {pendingTasks.map((t) => {
                   const isDueToday = t.dueDate === todayIsoDate;
 
                   return (
@@ -393,18 +422,14 @@ export default function ClassDashboard({
                             </span>
                           )}
                           <span className={isDueToday ? 'font-bold text-rose-600' : ''}>
-                            Due {t.dueDate}
+                            Due {t.dueDate || 'No deadline'}
                           </span>
                         </div>
                       </div>
 
                       <div className="shrink-0">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          isSubmitted 
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                            : 'bg-slate-100 text-slate-700'
-                        }`}>
-                          {isSubmitted ? 'Submitted' : 'Pending'}
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                          Belum Dikumpulkan
                         </span>
                       </div>
                     </div>
