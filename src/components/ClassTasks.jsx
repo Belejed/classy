@@ -771,24 +771,58 @@ export default function ClassTasks({
 
             {/* Task Info Chips */}
             {(() => {
+              const userSub = selectedTask.submissions?.find(s => s.userId === currentUser?.uid);
+              const isFileMissing = userSub && isSubmissionFileMissing(userSub);
+              const isSubmitted = !!userSub && !isFileMissing;
               const isOverdue = isTaskOverdue(selectedTask.dueDate, selectedTask.dueTime);
+              const showOverdue = isOverdue && !isSubmitted;
+
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                  <div className={`p-2.5 sm:p-3 rounded-xl border flex flex-col justify-start ${isOverdue ? 'bg-rose-50/80 border-rose-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'}`}>
+                  <div className={`p-2.5 sm:p-3 rounded-xl border flex flex-col justify-start ${
+                    showOverdue 
+                      ? 'bg-rose-50/80 border-rose-200' 
+                      : isSubmitted
+                      ? 'bg-emerald-50/50 border-emerald-200'
+                      : 'bg-[#F8FAFC] border-[#E2E8F0]'
+                  }`}>
                     <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-semibold block ${isOverdue ? 'text-rose-700 font-bold' : 'text-[#64748B]'}`}>
+                      <span className={`text-[10px] font-semibold block ${
+                        showOverdue 
+                          ? 'text-rose-700 font-bold' 
+                          : isSubmitted
+                          ? 'text-emerald-800 font-bold'
+                          : 'text-[#64748B]'
+                      }`}>
                         Deadline
                       </span>
-                      {isOverdue && (
+                      {showOverdue ? (
                         <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-200 text-rose-800 uppercase">
                           Terlewat
                         </span>
-                      )}
+                      ) : isSubmitted ? (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 uppercase flex items-center gap-0.5">
+                          <Check size={9} />
+                          <span>Terkumpul</span>
+                        </span>
+                      ) : null}
                     </div>
-                    <span className={`font-bold text-xs sm:text-sm block ${isOverdue ? 'text-rose-700' : 'text-[#0F172A]'}`}>
+                    <span className={`font-bold text-xs sm:text-sm block ${
+                      showOverdue 
+                        ? 'text-rose-700' 
+                        : isSubmitted
+                        ? 'text-emerald-950'
+                        : 'text-[#0F172A]'
+                    }`}>
                       {selectedTask.dueDate}
                     </span>
-                    <span className={`text-[11px] font-semibold block ${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
+                    <span className={`text-[11px] font-semibold block ${
+                      showOverdue 
+                        ? 'text-rose-600 font-bold' 
+                        : isSubmitted
+                        ? 'text-emerald-700'
+                        : 'text-slate-500'
+                    }`}>
                       {selectedTask.dueTime} WIB
                     </span>
                   </div>
