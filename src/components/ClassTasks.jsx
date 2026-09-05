@@ -19,7 +19,13 @@ import {
   RefreshCw,
   BookOpen,
   Layers,
-  Sparkles
+  Sparkles,
+  Users,
+  Copy,
+  MessageCircle,
+  Mail,
+  UserX,
+  UserCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
@@ -40,6 +46,7 @@ export default function ClassTasks({
   const [selectedTask, setSelectedTask] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [autoRenameEnabled, setAutoRenameEnabled] = useState(true);
+  const [managerTab, setManagerTab] = useState('unsubmitted'); // 'unsubmitted' | 'submitted'
 
   // File upload state for submission
   const [isSubmittingFile, setIsSubmittingFile] = useState(false);
@@ -115,6 +122,79 @@ export default function ClassTasks({
     const todayStr = new Date().toISOString().split('T')[0];
 
     return `${cleanUser}_${cleanTask}_${todayStr}${ext}`;
+  };
+
+  // Eligible class members who are expected to submit (students and other registered members, excluding lecturers)
+  const eligibleMembers = useMemo(() => {
+    const members = currentClass?.members || [];
+    const students = members.filter(m => m.role !== 'lecturer' && m.role !== 'dosen');
+    return students.length > 0 ? students : members;
+  }, [currentClass?.members]);
+
+  // Compute submitted vs unsubmitted members for any task
+  const getTaskSubmissionStatus = (task) => {
+    if (!task) return { submittedList: [], unsubmittedList: [], submittedCount: 0, totalCount: 0 };
+
+    const submissions = task.submissions || [];
+    const submittedMap = new Map();
+    submissions.forEach(s => {
+      if (s.userId) {
+        submittedMap.set(s.userId, s);
+      }
+    });
+
+    const submittedList = [];
+    const unsubmittedList = [];
+
+    eligibleMembers.forEach(member => {
+      const sub = submittedMap.get(member.userId);
+      if (sub && !isSubmissionFileMissing(sub)) {
+        submittedList.push({ member, submission: sub });
+      } else {
+        unsubmittedList.push({ member, submission: sub || null });
+      }
+    });
+
+    // Capture any submissions from accounts not yet in eligibleMembers array
+    submissions.forEach(s => {
+      const exists = eligibleMembers.some(m => m.userId === s.userId);
+      if (!exists && !isSubmissionFileMissing(s)) {
+        submittedList.push({ 
+          member: { userId: s.userId, name: s.userName, email: '' }, 
+          submission: s 
+        });
+      }
+    });
+
+    return {
+      submittedList,
+      unsubmittedList,
+      submittedCount: submittedList.length,
+      totalCount: Math.max(eligibleMembers.length, submittedList.length)
+    };
+  };
+
+  // Copy recap of unsubmitted students formatted for WhatsApp class group
+  const handleCopyUnsubmittedList = (task, unsubmittedList) => {
+    if (!unsubmittedList || unsubmittedList.length === 0) {
+      toast.success('Semua mahasiswa sudah mengumpulkan tugas ini!');
+      return;
+    }
+
+    const lines = [
+      `📌 REKAP BELUM MENGUMPULKAN TUGAS`,
+      `Tugas: ${task.title}`,
+      `Mata Kuliah: ${task.course || currentClass?.name || '-'}`,
+      `Deadline: ${task.dueDate} · ${task.dueTime} WIB`,
+      ``,
+      `Daftar Mahasiswa (${unsubmittedList.length} orang):`,
+      ...unsubmittedList.map((item, idx) => `${idx + 1}. ${item.member?.name || item.member?.email || 'Mahasiswa'}`),
+      ``,
+      `Harap segera dikumpulkan sebelum batas waktu ya. Terima kasih! 🙏`
+    ];
+
+    navigator.clipboard.writeText(lines.join('\n'));
+    toast.success(`Daftar ${unsubmittedList.length} mahasiswa belum kirim berhasil disalin!`);
   };
 
   // Create Task Form State
@@ -491,6 +571,31 @@ export default function ClassTasks({
                     </span>
                   )}
                 </div>
+
+                {/* Manager Quick Submission Count */}
+                {isManager && (() => {
+                  const status = getTaskSubmissionStatus(task);
+                  const unsubmittedCount = status.unsubmittedList.length;
+
+                  return (
+                    <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-[#475569] flex items-center gap-1">
+                        <Users size={12} className="text-slate-500" />
+                        <span>{status.submittedCount}/{status.totalCount} Terkumpul</span>
+                      </span>
+
+                      {unsubmittedCount > 0 ? (
+                        <span className="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/80">
+                          {unsubmittedCount} belum kirim
+                        </span>
+                      ) : (
+                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Semua sudah kirim ✨
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -714,61 +819,252 @@ export default function ClassTasks({
               })()}
             </div>
 
-            {/* Manager View: List of all submissions */}
-            {isManager && selectedTask.submissions?.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-[#F1F5F9]">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-xs text-[#0F172A]">
-                    Pengumpulan Mahasiswa ({selectedTask.submissions.length})
-                  </h4>
-                  <a
-                    href={`https://drive.google.com/drive/folders/1BK-P0mPQF9MSy0wsQ-tqNgVCXHXuCwmf`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1"
-                  >
-                    <ExternalLink size={12} />
-                    <span>Buka Folder Drive</span>
-                  </a>
-                </div>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                  {selectedTask.submissions.map(sub => {
-                    const subMissing = isSubmissionFileMissing(sub);
-                    return (
-                      <div key={sub.id || sub.userId} className={`p-2.5 rounded-xl border flex items-center justify-between text-xs gap-2 ${
-                        subMissing ? 'bg-rose-50/70 border-rose-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'
-                      }`}>
-                        <div className="truncate flex-1">
-                          <span className="font-bold text-[#0F172A] block truncate">{sub.userName}</span>
-                          <span className="text-[11px] text-[#64748B] block truncate font-mono">{sub.fileName}</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {subMissing ? (
-                            <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-bold text-[10px] flex items-center gap-1">
-                              <AlertTriangle size={10} />
-                              <span>File Hilang</span>
-                            </span>
-                          ) : sub.fileUrl ? (
-                            <a
-                              href={sub.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-2 py-1 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 font-semibold text-[10px] flex items-center gap-1"
-                            >
-                              <ExternalLink size={10} />
-                              <span>Drive</span>
-                            </a>
-                          ) : null}
-                          <span className="text-[10px] text-[#94A3B8]">
-                            {new Date(sub.submittedAt).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
-                          </span>
-                        </div>
+            {/* Manager View: Comprehensive Task Submission Monitor */}
+            {isManager && (() => {
+              const status = getTaskSubmissionStatus(selectedTask);
+              const percent = status.totalCount > 0 
+                ? Math.round((status.submittedCount / status.totalCount) * 100) 
+                : 0;
+              const hasUnsubmitted = status.unsubmittedList.length > 0;
+
+              return (
+                <div className="space-y-3 pt-3 border-t border-[#F1F5F9]">
+                  {/* Header & Progress Stats */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Users size={14} className="text-[#0F172A]" />
+                        <h4 className="font-bold text-xs text-[#0F172A]">
+                          Monitor Pengumpulan Kelas
+                        </h4>
                       </div>
-                    );
-                  })}
+                      <a
+                        href="https://drive.google.com/drive/folders/1BK-P0mPQF9MSy0wsQ-tqNgVCXHXuCwmf"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1"
+                      >
+                        <ExternalLink size={12} />
+                        <span>Buka Folder Drive</span>
+                      </a>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-2.5 rounded-xl space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#64748B] font-medium">Progres Pengumpulan:</span>
+                        <span className="font-bold text-[#0F172A]">
+                          {status.submittedCount} / {status.totalCount} Mahasiswa ({percent}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-[#E2E8F0] h-2 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-300 rounded-full ${
+                            percent === 100 ? 'bg-emerald-500' : 'bg-[#0F172A]'
+                          }`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tabs & Quick Action Bar */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1 bg-[#F1F5F9] p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setManagerTab('unsubmitted')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          managerTab === 'unsubmitted'
+                            ? 'bg-white text-rose-700 shadow-sm'
+                            : 'text-[#64748B] hover:text-[#0F172A]'
+                        }`}
+                      >
+                        <UserX size={13} className={managerTab === 'unsubmitted' ? 'text-rose-600' : ''} />
+                        <span>Belum Kirim</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                          hasUnsubmitted ? 'bg-rose-100 text-rose-700' : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          {status.unsubmittedList.length}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setManagerTab('submitted')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          managerTab === 'submitted'
+                            ? 'bg-white text-emerald-700 shadow-sm'
+                            : 'text-[#64748B] hover:text-[#0F172A]'
+                        }`}
+                      >
+                        <UserCheck size={13} className={managerTab === 'submitted' ? 'text-emerald-600' : ''} />
+                        <span>Sudah Kirim</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-100 text-emerald-700">
+                          {status.submittedCount}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Copy List WhatsApp Button */}
+                    {hasUnsubmitted && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopyUnsubmittedList(selectedTask, status.unsubmittedList)}
+                        className="text-[11px] font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer shrink-0"
+                        title="Salin rekap nama yang belum kirim untuk dibagikan ke WhatsApp grup"
+                      >
+                        <Copy size={12} className="text-slate-500" />
+                        <span>Salin List WA</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Tab 1: Unsubmitted Students List */}
+                  {managerTab === 'unsubmitted' && (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                      {!hasUnsubmitted ? (
+                        <div className="py-6 text-center bg-emerald-50/60 border border-emerald-100 rounded-2xl">
+                          <CheckCircle2 size={24} className="mx-auto text-emerald-600 mb-1" />
+                          <p className="text-xs font-bold text-emerald-800">Semua Mahasiswa Sudah Mengumpulkan! 🎉</p>
+                          <p className="text-[11px] text-emerald-600 mt-0.5">Tidak ada mahasiswa yang terlambat atau belum kirim.</p>
+                        </div>
+                      ) : (
+                        status.unsubmittedList.map(({ member, submission }, idx) => {
+                          const name = member?.name || member?.email || `Mahasiswa #${idx + 1}`;
+                          const email = member?.email || '';
+                          const phone = member?.phoneNumber || member?.phone || '';
+                          let cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
+                          if (cleanPhone.startsWith('0')) {
+                            cleanPhone = '62' + cleanPhone.slice(1);
+                          }
+                          const isMissingFile = submission && isSubmissionFileMissing(submission);
+
+                          const waText = encodeURIComponent(
+                            `Halo ${name}, mengingatkan untuk tugas *${selectedTask.title}* (${selectedTask.course || currentClass?.name || 'Kuliah'}) batas pengumpulannya adalah ${selectedTask.dueDate} pukul ${selectedTask.dueTime} WIB. Mohon segera diunggah ya. Terima kasih! 🙏`
+                          );
+
+                          return (
+                            <div
+                              key={member?.userId || member?.id || idx}
+                              className="p-2 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between gap-2 hover:border-slate-300 transition-colors"
+                            >
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <div className="w-7 h-7 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                  {name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-xs text-[#0F172A] truncate block">
+                                      {name}
+                                    </span>
+                                    {isMissingFile && (
+                                      <span className="shrink-0 px-1.5 py-0.2 text-[9px] font-bold bg-rose-100 text-rose-700 rounded">
+                                        File Hilang di Drive
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-[#64748B] truncate block">
+                                    {email || (phone ? `WA: ${phone}` : 'Belum mengunggah')}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                {cleanPhone ? (
+                                  <a
+                                    href={`https://wa.me/${cleanPhone}?text=${waText}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                    title={`Chat WhatsApp ke ${name}`}
+                                  >
+                                    <MessageCircle size={11} />
+                                    <span>Ingatkan WA</span>
+                                  </a>
+                                ) : email ? (
+                                  <a
+                                    href={`mailto:${email}?subject=${encodeURIComponent(`Pengingat Tugas: ${selectedTask.title}`)}&body=${waText}`}
+                                    className="px-2 py-1 bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                    title={`Kirim email ke ${email}`}
+                                  >
+                                    <Mail size={11} />
+                                    <span>Email</span>
+                                  </a>
+                                ) : null}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+
+                  {/* Tab 2: Submitted Students List */}
+                  {managerTab === 'submitted' && (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                      {status.submittedList.length === 0 ? (
+                        <div className="py-6 text-center bg-slate-50 border border-slate-100 rounded-2xl">
+                          <Users size={24} className="mx-auto text-slate-400 mb-1" />
+                          <p className="text-xs font-bold text-slate-700">Belum Ada yang Mengumpulkan</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">Daftar pengumpulan akan muncul di sini saat mahasiswa mengunggah file.</p>
+                        </div>
+                      ) : (
+                        status.submittedList.map(({ member, submission }) => {
+                          const subMissing = isSubmissionFileMissing(submission);
+                          return (
+                            <div
+                              key={submission.id || submission.userId}
+                              className={`p-2 rounded-xl border flex items-center justify-between text-xs gap-2 transition-colors ${
+                                subMissing ? 'bg-rose-50/70 border-rose-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                  {(submission.userName || member?.name || 'M').charAt(0).toUpperCase()}
+                                </div>
+                                <div className="truncate flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-[#0F172A] truncate block">
+                                      {submission.userName || member?.name}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] text-[#64748B] block truncate font-mono">
+                                    {submission.fileName}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {subMissing ? (
+                                  <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-bold text-[10px] flex items-center gap-1">
+                                    <AlertTriangle size={10} />
+                                    <span>File Hilang</span>
+                                  </span>
+                                ) : submission.fileUrl ? (
+                                  <a
+                                    href={submission.fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2 py-1 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 font-semibold text-[10px] flex items-center gap-1 border border-sky-200 transition-colors"
+                                  >
+                                    <ExternalLink size={10} />
+                                    <span>Drive</span>
+                                  </a>
+                                ) : null}
+                                <span className="text-[10px] text-[#94A3B8]">
+                                  {new Date(submission.submittedAt).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Modal Footer */}
             <div className="flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
