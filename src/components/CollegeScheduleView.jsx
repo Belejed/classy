@@ -23,7 +23,7 @@ import toast from 'react-hot-toast';
 import { exportSchedulesToIcs } from '../utils/googleCalendar';
 
 const DAYS_OF_WEEK = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-const START_HOUR = 7; // 07:00
+const START_HOUR = 6; // 06:00
 const END_HOUR = 21;  // 21:00
 const HOURS_ARRAY = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
 const HOUR_HEIGHT = 70; // 70px per 1-hour slot

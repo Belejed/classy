@@ -11,17 +11,27 @@
     <title>Classy — Ruang Informasi & Kolaborasi Kelas</title>
     <meta name="description" content="Platform manajemen jadwal, tugas terintegrasi Google Drive, materi perkuliahan, dan kolaborasi mahasiswa." />
 
+    <!-- Canonical Domain & Client-Side Redirect -->
+    <link rel="canonical" href="https://classy.exars.my.id/" />
+    <script>
+      if (window.location.hostname === 'noted-by-blazed.vercel.app') {
+        window.location.replace('https://classy.exars.my.id' + window.location.pathname + window.location.search + window.location.hash);
+      }
+    </script>
+
     <!-- Open Graph / WhatsApp / Social Preview -->
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://classy.exars.my.id/" />
     <meta property="og:title" content="Classy — Ruang Informasi & Kolaborasi Kelas" />
     <meta property="og:description" content="Platform manajemen jadwal, tugas terintegrasi Google Drive, materi perkuliahan, dan kolaborasi mahasiswa." />
-    <meta property="og:image" content="/logo.png" />
+    <meta property="og:image" content="https://classy.exars.my.id/logo.png" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary" />
+    <meta name="twitter:url" content="https://classy.exars.my.id/" />
     <meta name="twitter:title" content="Classy — Ruang Informasi & Kolaborasi Kelas" />
     <meta name="twitter:description" content="Platform manajemen jadwal, tugas terintegrasi Google Drive, materi perkuliahan, dan kolaborasi mahasiswa." />
-    <meta name="twitter:image" content="/logo.png" />
+    <meta name="twitter:image" content="https://classy.exars.my.id/logo.png" />
 
     <!-- PWA Web App Manifest -->
     <link rel="manifest" href="/manifest.json" />

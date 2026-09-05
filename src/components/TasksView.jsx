@@ -18,6 +18,20 @@ import {
 import toast from 'react-hot-toast';
 import { processFileUpload, downloadAttachment } from '../utils/fileStorage';
 
+const getCleanDescription = (desc) => {
+  if (!desc || typeof desc !== 'string') return '';
+  const trimmed = desc.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object') {
+        return parsed.text || parsed.description || '';
+      }
+    } catch {}
+  }
+  return desc;
+};
+
 export default function TasksView({
   tasks = [],
   onSaveTasks,
@@ -240,9 +254,9 @@ export default function TasksView({
                     {task.title}
                   </h4>
 
-                  {task.description && (
+                  {getCleanDescription(task.description) && (
                     <p className="text-[11px] text-[#6F6A63] line-clamp-1">
-                      {task.description}
+                      {getCleanDescription(task.description)}
                     </p>
                   )}
 

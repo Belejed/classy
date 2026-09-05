@@ -17,7 +17,10 @@ import {
   Menu,
   X,
   Shield,
-  BookOpen
+  BookOpen,
+  Phone,
+  History,
+  Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -37,7 +40,17 @@ export default function ClassSidebar({
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isClosingMobileMenu, setIsClosingMobileMenu] = useState(false);
   const switcherRef = useRef(null);
+
+  const handleCloseMobileMenu = () => {
+    if (isClosingMobileMenu) return;
+    setIsClosingMobileMenu(true);
+    setTimeout(() => {
+      setMobileMenuOpen(false);
+      setIsClosingMobileMenu(false);
+    }, 180);
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -58,6 +71,9 @@ export default function ClassSidebar({
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
+  const role = currentClass?.userRole || 'student';
+  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+
   const navTabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'schedule', label: 'Schedule', icon: Calendar },
@@ -65,11 +81,10 @@ export default function ClassSidebar({
     { id: 'files', label: 'Files', icon: Folder },
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'forum', label: 'Forum', icon: MessageSquare },
-    { id: 'members', label: 'Members (Komti)', icon: Users, isSpecial: true }
+    { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
+    { id: 'members', label: 'Members (Komti)', icon: Users, isSpecial: true },
+    ...(isManager ? [{ id: 'logs', label: 'Log Aktivitas', icon: History, isSpecial: true }] : [])
   ];
-
-  const role = currentClass?.userRole || 'student';
-  const isManager = ['komti', 'coordinator', 'lecturer'].includes(role) || currentClass?.ownerId === currentUser?.uid;
 
   const getRoleLabel = () => {
     if (role === 'komti' || role === 'coordinator') return 'Komti';
@@ -114,7 +129,7 @@ export default function ClassSidebar({
 
           {/* Close button on mobile */}
           <button 
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={handleCloseMobileMenu}
             className="md:hidden p-1.5 rounded-xl hover:bg-slate-100 text-slate-500"
           >
             <X size={18} />
@@ -229,7 +244,7 @@ export default function ClassSidebar({
                 key={tab.id}
                 onClick={() => {
                   onSelectTab(tab.id);
-                  setMobileMenuOpen(false);
+                  handleCloseMobileMenu();
                 }}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   isActive
@@ -248,6 +263,13 @@ export default function ClassSidebar({
                     Manage
                   </span>
                 )}
+                {tab.id === 'logs' && (
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-bold tracking-wider ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-800'
+                  }`}>
+                    Audit
+                  </span>
+                )}
                 {tab.id === 'forum' && (
                   <span className={`text-[9px] px-1.5 py-0.2 rounded-md font-bold uppercase tracking-wider ${
                     isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800 border border-amber-200'
@@ -263,6 +285,22 @@ export default function ClassSidebar({
 
       {/* Bottom Profile & Actions */}
       <div className="pt-4 border-t border-[#E2E8F0] space-y-2">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('classy:open-pwa-install'))}
+          className="w-full flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-slate-50 to-indigo-50/60 hover:from-slate-100 hover:to-indigo-100/60 transition-colors text-left border border-slate-200 cursor-pointer group"
+          title="Download Classy PWA"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-[#0F172A] text-white flex items-center justify-center text-xs group-hover:scale-105 transition-transform">
+              <Download size={12} />
+            </div>
+            <span className="text-xs font-bold text-[#0F172A]">Download App</span>
+          </div>
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
+            PWA
+          </span>
+        </button>
+
         <button
           onClick={onOpenProfile}
           className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-[#F8FAFC] transition-colors text-left border border-transparent hover:border-[#E2E8F0]"
@@ -293,50 +331,374 @@ export default function ClassSidebar({
 
   return (
     <>
-      {/* Mobile Top Header */}
-      <header className="md:hidden w-full bg-white border-b border-[#E2E8F0] sticky top-0 z-30 px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="p-1.5 rounded-xl border border-[#CBD5E1] text-[#0F172A] hover:bg-slate-50"
-          >
-            <Menu size={18} />
-          </button>
-          <div className="min-w-0">
-            <h2 className="font-bold text-xs text-[#0F172A] truncate">
-              {currentClass?.name || 'Classy'}
-            </h2>
-            <p className="text-[10px] text-[#64748B] capitalize">
-              {activeTab} · {getRoleLabel()}
-            </p>
-          </div>
-        </div>
+      {/* Mobile Bottom Navigation Bar (Single Unified Navigation on Mobile) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] shadow-lg px-2 py-1 flex items-center justify-around">
+        {[
+          { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+          { id: 'schedule', label: 'Jadwal', icon: Calendar },
+          { id: 'tasks', label: 'Tugas', icon: CheckSquare },
+          { id: 'announcements', label: 'Info', icon: Megaphone },
+        ].map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onSelectTab(item.id)}
+              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out ${
+                isActive ? 'text-[#0F172A]' : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              <div className={`p-1.5 rounded-xl transition-all duration-200 ${
+                isActive ? 'bg-[#0F172A] text-white shadow-2xs scale-105' : 'bg-transparent'
+              }`}>
+                <Icon size={17} />
+              </div>
+              <span className={`text-[10px] tracking-tight mt-0.5 transition-all ${
+                isActive ? 'font-bold text-[#0F172A]' : 'font-medium text-[#64748B]'
+              }`}>
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
 
-        <button
-          onClick={onOpenProfile}
-          className="w-7 h-7 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-xs font-bold"
-        >
-          {currentUser?.displayName ? currentUser.displayName[0].toUpperCase() : 'U'}
-        </button>
-      </header>
+        {/* 5th Tab: Menu Drawer Button (Files, Anggota, Kontak, Forum, Switch Class, Profile) */}
+        {(() => {
+          const isOtherTabActive = ['files', 'forum', 'contacts', 'members', 'logs'].includes(activeTab) || mobileMenuOpen;
+          return (
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out ${
+                isOtherTabActive ? 'text-[#0F172A]' : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+            >
+              <div className={`p-1.5 rounded-xl transition-all duration-200 ${
+                isOtherTabActive ? 'bg-[#0F172A] text-white shadow-2xs scale-105' : 'bg-transparent'
+              }`}>
+                <Menu size={17} />
+              </div>
+              <span className={`text-[10px] tracking-tight mt-0.5 transition-all ${
+                isOtherTabActive ? 'font-bold text-[#0F172A]' : 'font-medium text-[#64748B]'
+              }`}>
+                Menu
+              </span>
+            </button>
+          );
+        })()}
+      </nav>
 
-      {/* Mobile Drawer Overlay */}
+      {/* Mobile Bottom Sheet Modal (Features not in the bottom taskbar) */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
+        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+          {/* Backdrop */}
           <div 
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity" 
-            onClick={() => setMobileMenuOpen(false)} 
+            className={`fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity ${
+              isClosingMobileMenu ? 'animate-classy-backdrop-out' : 'animate-classy-backdrop'
+            }`} 
+            onClick={handleCloseMobileMenu} 
           />
-          <div className="relative w-72 max-w-[80vw] bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
-            <NavContent />
+
+          {/* Bottom Sheet Container */}
+          <div className={`relative w-full bg-white rounded-t-[28px] shadow-2xl z-10 max-h-[85vh] flex flex-col overflow-hidden ${
+            isClosingMobileMenu ? 'animate-bottom-sheet-out' : 'animate-bottom-sheet-in'
+          }`}>
+            {/* Grab Handle */}
+            <div className="pt-3 pb-1 flex justify-center shrink-0">
+              <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
+            </div>
+
+            {/* Sheet Header */}
+            <div className="px-5 py-2.5 flex items-center justify-between border-b border-slate-100 shrink-0">
+              <div>
+                <h3 className="font-bold text-sm text-[#0F172A]">Menu & Fitur Kelas</h3>
+                <p className="text-[11px] text-[#64748B]">Fitur lainnya di luar taskbar utama</p>
+              </div>
+              <button 
+                onClick={handleCloseMobileMenu}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="p-4 space-y-4 overflow-y-auto">
+              {/* Active Class Card */}
+              <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 pr-2">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">
+                      Kelas Aktif
+                    </span>
+                    <h4 className="font-bold text-xs text-[#0F172A] truncate">
+                      {currentClass?.name || 'Classy'}
+                    </h4>
+                    <p className="text-[10px] text-[#64748B]">
+                      {currentClass?.classIdentifier || 'TI-3A'} · {currentClass?.lecturer || 'Dosen'}
+                    </p>
+                  </div>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${getRoleBadgeStyle()}`}>
+                    {getRoleLabel()}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 gap-2">
+                  <span className="text-[10px] font-mono text-slate-500">
+                    Kode: <strong className="text-[#0F172A]">{currentClass?.joinCode || '------'}</strong>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={handleCopyJoinCode}
+                      className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1 shadow-2xs cursor-pointer"
+                    >
+                      {copiedCode ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                      <span>{copiedCode ? 'Disalin' : 'Salin'}</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleCloseMobileMenu();
+                        onBackToLobby();
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-slate-200/70 hover:bg-slate-200 text-[10px] font-semibold text-[#0F172A] flex items-center gap-1 cursor-pointer"
+                    >
+                      <Home size={11} />
+                      <span>Lobby</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid of Other Features (Not on bottom taskbar) */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
+                  Fitur Lainnya
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* 1. Anggota Kelas */}
+                  <button
+                    onClick={() => {
+                      onSelectTab('members');
+                      handleCloseMobileMenu();
+                    }}
+                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-1 active:scale-[0.98] ${
+                      activeTab === 'members'
+                        ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
+                        : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        activeTab === 'members' ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-700'
+                      }`}>
+                        <Users size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs truncate">Anggota Kelas</p>
+                        <p className={`text-[10px] truncate ${activeTab === 'members' ? 'text-white/80' : 'text-[#64748B]'}`}>
+                          Mahasiswa, Komti & Dosen
+                        </p>
+                      </div>
+                    </div>
+                    {isManager && (
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-1 ${
+                        activeTab === 'members' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}>
+                        Kelola
+                      </span>
+                    )}
+                  </button>
+
+                  {/* 2. File & Materi */}
+                  <button
+                    onClick={() => {
+                      onSelectTab('files');
+                      handleCloseMobileMenu();
+                    }}
+                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-2 active:scale-[0.98] ${
+                      activeTab === 'files'
+                        ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
+                        : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        activeTab === 'files' ? 'bg-white/20 text-white' : 'bg-sky-50 text-sky-700'
+                      }`}>
+                        <Folder size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs truncate">File & Materi</p>
+                        <p className={`text-[10px] truncate ${activeTab === 'files' ? 'text-white/80' : 'text-[#64748B]'}`}>
+                          Modul & berkas kuliah
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* 3. Kontak Dosen */}
+                  <button
+                    onClick={() => {
+                      onSelectTab('contacts');
+                      handleCloseMobileMenu();
+                    }}
+                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-3 active:scale-[0.98] ${
+                      activeTab === 'contacts'
+                        ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
+                        : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        activeTab === 'contacts' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-700'
+                      }`}>
+                        <Phone size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs truncate">Kontak Dosen</p>
+                        <p className={`text-[10px] truncate ${activeTab === 'contacts' ? 'text-white/80' : 'text-[#64748B]'}`}>
+                          WhatsApp & dosen pengampu
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* 4. Forum Diskusi */}
+                  <button
+                    onClick={() => {
+                      onSelectTab('forum');
+                      handleCloseMobileMenu();
+                    }}
+                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-4 active:scale-[0.98] ${
+                      activeTab === 'forum'
+                        ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
+                        : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        activeTab === 'forum' ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        <MessageSquare size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs truncate">Forum Diskusi</p>
+                        <p className={`text-[10px] truncate ${activeTab === 'forum' ? 'text-white/80' : 'text-[#64748B]'}`}>
+                          Grup obrolan kelas
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md uppercase tracking-wider shrink-0 ml-1 ${
+                      activeTab === 'forum' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      Info
+                    </span>
+                  </button>
+
+                  {/* 5. Log Aktivitas (Managers Only) */}
+                  {isManager && (
+                    <button
+                      onClick={() => {
+                        onSelectTab('logs');
+                        handleCloseMobileMenu();
+                      }}
+                      className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-5 active:scale-[0.98] ${
+                        activeTab === 'logs'
+                          ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
+                          : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                          activeTab === 'logs' ? 'bg-white/20 text-white' : 'bg-rose-50 text-rose-700'
+                        }`}>
+                          <History size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs truncate">Log Aktivitas</p>
+                          <p className={`text-[10px] truncate ${activeTab === 'logs' ? 'text-white/80' : 'text-[#64748B]'}`}>
+                            Audit & transparansi
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-1 ${
+                        activeTab === 'logs' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-800'
+                      }`}>
+                        Audit
+                      </span>
+                    </button>
+                  )}
+
+                  {/* 6. Download Aplikasi (PWA) */}
+                  <button
+                    onClick={() => {
+                      handleCloseMobileMenu();
+                      window.dispatchEvent(new CustomEvent('classy:open-pwa-install'));
+                    }}
+                    className="flex items-center justify-between p-3 rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50/80 via-blue-50/60 to-purple-50/40 hover:from-indigo-100 hover:to-blue-100 transition-all text-left cursor-pointer animate-sheet-item-5 active:scale-[0.98]"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <Download size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs text-[#0F172A] truncate">Download Aplikasi (PWA)</p>
+                        <p className="text-[10px] text-indigo-700/80 truncate">
+                          Pasang di layar HP tanpa browser
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white shrink-0 ml-1 shadow-2xs">
+                      Install
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Bottom Profile and Logout Actions */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                <button
+                  onClick={() => {
+                    handleCloseMobileMenu();
+                    onOpenProfile();
+                  }}
+                  className="flex items-center gap-2.5 min-w-0 flex-1 text-left p-1.5 -ml-1.5 rounded-xl hover:bg-slate-50 cursor-pointer"
+                >
+                  <div className="w-8 h-8 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                    {currentUser?.displayName ? currentUser.displayName[0].toUpperCase() : 'U'}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-xs text-[#0F172A] truncate">
+                      {currentUser?.displayName || 'Profil Pengguna'}
+                    </p>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {currentUser?.email}
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handleCloseMobileMenu();
+                    onLogout();
+                  }}
+                  className="px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
+                >
+                  <LogOut size={13} />
+                  <span>Keluar</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Desktop Fixed Left Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-white border-r border-[#E2E8F0] min-h-screen sticky top-0 h-screen overflow-y-auto">
+      {/* Desktop Fixed Left Sidebar (Does not scroll with the main content) */}
+      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-white border-r border-[#E2E8F0] fixed top-0 left-0 bottom-0 z-30 h-screen overflow-y-auto">
         <NavContent />
       </aside>
+      {/* Spacer to keep flex layout width intact on desktop */}
+      <div className="hidden md:block w-64 shrink-0 pointer-events-none" aria-hidden="true" />
     </>
   );
 }

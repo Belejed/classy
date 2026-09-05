@@ -7,10 +7,12 @@ import {
   AlertCircle, 
   Paperclip, 
   Trash2,
-  Share2
+  Share2,
+  Mail
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
+import ConfirmModal from './ConfirmModal';
 
 export default function ClassAnnouncements({
   currentClass,
@@ -21,6 +23,10 @@ export default function ClassAnnouncements({
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+
+  // In-app Delete Confirmation Modal
+  const [announcementToDelete, setAnnouncementToDelete] = useState(null);
+  const [isDeletingAnnouncement, setIsDeletingAnnouncement] = useState(false);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -58,14 +64,18 @@ export default function ClassAnnouncements({
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Hapus pengumuman ini?')) return;
+  const handleConfirmDeleteAnnouncement = async () => {
+    if (!announcementToDelete) return;
+    setIsDeletingAnnouncement(true);
     try {
-      await onDeleteAnnouncement(id);
+      await onDeleteAnnouncement(announcementToDelete.id);
       setSelectedAnnouncement(null);
+      setAnnouncementToDelete(null);
       toast.success('Pengumuman berhasil dihapus');
     } catch {
       toast.error('Gagal menghapus pengumuman');
+    } finally {
+      setIsDeletingAnnouncement(false);
     }
   };
 
@@ -111,17 +121,25 @@ export default function ClassAnnouncements({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase ${
-                    isImportant 
-                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                      : ann.type === 'schedule'
-                      ? 'bg-blue-50 text-blue-700'
-                      : ann.type === 'assignment'
-                      ? 'bg-amber-50 text-amber-700'
-                      : 'bg-slate-100 text-slate-700'
-                  }`}>
-                    {ann.type}
-                  </span>
+                  {isImportant ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-600 text-white shadow-xs border border-rose-700 animate-pulse">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-80"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                      </span>
+                      <span>IMPORTANT</span>
+                    </span>
+                  ) : (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase ${
+                      ann.type === 'schedule'
+                        ? 'bg-blue-50 text-blue-700'
+                        : ann.type === 'assignment'
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}>
+                      {ann.type}
+                    </span>
+                  )}
 
                   <span className="text-[11px] text-[#94A3B8]">
                     {new Date(ann.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -176,16 +194,58 @@ export default function ClassAnnouncements({
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9]">
-              {isManager ? (
-                <button
-                  onClick={() => handleDelete(selectedAnnouncement.id)}
-                  className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer"
+            <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9] gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                {/* Share to WhatsApp Button */}
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                    `📢 *[PENGUMUMAN KELAS: ${currentClass?.name || 'Classy'}]*\n` +
+                    `*${selectedAnnouncement.title}*\n\n` +
+                    `${selectedAnnouncement.message}\n\n` +
+                    `Dipublikasikan oleh: ${selectedAnnouncement.author}\n` +
+                    `🔗 Akses web kelas: https://classy.exars.my.id`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                  title="Bagikan pengumuman ini langsung ke WhatsApp / Grup Kelas"
                 >
-                  <Trash2 size={13} />
-                  <span>Delete</span>
-                </button>
-              ) : <div />}
+                  <Share2 size={13} />
+                  <span>Kirim ke WA</span>
+                </a>
+
+                {/* Email broadcast button */}
+                {(() => {
+                  const emails = (currentClass?.members || [])
+                    .filter(m => m && (m.status || 'approved') === 'approved' && m.email)
+                    .map(m => m.email)
+                    .join(',');
+                  if (!emails) return null;
+                  const mailSub = `[PENGUMUMAN KELAS: ${currentClass?.name || 'Classy'}] ${selectedAnnouncement.title}`;
+                  const mailBody = `${selectedAnnouncement.message}\n\nDipublikasikan oleh: ${selectedAnnouncement.author}\nPortal Kelas: ${typeof window !== 'undefined' ? window.location.origin : ''}`;
+                  return (
+                    <a
+                      href={`mailto:?bcc=${encodeURIComponent(emails)}&subject=${encodeURIComponent(mailSub)}&body=${encodeURIComponent(mailBody)}`}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      title="Kirim email ke seluruh anggota kelas (BCC)"
+                    >
+                      <Mail size={13} />
+                      <span>Email Anggota</span>
+                    </a>
+                  );
+                })()}
+
+                {isManager && (
+                  <button
+                    type="button"
+                    onClick={() => setAnnouncementToDelete(selectedAnnouncement)}
+                    className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer transition-colors border border-rose-200/60 sm:border-transparent"
+                  >
+                    <Trash2 size={13} />
+                    <span>Hapus</span>
+                  </button>
+                )}
+              </div>
 
               <button
                 onClick={() => setSelectedAnnouncement(null)}
@@ -268,6 +328,19 @@ export default function ClassAnnouncements({
           </div>
         </ModalPortal>
       )}
+
+      {/* CONFIRM DELETE MODAL (In-App, Non-native) */}
+      <ConfirmModal
+        isOpen={Boolean(announcementToDelete)}
+        onClose={() => !isDeletingAnnouncement && setAnnouncementToDelete(null)}
+        onConfirm={handleConfirmDeleteAnnouncement}
+        title="Hapus Pengumuman?"
+        message={`Pengumuman "${announcementToDelete?.title || ''}" akan dihapus permanen.`}
+        confirmText="Ya, Hapus"
+        cancelText="Batal"
+        type="danger"
+        isLoading={isDeletingAnnouncement}
+      />
 
     </div>
   );

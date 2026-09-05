@@ -78,10 +78,16 @@ export async function uploadToGoogleDrive({ file, name, folderName }) {
  */
 export function extractDriveFileId(url) {
   if (!url) return null;
-  const matchD = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  const matchD = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/);
   if (matchD) return matchD[1];
-  const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  const matchId = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (matchId) return matchId[1];
+  // If it's already a raw Google Drive File ID (alphanumeric 20-60 chars)
+  if (/^[a-zA-Z0-9_-]{20,60}$/.test(trimmed)) {
+    return trimmed;
+  }
   return null;
 }
 
@@ -110,3 +116,73 @@ export async function checkDriveFiles(fileIds = []) {
   }
   return {};
 }
+
+/**
+ * Move a file in Google Drive to the 'Trash' folder instead of permanently deleting it
+ */
+export async function moveFileToDriveTrash(fileUrlOrId) {
+  if (!fileUrlOrId) return null;
+
+  let fileId = null;
+  if (typeof fileUrlOrId === 'object' && fileUrlOrId !== null) {
+    fileId = fileUrlOrId.driveFileId || fileUrlOrId.fileId || fileUrlOrId.id || extractDriveFileId(fileUrlOrId.storageUrl || fileUrlOrId.fileUrl);
+  } else if (typeof fileUrlOrId === 'string') {
+    fileId = extractDriveFileId(fileUrlOrId) || fileUrlOrId.trim();
+  }
+
+  if (!fileId) {
+    console.warn('Tidak dapat menemukan Google Drive File ID dari:', fileUrlOrId);
+    return null;
+  }
+
+  try {
+    const res = await fetch('/api/trash-drive-file', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ fileId })
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      const errMsg = data.error || data.message || 'Gagal memindahkan ke Trash';
+      console.warn('Drive trash API returned non-success:', errMsg);
+      throw new Error(errMsg);
+    }
+    return data;
+  } catch (err) {
+    console.warn('Gagal memindahkan berkas ke folder Trash di Google Drive:', err);
+    throw err;
+  }
+}
+
+/**
+ * Move multiple files in Google Drive to the 'Trash' folder in batch
+ */
+export async function moveFilesToDriveTrash(fileUrlsOrIds = []) {
+  const validIds = fileUrlsOrIds.map(f => {
+    if (!f) return null;
+    return (f.includes('/') || f.includes('?')) ? extractDriveFileId(f) : f;
+  }).filter(Boolean);
+
+  if (!validIds.length) return null;
+
+  try {
+    const res = await fetch('/api/trash-drive-file', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ fileIds: validIds })
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('Gagal memindahkan daftar berkas ke folder Trash di Google Drive:', err);
+  }
+  return null;
+}
+

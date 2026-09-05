@@ -112,6 +112,25 @@ export const authService = {
     };
   },
 
+  resetPassword: async (email) => {
+    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const base = isDev ? window.location.origin : 'https://classy.exars.my.id';
+    const redirectTo = `${base}/reset-password`;
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  updatePassword: async (newPassword) => {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+    if (error) throw error;
+    return data;
+  },
+
   logout: async () => {
     await supabase.auth.signOut();
   },
@@ -120,6 +139,64 @@ export const authService = {
     await supabase.auth.signOut();
   }
 };
+
+// Helper to parse lecturer name, role, and contact phone number
+export const parseLecturerInfo = (rawLecturer = '', rawNotes = '', explicitPhone = '') => {
+  const text = `${rawLecturer || ''} ${rawNotes || ''} ${explicitPhone || ''}`;
+  
+  // Extract phone number (starts with +628, 628, 08, or 8 followed by 8-12 digits)
+  const phoneMatch = (explicitPhone || text).match(/(?:\+?62|0)?(8\d{8,12})/);
+  let phone = '';
+  let cleanPhone = '';
+  if (phoneMatch) {
+    phone = phoneMatch[0];
+    cleanPhone = '62' + phoneMatch[1];
+  }
+
+  // Extract role if in parentheses, but exclude if it only contains phone numbers
+  let role = '';
+  const parenthesesMatches = Array.from((rawLecturer || '').matchAll(/\(([^)]+)\)/g));
+  for (const match of parenthesesMatches) {
+    const content = match[1].trim();
+    // If content is purely digits/phone characters, it's not a role
+    const isPhoneContent = /^[\d\s+-]+$/.test(content);
+    if (!isPhoneContent && content) {
+      role = content;
+      break;
+    }
+  }
+
+  // Clean lecturer name:
+  // 1. Remove phone in parentheses like (08128315124) or ( 0812... )
+  // 2. Remove standalone phone numbers
+  // 3. Remove role in parentheses if found
+  // 4. Remove empty or whitespace-only parentheses `()`
+  let name = (rawLecturer || '')
+    .replace(/\(\s*(?:\+?62|0)?8\d{8,12}\s*\)/g, '') // remove phone in parentheses
+    .replace(/(?:\+?62|0)?8\d{8,12}/g, '')          // remove raw phone digits
+    .replace(/\(\s*\)/g, '');                       // remove empty parentheses
+
+  if (role) {
+    name = name.replace(new RegExp(`\\(\\s*${escapeRegExp(role)}\\s*\\)`, 'g'), '');
+  }
+
+  name = name.replace(/\s+/g, ' ').trim();
+
+  return {
+    name,
+    phone,
+    cleanPhone,
+    role,
+    lecturerName: name,
+    lecturerPhone: phone,
+    lecturerCleanPhone: cleanPhone,
+    lecturerRole: role
+  };
+};
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // --- DATA SERVICE (CLASSY DOMAIN) ---
 export const dbService = {
@@ -152,17 +229,22 @@ export const dbService = {
         let userRole = currentMember?.role || (isOwner ? 'komti' : 'student');
         if (userRole === 'coordinator') userRole = 'komti';
 
+        // An owner is always approved; otherwise use member's status (default 'approved' for backwards compatibility)
+        const membershipStatus = isOwner ? 'approved' : (currentMember?.status || 'approved');
+
         return {
           id: c.id,
           name: c.name,
           classIdentifier: meta.classIdentifier || c.description || 'TI-3A',
           lecturer: meta.lecturer || 'Dosen Pengampu',
           academicPeriod: meta.academicPeriod || '2026/2027 Ganjil',
+          waGroupLink: meta.waGroupLink || '',
           joinCode: c.invite_code,
           ownerId: c.owner_id,
           userRole, // 'komti' | 'lecturer' | 'student'
+          membershipStatus, // 'approved' | 'pending' | 'rejected'
           members: c.members || [],
-          memberCount: (c.members || []).length || 1,
+          memberCount: (c.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1,
           createdAt: c.created_at
         };
       });
@@ -185,10 +267,11 @@ export const dbService = {
         classIdentifier: meta.classIdentifier || data.description || 'TI-3A',
         lecturer: meta.lecturer || 'Dosen Pengampu',
         academicPeriod: meta.academicPeriod || '2026/2027 Ganjil',
+        waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
         ownerId: data.owner_id,
         members: data.members || [],
-        memberCount: (data.members || []).length || 1,
+        memberCount: (data.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1,
         createdAt: data.created_at
       };
     },
@@ -213,11 +296,11 @@ export const dbService = {
         academicPeriod: meta.academicPeriod || '2026/2027',
         joinCode: data.invite_code,
         members: data.members || [],
-        memberCount: (data.members || []).length || 1
+        memberCount: (data.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1
       };
     },
 
-    create: async (userId, userEmail, userName, { name, classIdentifier, lecturer, academicPeriod, creatorRole = 'komti' }) => {
+    create: async (userId, userEmail, userName, { name, classIdentifier, lecturer, academicPeriod, waGroupLink = '', creatorRole = 'komti', phoneNumber = '' }) => {
       // Rule: 1 user can only have 1 class
       const existingClasses = await dbService.classes.list(userId, userEmail);
       if (existingClasses.length > 0) {
@@ -230,7 +313,8 @@ export const dbService = {
       const meta = {
         classIdentifier: (classIdentifier || 'TI-3A').trim(),
         lecturer: (lecturer || 'Dosen Pengampu').trim(),
-        academicPeriod: (academicPeriod || '2026/2027').trim()
+        academicPeriod: (academicPeriod || '2026/2027').trim(),
+        waGroupLink: (waGroupLink || '').trim()
       };
 
       const finalRole = (creatorRole === 'lecturer' || creatorRole === 'dosen') ? 'lecturer' : 'komti';
@@ -249,7 +333,9 @@ export const dbService = {
             userId,
             name: userName || userEmail.split('@')[0],
             email: userEmail,
+            phoneNumber: (phoneNumber || '').trim(),
             role: finalRole,
+            status: 'approved',
             joinedAt: new Date().toISOString()
           }
         ]
@@ -258,23 +344,38 @@ export const dbService = {
       const { error } = await supabase.from('workspaces').insert(newDbRecord);
       if (error) throw error;
 
+      // Log class creation
+      try {
+        await dbService.logs.create(newDbRecord.id, {
+          actionType: 'class_create',
+          title: `Ruang kelas "${name.trim()}" dibuat`,
+          details: `${userName || userEmail} membuat ruang kelas baru dengan kode undangan ${joinCode}.`,
+          actor: { name: userName || userEmail, email: userEmail, role: finalRole },
+          color: 'indigo'
+        });
+      } catch (logErr) {
+        console.warn('Could not record create log:', logErr);
+      }
+
       return {
         id: newDbRecord.id,
         name: newDbRecord.name,
         classIdentifier: meta.classIdentifier,
         lecturer: meta.lecturer,
         academicPeriod: meta.academicPeriod,
+        waGroupLink: meta.waGroupLink,
         joinCode: newDbRecord.invite_code,
         ownerId: newDbRecord.owner_id,
         userRole: finalRole,
+        membershipStatus: 'approved',
         members: newDbRecord.members,
         memberCount: 1,
         createdAt: newDbRecord.created_at
       };
     },
 
-    joinByCode: async (userId, userEmail, userName, joinCode, defaultRole = 'student') => {
-      // Rule: 1 user can only have 1 class
+    joinByCode: async (userId, userEmail, userName, joinCode, defaultRole = 'student', phoneNumber = '') => {
+      // Rule: 1 user can only have 1 active class
       const existingClasses = await dbService.classes.list(userId, userEmail);
       const cleanCode = (joinCode || '').trim().toUpperCase();
       const { data, error } = await supabase.from('workspaces').select('*').ilike('invite_code', cleanCode).maybeSingle();
@@ -288,22 +389,53 @@ export const dbService = {
       }
 
       const existingMembers = data.members || [];
-      const alreadyJoined = existingMembers.some(m => m.userId === userId || m.email?.toLowerCase() === userEmail?.toLowerCase());
+      const currentMemberIndex = existingMembers.findIndex(m => m.userId === userId || m.email?.toLowerCase() === userEmail?.toLowerCase());
 
-      let updatedMembers = existingMembers;
-      if (!alreadyJoined) {
-        updatedMembers = [
-          ...existingMembers,
-          {
-            userId,
-            name: userName || userEmail.split('@')[0],
-            email: userEmail,
-            role: defaultRole,
-            joinedAt: new Date().toISOString()
-          }
-        ];
+      let updatedMembers = [...existingMembers];
+      let userStatus = 'pending';
+
+      if (currentMemberIndex === -1) {
+        // New join request -> starts as 'pending' for komti approval
+        const newMember = {
+          userId,
+          name: userName || userEmail.split('@')[0],
+          email: userEmail,
+          phoneNumber: (phoneNumber || '').trim(),
+          role: defaultRole,
+          status: 'pending',
+          joinedAt: new Date().toISOString()
+        };
+        updatedMembers.push(newMember);
+
         const { error: updErr } = await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', data.id);
         if (updErr) throw updErr;
+
+        // Log request join
+        try {
+          await dbService.logs.create(data.id, {
+            actionType: 'member_request',
+            title: `${newMember.name} meminta bergabung ke kelas`,
+            details: `Mahasiswa ${newMember.name} (${userEmail}) meminta izin bergabung dengan kode ${cleanCode}. Menunggu persetujuan Komti/Dosen.`,
+            actor: { name: newMember.name, email: userEmail, role: defaultRole },
+            color: 'amber'
+          });
+        } catch (logErr) {
+          console.warn('Could not record join request log:', logErr);
+        }
+      } else {
+        // Member already exists, retain their existing status or re-request if previously denied
+        const existing = updatedMembers[currentMemberIndex];
+        userStatus = existing.status || 'approved';
+        if (userStatus === 'denied' || userStatus === 'rejected') {
+          // Allow re-requesting
+          updatedMembers[currentMemberIndex] = {
+            ...existing,
+            status: 'pending',
+            joinedAt: new Date().toISOString()
+          };
+          userStatus = 'pending';
+          await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', data.id);
+        }
       }
 
       let meta = {};
@@ -322,13 +454,76 @@ export const dbService = {
         classIdentifier: meta.classIdentifier || data.description || 'TI-3A',
         lecturer: meta.lecturer || 'Dosen Pengampu',
         academicPeriod: meta.academicPeriod || '2026/2027',
+        waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
         ownerId: data.owner_id,
         userRole,
+        membershipStatus: userStatus,
         members: updatedMembers,
-        memberCount: updatedMembers.length,
+        memberCount: updatedMembers.filter(m => (m.status || 'approved') === 'approved').length,
         createdAt: data.created_at
       };
+    },
+
+    approveMember: async (classId, targetUserId) => {
+      const { data, error } = await supabase.from('workspaces').select('*').eq('id', classId).maybeSingle();
+      if (error || !data) throw new Error('Kelas tidak ditemukan.');
+
+      const members = data.members || [];
+      const targetMember = members.find(m => m.userId === targetUserId);
+      const updatedMembers = members.map(m => m.userId === targetUserId ? { ...m, status: 'approved' } : m);
+
+      const { error: updErr } = await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', classId);
+      if (updErr) throw updErr;
+
+      try {
+        await dbService.logs.create(classId, {
+          actionType: 'member_approve',
+          title: `Permintaan masuk disetujui`,
+          details: `${targetMember?.name || 'Mahasiswa'} (${targetMember?.email || ''}) telah disetujui bergabung ke dalam kelas.`,
+          actor: { name: 'Komti/Dosen', role: 'komti' },
+          color: 'emerald'
+        });
+      } catch {}
+
+      return updatedMembers;
+    },
+
+    denyMember: async (classId, targetUserId) => {
+      const { data, error } = await supabase.from('workspaces').select('*').eq('id', classId).maybeSingle();
+      if (error || !data) throw new Error('Kelas tidak ditemukan.');
+
+      const members = data.members || [];
+      const targetMember = members.find(m => m.userId === targetUserId);
+      // Remove or mark as denied
+      const updatedMembers = members.filter(m => m.userId !== targetUserId);
+
+      const { error: updErr } = await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', classId);
+      if (updErr) throw updErr;
+
+      try {
+        await dbService.logs.create(classId, {
+          actionType: 'member_deny',
+          title: `Permintaan masuk ditolak`,
+          details: `Permintaan masuk ${targetMember?.name || 'Mahasiswa'} (${targetMember?.email || ''}) ditolak oleh Komti/Dosen.`,
+          actor: { name: 'Komti/Dosen', role: 'komti' },
+          color: 'rose'
+        });
+      } catch {}
+
+      return updatedMembers;
+    },
+
+    cancelJoinRequest: async (classId, userId) => {
+      const { data, error } = await supabase.from('workspaces').select('*').eq('id', classId).maybeSingle();
+      if (error || !data) throw new Error('Kelas tidak ditemukan.');
+
+      const members = data.members || [];
+      const updatedMembers = members.filter(m => m.userId !== userId);
+
+      const { error: updErr } = await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', classId);
+      if (updErr) throw updErr;
+      return updatedMembers;
     },
 
     updateMemberRole: async (classId, targetUserId, newRole) => {
@@ -355,7 +550,27 @@ export const dbService = {
       return updatedMembers;
     },
 
-    update: async (classId, { name, classIdentifier, lecturer, academicPeriod }) => {
+    syncMemberPhone: async (classId, userId, phoneNumber) => {
+      if (!classId || !userId || !phoneNumber) return;
+      try {
+        const { data, error } = await supabase.from('workspaces').select('members').eq('id', classId).maybeSingle();
+        if (error || !data) return;
+        const members = data.members || [];
+        let changed = false;
+        const updated = members.map(m => {
+          if (m.userId === userId && m.phoneNumber !== phoneNumber) {
+            changed = true;
+            return { ...m, phoneNumber };
+          }
+          return m;
+        });
+        if (changed) {
+          await supabase.from('workspaces').update({ members: updated }).eq('id', classId);
+        }
+      } catch {}
+    },
+
+    update: async (classId, { name, classIdentifier, lecturer, academicPeriod, waGroupLink }) => {
       const { data, error } = await supabase.from('workspaces').select('*').eq('id', classId).maybeSingle();
       if (error || !data) throw new Error('Kelas tidak ditemukan.');
 
@@ -369,6 +584,7 @@ export const dbService = {
       if (classIdentifier !== undefined) meta.classIdentifier = classIdentifier.trim();
       if (lecturer !== undefined) meta.lecturer = lecturer.trim();
       if (academicPeriod !== undefined) meta.academicPeriod = academicPeriod.trim();
+      if (waGroupLink !== undefined) meta.waGroupLink = waGroupLink.trim();
 
       const updates = {
         description: JSON.stringify(meta)
@@ -386,10 +602,11 @@ export const dbService = {
         classIdentifier: meta.classIdentifier || '26B',
         lecturer: meta.lecturer || '',
         academicPeriod: meta.academicPeriod || 'Semester 1',
+        waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
         ownerId: data.owner_id,
         members: data.members || [],
-        memberCount: (data.members || []).length || 1,
+        memberCount: (data.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1,
         createdAt: data.created_at
       };
     }
@@ -400,29 +617,43 @@ export const dbService = {
     list: async (classId) => {
       const { data, error } = await supabase.from('schedules').select('*').eq('workspace_id', classId).order('start_time', { ascending: true });
       if (error) return [];
-      return (data || []).map(s => ({
-        id: s.id,
-        classId: s.workspace_id,
-        title: s.subject || s.title,
-        course: s.subject || '',
-        lecturer: s.lecturer || '',
-        day: s.day || 'Senin',
-        startTime: s.start_time || '08:00',
-        endTime: s.end_time || '10:00',
-        room: s.room || '',
-        type: s.code || 'class',
-        description: s.notes || ''
-      }));
+      return (data || []).map(s => {
+        const parsed = parseLecturerInfo(s.lecturer, s.notes);
+        return {
+          id: s.id,
+          classId: s.workspace_id,
+          title: s.subject || s.title,
+          course: s.subject || '',
+          lecturer: parsed.name || s.lecturer || '',
+          lecturerRaw: s.lecturer || '',
+          lecturerPhone: parsed.phone || '',
+          lecturerCleanPhone: parsed.cleanPhone || '',
+          lecturerRole: parsed.role || '',
+          day: s.day || 'Senin',
+          startTime: s.start_time || '08:00',
+          endTime: s.end_time || '10:00',
+          room: s.room || '',
+          sks: s.sks || 3,
+          type: s.code || 'class',
+          description: s.notes || ''
+        };
+      });
     },
 
     create: async (classId, item) => {
       const id = 'sch_' + Math.random().toString(36).substr(2, 9);
+      const lecturerName = (item.lecturer || '').trim();
+      const lecturerPhone = (item.lecturerPhone || '').trim();
+      const formattedLecturer = lecturerPhone && !lecturerName.includes(lecturerPhone)
+        ? `${lecturerName} (${lecturerPhone})`
+        : lecturerName;
+
       const row = {
         id,
         workspace_id: classId,
         subject: (item.title || item.course || '').trim(),
         code: item.type || 'class',
-        lecturer: (item.lecturer || '').trim(),
+        lecturer: formattedLecturer,
         day: item.day || 'Senin',
         start_time: item.startTime || '08:00',
         end_time: item.endTime || '10:00',
@@ -432,12 +663,17 @@ export const dbService = {
       };
       const { error } = await supabase.from('schedules').insert(row);
       if (error) throw error;
+      const parsed = parseLecturerInfo(row.lecturer, row.notes);
       return {
         id,
         classId,
         title: row.subject,
         course: row.subject,
-        lecturer: row.lecturer,
+        lecturer: parsed.name || row.lecturer,
+        lecturerRaw: row.lecturer,
+        lecturerPhone: parsed.phone || '',
+        lecturerCleanPhone: parsed.cleanPhone || '',
+        lecturerRole: parsed.role || '',
         day: row.day,
         startTime: row.start_time,
         endTime: row.end_time,
@@ -448,10 +684,16 @@ export const dbService = {
     },
 
     update: async (scheduleId, item) => {
+      const lecturerName = (item.lecturer || '').trim();
+      const lecturerPhone = (item.lecturerPhone || '').trim();
+      const formattedLecturer = lecturerPhone && !lecturerName.includes(lecturerPhone)
+        ? `${lecturerName} (${lecturerPhone})`
+        : lecturerName;
+
       const row = {
         subject: (item.title || item.course || '').trim(),
         code: item.type || 'class',
-        lecturer: (item.lecturer || '').trim(),
+        lecturer: formattedLecturer,
         day: item.day || 'Senin',
         start_time: item.startTime || '08:00',
         end_time: item.endTime || '10:00',
@@ -461,11 +703,16 @@ export const dbService = {
       };
       const { error } = await supabase.from('schedules').update(row).eq('id', scheduleId);
       if (error) throw error;
+      const parsed = parseLecturerInfo(row.lecturer, row.notes);
       return {
         id: scheduleId,
         title: row.subject,
         course: row.subject,
-        lecturer: row.lecturer,
+        lecturer: parsed.name || row.lecturer,
+        lecturerRaw: row.lecturer,
+        lecturerPhone: parsed.phone || '',
+        lecturerCleanPhone: parsed.cleanPhone || '',
+        lecturerRole: parsed.role || '',
         day: row.day,
         startTime: row.start_time,
         endTime: row.end_time,
@@ -487,10 +734,15 @@ export const dbService = {
       if (error) return [];
       return (data || []).map(t => {
         let meta = {};
+        let isJson = false;
         try {
-          meta = typeof t.description === 'string' && t.description.startsWith('{') ? JSON.parse(t.description) : {};
+          if (typeof t.description === 'string' && t.description.trim().startsWith('{')) {
+            meta = JSON.parse(t.description);
+            isJson = true;
+          }
         } catch {
-          meta = { text: t.description };
+          meta = {};
+          isJson = false;
         }
 
         const attachments = Array.isArray(t.attachments) ? t.attachments : [];
@@ -504,7 +756,7 @@ export const dbService = {
           lecturer: meta.lecturer || '',
           dueDate: t.due_date,
           dueTime: t.due_time || '23:59',
-          description: meta.text || t.description || '',
+          description: isJson ? (meta.text || '') : (t.description || ''),
           instructions: meta.instructions || '',
           submissionRequired: meta.submissionRequired !== false,
           attachments,
@@ -598,6 +850,30 @@ export const dbService = {
       return newSubmission;
     },
 
+    unsubmit: async (taskId, userId) => {
+      const { data: existing, error: getErr } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
+      if (getErr || !existing) throw new Error('Tugas tidak ditemukan.');
+
+      let meta = {};
+      try {
+        meta = typeof existing.description === 'string' && existing.description.startsWith('{') ? JSON.parse(existing.description) : {};
+      } catch {
+        meta = { text: existing.description };
+      }
+
+      const submissions = meta.submissions || [];
+      const updatedSubmissions = submissions.filter(s => s.userId !== userId);
+      meta.submissions = updatedSubmissions;
+
+      const { error: updErr } = await supabase.from('tasks').update({
+        description: JSON.stringify(meta),
+        updated_at: new Date().toISOString()
+      }).eq('id', taskId);
+
+      if (updErr) throw updErr;
+      return true;
+    },
+
     delete: async (taskId) => {
       await supabase.from('tasks').delete().eq('id', taskId);
     }
@@ -631,6 +907,7 @@ export const dbService = {
           fileSize: meta.fileSize || '1.2 MB',
           fileType: meta.fileType || f.title.split('.').pop()?.toLowerCase() || 'pdf',
           storageUrl: meta.storageUrl || '',
+          driveFileId: meta.driveFileId || '',
           createdAt: f.updated_at
         };
       });
@@ -685,7 +962,8 @@ export const dbService = {
         uploadedBy: fileItem.uploadedBy || 'Member',
         fileSize: fileItem.fileSize || '1.0 MB',
         fileType: fileItem.fileType || fileItem.name.split('.').pop()?.toLowerCase() || 'pdf',
-        storageUrl: fileItem.storageUrl || ''
+        storageUrl: fileItem.storageUrl || '',
+        driveFileId: fileItem.driveFileId || ''
       };
 
       const row = {
@@ -716,12 +994,37 @@ export const dbService = {
         fileSize: meta.fileSize,
         fileType: meta.fileType,
         storageUrl: meta.storageUrl,
+        driveFileId: meta.driveFileId,
         createdAt: row.updated_at
       };
     },
 
     delete: async (fileId) => {
-      await supabase.from('notes').delete().eq('id', fileId);
+      if (typeof fileId === 'string' && fileId.startsWith('sub_')) {
+        // Remove from task submissions
+        const { data: allTasks } = await supabase.from('tasks').select('*');
+        for (const task of (allTasks || [])) {
+          let meta = {};
+          try {
+            meta = typeof task.description === 'string' && task.description.startsWith('{') ? JSON.parse(task.description) : {};
+          } catch {
+            continue;
+          }
+          const subs = meta.submissions || [];
+          const foundIndex = subs.findIndex(s => ('sub_' + (s.id || `${s.userId}_${task.id}`)) === fileId || s.id === fileId);
+          if (foundIndex !== -1) {
+            subs.splice(foundIndex, 1);
+            meta.submissions = subs;
+            await supabase.from('tasks').update({
+              description: JSON.stringify(meta),
+              updated_at: new Date().toISOString()
+            }).eq('id', task.id);
+            break;
+          }
+        }
+      } else {
+        await supabase.from('notes').delete().eq('id', fileId);
+      }
     }
   },
 
@@ -929,6 +1232,103 @@ export const dbService = {
 
     delete: async (groupId) => {
       await supabase.from('notes').delete().eq('id', groupId);
+    }
+  },
+
+  // 7. ACTIVITY & AUDIT LOGS (Stored in Notes table with category = 'activity_log')
+  logs: {
+    list: async (classId) => {
+      if (!classId) return [];
+      const { data, error } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('workspace_id', classId)
+        .eq('category', 'activity_log')
+        .order('updated_at', { ascending: false })
+        .limit(150);
+
+      if (error) {
+        console.warn('Error fetching class activity logs:', error);
+        return [];
+      }
+
+      return (data || []).map(row => {
+        let meta = {};
+        try {
+          meta = typeof row.content === 'string' && row.content.startsWith('{') ? JSON.parse(row.content) : { details: row.content };
+        } catch {
+          meta = { details: row.content };
+        }
+
+        return {
+          id: row.id,
+          classId: row.workspace_id,
+          title: row.title,
+          actionType: row.subject || meta.actionType || 'general',
+          actorName: meta.actorName || 'Pengguna',
+          actorEmail: meta.actorEmail || '',
+          actorRole: meta.actorRole || '',
+          targetName: meta.targetName || '',
+          details: meta.details || row.content || '',
+          color: row.color || 'blue',
+          timestamp: row.updated_at
+        };
+      });
+    },
+
+    create: async (classId, { actionType, title, details, actor, targetName, color = 'blue' }) => {
+      if (!classId) return null;
+      try {
+        const id = 'log_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        const meta = {
+          actionType: actionType || 'general',
+          actorName: actor?.name || actor?.displayName || 'Pengguna',
+          actorEmail: actor?.email || '',
+          actorRole: actor?.role || '',
+          targetName: targetName || '',
+          details: details || ''
+        };
+
+        const row = {
+          id,
+          workspace_id: classId,
+          title: title || `${meta.actorName} melakukan aktivitas`,
+          subject: actionType || 'general',
+          category: 'activity_log',
+          content: JSON.stringify(meta),
+          color: color || 'blue',
+          pinned: false,
+          favorite: false,
+          updated_at: new Date().toISOString()
+        };
+
+        const { error } = await supabase.from('notes').insert(row);
+        if (error) {
+          console.warn('Failed to insert activity log:', error);
+        }
+
+        return {
+          id,
+          classId,
+          title: row.title,
+          actionType: row.subject,
+          actorName: meta.actorName,
+          actorRole: meta.actorRole,
+          actorEmail: meta.actorEmail,
+          targetName: meta.targetName,
+          details: meta.details,
+          color: row.color,
+          timestamp: row.updated_at
+        };
+      } catch (err) {
+        console.warn('Error creating activity log:', err);
+        return null;
+      }
+    },
+
+    clear: async (classId) => {
+      if (!classId) return;
+      await supabase.from('notes').delete().eq('workspace_id', classId).eq('category', 'activity_log');
     }
   }
 };
