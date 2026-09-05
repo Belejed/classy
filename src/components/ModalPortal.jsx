@@ -20,7 +20,7 @@ export default function ModalPortal({ children, onClose, maxWidth = 'max-w-lg' }
   }, [onClose]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 overflow-y-auto font-sans animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2.5 sm:p-5 overflow-y-auto font-sans animate-in fade-in duration-150">
       {/* Fullscreen Dark Dimming Backdrop */}
       <div 
         className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"

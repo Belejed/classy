@@ -400,8 +400,8 @@ export default function ClassTasks({
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0]">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-[#0F172A]">Assignments & Tasks</h2>
-          <p className="text-xs text-[#64748B]">Semua penugasan kuliah, instruksi, dan pengumpulan berkas terorganisir per mata kuliah.</p>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0F172A]">Assignments & Tasks</h2>
+          <p className="text-xs sm:text-sm text-[#64748B]">Semua penugasan kuliah, instruksi, dan pengumpulan berkas terorganisir per mata kuliah.</p>
         </div>
 
         {isManager && (
@@ -411,9 +411,9 @@ export default function ClassTasks({
               setTaskCourse(availableCourses.length > 0 ? availableCourses[0] : (currentClass?.name || ''));
               setShowCreateModal(true);
             }}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer"
+            className="w-full sm:w-auto justify-center flex items-center gap-1.5 px-4 py-2.5 sm:py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[40px]"
           >
-            <Plus size={13} />
+            <Plus size={14} />
             <span>Tambah Tugas Baru</span>
           </button>
         )}
@@ -421,26 +421,26 @@ export default function ClassTasks({
 
       {/* Filter Bar */}
       <div className="space-y-2.5">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-2xs">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 bg-white p-2.5 sm:p-3 rounded-2xl border border-[#E2E8F0] shadow-2xs">
           {/* Search */}
           <div className="relative flex-1">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
             <input
               type="text"
               placeholder="Cari nama tugas atau mata kuliah..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] focus:outline-none focus:border-[#0F172A]"
+              className="w-full pl-9 pr-3 py-2 sm:py-1.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] focus:outline-none focus:border-[#0F172A] min-h-[38px]"
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             {/* Course Filter Dropdown */}
             {availableCourses.length > 0 && (
               <select
                 value={courseFilter}
                 onChange={(e) => setCourseFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-semibold text-[#475569] focus:outline-none focus:border-[#0F172A] shadow-2xs cursor-pointer max-w-[200px] truncate"
+                className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-semibold text-[#475569] focus:outline-none focus:border-[#0F172A] shadow-2xs cursor-pointer sm:max-w-[200px] truncate min-h-[38px]"
               >
                 <option value="all">Semua Mata Kuliah ({tasks.length})</option>
                 {availableCourses.map(c => {
@@ -454,11 +454,11 @@ export default function ClassTasks({
               </select>
             )}
 
-            {/* Status Filter Chips */}
-            <div className="flex items-center gap-1 text-xs">
+            {/* Status Filter Chips (Horizontally scrollable with smooth touch on mobile) */}
+            <div className="flex items-center gap-1 text-xs overflow-x-auto pb-1 sm:pb-0 no-scrollbar -mx-0.5 px-0.5">
               <button
                 onClick={() => setStatusFilter('all')}
-                className={`px-3 py-1.5 rounded-xl font-semibold transition-colors cursor-pointer ${
+                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs ${
                   statusFilter === 'all' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:bg-[#F1F5F9]'
                 }`}
               >
@@ -466,7 +466,7 @@ export default function ClassTasks({
               </button>
               <button
                 onClick={() => setStatusFilter('not_submitted')}
-                className={`px-3 py-1.5 rounded-xl font-semibold transition-colors cursor-pointer ${
+                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs ${
                   statusFilter === 'not_submitted' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:bg-[#F1F5F9]'
                 }`}
               >
@@ -474,7 +474,7 @@ export default function ClassTasks({
               </button>
               <button
                 onClick={() => setStatusFilter('submitted')}
-                className={`px-3 py-1.5 rounded-xl font-semibold transition-colors cursor-pointer ${
+                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs ${
                   statusFilter === 'submitted' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:bg-[#F1F5F9]'
                 }`}
               >
@@ -482,7 +482,7 @@ export default function ClassTasks({
               </button>
               <button
                 onClick={() => setStatusFilter('missing')}
-                className={`px-3 py-1.5 rounded-xl font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
+                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap text-xs ${
                   statusFilter === 'missing' ? 'bg-rose-600 text-white' : 'text-rose-600 hover:bg-rose-50'
                 }`}
               >
@@ -495,14 +495,14 @@ export default function ClassTasks({
 
         {/* Course Quick Category Pills */}
         {availableCourses.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs custom-scrollbar">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 text-xs no-scrollbar">
             <span className="text-[11px] font-semibold text-[#64748B] shrink-0 flex items-center gap-1 mr-1">
               <BookOpen size={12} className="text-[#94A3B8]" />
               <span>Mata Kuliah:</span>
             </span>
             <button
               onClick={() => setCourseFilter('all')}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold shrink-0 transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 sm:py-1 rounded-lg text-xs font-semibold shrink-0 transition-colors cursor-pointer whitespace-nowrap ${
                 courseFilter === 'all' 
                   ? 'bg-[#0F172A] text-white shadow-2xs' 
                   : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
@@ -516,7 +516,7 @@ export default function ClassTasks({
                 <button
                   key={c}
                   onClick={() => setCourseFilter(c)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold shrink-0 transition-colors cursor-pointer ${
+                  className={`px-3 py-1.5 sm:py-1 rounded-lg text-xs font-semibold shrink-0 transition-colors cursor-pointer whitespace-nowrap ${
                     courseFilter === c 
                       ? 'bg-[#0F172A] text-white shadow-2xs' 
                       : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
@@ -634,37 +634,41 @@ export default function ClassTasks({
       {/* MODAL 1: TASK DETAIL & ASSIGNMENT SUBMISSION */}
       {selectedTask && (
         <ModalPortal onClose={() => setSelectedTask(null)} maxWidth="max-w-xl">
-          <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-5 shadow-2xl max-h-[85vh] overflow-y-auto">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[88vh] sm:max-h-[85vh] overflow-y-auto">
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
-              <div>
-                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full w-fit mb-1">
-                  <BookOpen size={11} />
-                  <span>{selectedTask.course || currentClass?.name}</span>
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#F1F5F9]">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full w-fit mb-1.5 truncate max-w-full">
+                  <BookOpen size={11} className="shrink-0" />
+                  <span className="truncate">{selectedTask.course || currentClass?.name}</span>
                 </div>
-                <h3 className="font-bold text-lg text-[#0F172A] leading-snug">
+                <h3 className="font-bold text-base sm:text-lg text-[#0F172A] leading-snug break-words">
                   {selectedTask.title}
                 </h3>
               </div>
-              <button onClick={() => setSelectedTask(null)} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A] cursor-pointer">
+              <button 
+                onClick={() => setSelectedTask(null)} 
+                className="p-1.5 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+              >
                 <X size={18} />
               </button>
             </div>
 
             {/* Task Info Chips */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-              <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
+              <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
                 <span className="text-[10px] font-semibold text-[#64748B] block">Deadline</span>
-                <span className="font-bold text-[#0F172A]">{selectedTask.dueDate} · {selectedTask.dueTime}</span>
+                <span className="font-bold text-[#0F172A] text-xs sm:text-sm block">{selectedTask.dueDate}</span>
+                <span className="text-[11px] font-semibold text-slate-500 block">{selectedTask.dueTime} WIB</span>
               </div>
-              <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
+              <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
                 <span className="text-[10px] font-semibold text-[#64748B] block">Mata Kuliah</span>
-                <span className="font-bold text-[#0F172A] truncate block">{selectedTask.course || 'Umum'}</span>
+                <span className="font-bold text-[#0F172A] text-xs sm:text-sm truncate block">{selectedTask.course || 'Umum'}</span>
               </div>
-              <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] col-span-2 sm:col-span-1">
+              <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] col-span-2 sm:col-span-1">
                 <span className="text-[10px] font-semibold text-[#64748B] block">Dosen Pengampu</span>
-                <span className="font-bold text-[#0F172A] truncate block">{selectedTask.lecturer || '-'}</span>
+                <span className="font-bold text-[#0F172A] text-xs sm:text-sm truncate block">{selectedTask.lecturer || '-'}</span>
               </div>
             </div>
 
@@ -672,7 +676,7 @@ export default function ClassTasks({
             {getCleanDescription(selectedTask.description) && (
               <div className="space-y-1">
                 <h4 className="font-bold text-xs text-[#0F172A]">Deskripsi Penugasan</h4>
-                <p className="text-xs text-[#475569] leading-relaxed whitespace-pre-wrap bg-[#F8FAFC] p-3 rounded-xl border border-[#E2E8F0]">
+                <p className="text-xs text-[#475569] leading-relaxed whitespace-pre-wrap bg-[#F8FAFC] p-3 rounded-xl border border-[#E2E8F0] break-words">
                   {getCleanDescription(selectedTask.description)}
                 </p>
               </div>
@@ -681,7 +685,7 @@ export default function ClassTasks({
             {getCleanInstructions(selectedTask.instructions) && (
               <div className="space-y-1">
                 <h4 className="font-bold text-xs text-[#0F172A]">Petunjuk Pengumpulan</h4>
-                <p className="text-xs text-[#475569] leading-relaxed whitespace-pre-wrap bg-amber-50/50 p-3 rounded-xl border border-amber-200/70">
+                <p className="text-xs text-[#475569] leading-relaxed whitespace-pre-wrap bg-amber-50/50 p-3 rounded-xl border border-amber-200/70 break-words">
                   {getCleanInstructions(selectedTask.instructions)}
                 </p>
               </div>
@@ -698,15 +702,15 @@ export default function ClassTasks({
                   return (
                     <div className="space-y-3">
                       {/* Auto-rename toggle and preview info */}
-                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-left">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-left">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs font-bold text-[#0F172A]">Auto-Rename Berkas</span>
-                            <span className="text-[9px] font-bold px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800">
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                               Format Standar
                             </span>
                           </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
+                          <label className="relative inline-flex items-center cursor-pointer shrink-0">
                             <input 
                               type="checkbox" 
                               checked={autoRenameEnabled} 
@@ -716,9 +720,9 @@ export default function ClassTasks({
                             <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#0F172A]"></div>
                           </label>
                         </div>
-                        <p className="text-[10px] text-[#64748B] font-mono leading-relaxed">
+                        <p className="text-[10px] text-[#64748B] font-mono leading-relaxed break-all">
                           {autoRenameEnabled ? (
-                            <span className="text-emerald-700 font-semibold block truncate">
+                            <span className="text-emerald-700 font-semibold block">
                               Format: {generateSubmissionFileName(currentUser?.displayName, selectedTask?.title, 'dokumen.pdf')}
                             </span>
                           ) : (
@@ -727,12 +731,12 @@ export default function ClassTasks({
                         </p>
                       </div>
 
-                      <div className="p-6 rounded-2xl border-2 border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex flex-col items-center justify-center text-center space-y-2">
+                      <div className="p-4 sm:p-6 rounded-2xl border-2 border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex flex-col items-center justify-center text-center space-y-2.5">
                         <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-[#64748B]">
                           <Upload size={18} />
                         </div>
                         <div>
-                          <p className="text-xs font-semibold text-[#0F172A]">Unggah Berkas Tugas Kamu</p>
+                          <p className="text-xs sm:text-sm font-bold text-[#0F172A]">Unggah Berkas Tugas Kamu</p>
                           <p className="text-[11px] text-[#64748B]">PDF, DOCX, ZIP, gambar, atau berkas lainnya.</p>
                         </div>
                         <button
@@ -744,7 +748,7 @@ export default function ClassTasks({
                               fileInputRef.current.click();
                             }
                           }}
-                          className="px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs cursor-pointer disabled:opacity-50 min-h-[42px]"
                         >
                           <Upload size={13} className={isSubmittingFile ? "animate-bounce" : ""} />
                           <span>{isSubmittingFile ? 'Mengunggah...' : 'Pilih File & Upload'}</span>
@@ -761,21 +765,21 @@ export default function ClassTasks({
 
                 if (isMissing) {
                   return (
-                    <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 space-y-2.5">
-                      <div className="flex items-center justify-between">
+                    <div className="p-3 sm:p-4 rounded-xl bg-rose-50 border border-rose-200 space-y-2.5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                         <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                          <AlertTriangle size={15} className="text-rose-600" />
+                          <AlertTriangle size={15} className="text-rose-600 shrink-0" />
                           <span>File Tidak Ditemukan di Google Drive!</span>
                         </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-200 text-rose-800">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-200 text-rose-800 w-fit">
                           Status: File Hilang
                         </span>
                       </div>
                       <p className="text-[11px] text-rose-700 leading-relaxed">
                         Berkas tugas ini terhapus atau tidak ditemukan di Google Drive. Status tugas tidak lagi dianggap "Submitted". Harap unggah ulang berkas tugas agar dapat dinilai dosen/komti.
                       </p>
-                      <div className="pt-2 flex items-center justify-between border-t border-rose-200/60">
-                        <span className="font-mono text-[11px] text-rose-600 truncate max-w-[200px]">
+                      <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-rose-200/60">
+                        <span className="font-mono text-[11px] text-rose-600 break-all">
                           ⚠️ {userSub.fileName}
                         </span>
                         <button
@@ -787,7 +791,7 @@ export default function ClassTasks({
                               fileInputRef.current.click();
                             }
                           }}
-                          className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+                          className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer disabled:opacity-50 min-h-[38px]"
                         >
                           <Upload size={12} className={isSubmittingFile ? "animate-bounce" : ""} />
                           <span>{isSubmittingFile ? 'Mengunggah...' : 'Upload Ulang Sekarang'}</span>
@@ -798,10 +802,10 @@ export default function ClassTasks({
                 }
 
                 return (
-                  <div className="p-4 rounded-xl bg-white border border-emerald-200 space-y-2">
-                    <div className="flex items-center justify-between">
+                  <div className="p-3 sm:p-4 rounded-xl bg-white border border-emerald-200 space-y-2.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                       <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                        <Check size={14} className="text-emerald-600" />
+                        <Check size={14} className="text-emerald-600 shrink-0" />
                         <span>Tugas Berhasil Dikumpulkan</span>
                       </span>
                       <span className="text-[10px] text-[#64748B]">
@@ -809,18 +813,18 @@ export default function ClassTasks({
                       </span>
                     </div>
 
-                    <p className="font-mono text-xs text-[#0F172A] truncate bg-emerald-50/50 px-2.5 py-1 rounded-lg border border-emerald-100">
+                    <p className="font-mono text-xs text-[#0F172A] break-all bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100">
                       📄 {userSub.fileName}
                     </p>
 
-                    <div className="pt-2 flex items-center justify-between border-t border-emerald-100">
+                    <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-emerald-100">
                       <div className="flex items-center gap-2">
                         {userSub.fileUrl?.includes('drive.google.com') ? (
                           <a
                             href={userSub.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1"
+                            className="text-xs font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1"
                           >
                             <ExternalLink size={12} />
                             <span>Buka di Google Drive</span>
@@ -838,7 +842,7 @@ export default function ClassTasks({
                             fileInputRef.current.click();
                           }
                         }}
-                        className="text-[11px] font-bold text-[#0F172A] hover:underline cursor-pointer disabled:opacity-50"
+                        className="text-xs font-bold text-[#0F172A] hover:underline cursor-pointer disabled:opacity-50 text-left sm:text-right py-1"
                       >
                         {isSubmittingFile ? 'Mengunggah...' : 'Kirim Ulang File (Resubmit)'}
                       </button>
@@ -862,8 +866,8 @@ export default function ClassTasks({
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-1.5">
-                        <Users size={14} className="text-[#0F172A]" />
-                        <h4 className="font-bold text-xs text-[#0F172A]">
+                        <Users size={14} className="text-[#0F172A] shrink-0" />
+                        <h4 className="font-bold text-xs sm:text-sm text-[#0F172A]">
                           Monitor Pengumpulan Kelas
                         </h4>
                       </div>
@@ -871,7 +875,7 @@ export default function ClassTasks({
                         href="https://drive.google.com/drive/folders/1BK-P0mPQF9MSy0wsQ-tqNgVCXHXuCwmf"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[11px] font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1"
+                        className="text-xs font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1"
                       >
                         <ExternalLink size={12} />
                         <span>Buka Folder Drive</span>
@@ -879,14 +883,14 @@ export default function ClassTasks({
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-2.5 rounded-xl space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px]">
+                    <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-2.5 sm:p-3 rounded-xl space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] sm:text-xs">
                         <span className="text-[#64748B] font-medium">Progres Pengumpulan:</span>
                         <span className="font-bold text-[#0F172A]">
                           {status.submittedCount} / {status.totalCount} Mahasiswa ({percent}%)
                         </span>
                       </div>
-                      <div className="w-full bg-[#E2E8F0] h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-[#E2E8F0] h-2 sm:h-2.5 rounded-full overflow-hidden">
                         <div 
                           className={`h-full transition-all duration-300 rounded-full ${
                             percent === 100 ? 'bg-emerald-500' : 'bg-[#0F172A]'
@@ -898,20 +902,20 @@ export default function ClassTasks({
                   </div>
 
                   {/* Tabs & Quick Action Bar */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1 bg-[#F1F5F9] p-1 rounded-xl">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-1 bg-[#F1F5F9] p-1 rounded-xl w-full sm:w-auto">
                       <button
                         type="button"
                         onClick={() => setManagerTab('unsubmitted')}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                           managerTab === 'unsubmitted'
-                            ? 'bg-white text-rose-700 shadow-sm'
+                            ? 'bg-white text-rose-700 shadow-xs'
                             : 'text-[#64748B] hover:text-[#0F172A]'
                         }`}
                       >
                         <UserX size={13} className={managerTab === 'unsubmitted' ? 'text-rose-600' : ''} />
                         <span>Belum Kirim</span>
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
                           hasUnsubmitted ? 'bg-rose-100 text-rose-700' : 'bg-slate-200 text-slate-600'
                         }`}>
                           {status.unsubmittedList.length}
@@ -921,15 +925,15 @@ export default function ClassTasks({
                       <button
                         type="button"
                         onClick={() => setManagerTab('submitted')}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                           managerTab === 'submitted'
-                            ? 'bg-white text-emerald-700 shadow-sm'
+                            ? 'bg-white text-emerald-700 shadow-xs'
                             : 'text-[#64748B] hover:text-[#0F172A]'
                         }`}
                       >
                         <UserCheck size={13} className={managerTab === 'submitted' ? 'text-emerald-600' : ''} />
                         <span>Sudah Kirim</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-100 text-emerald-700">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-700">
                           {status.submittedCount}
                         </span>
                       </button>
@@ -940,10 +944,10 @@ export default function ClassTasks({
                       <button
                         type="button"
                         onClick={() => handleCopyUnsubmittedList(selectedTask, status.unsubmittedList)}
-                        className="text-[11px] font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer shrink-0"
+                        className="w-full sm:w-auto text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px]"
                         title="Salin rekap nama yang belum kirim untuk dibagikan ke WhatsApp grup"
                       >
-                        <Copy size={12} className="text-slate-500" />
+                        <Copy size={13} className="text-slate-500" />
                         <span>Salin List WA</span>
                       </button>
                     )}
@@ -976,15 +980,15 @@ export default function ClassTasks({
                           return (
                             <div
                               key={member?.userId || member?.id || idx}
-                              className="p-2 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between gap-2 hover:border-slate-300 transition-colors"
+                              className="p-2 sm:p-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between gap-2 hover:border-slate-300 transition-colors"
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <div className="w-7 h-7 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-xs shrink-0">
                                   {name.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-bold text-xs text-[#0F172A] truncate block">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-xs text-[#0F172A] truncate block max-w-[140px] xs:max-w-[190px] sm:max-w-none">
                                       {name}
                                     </span>
                                     {isMissingFile && (
@@ -1005,19 +1009,19 @@ export default function ClassTasks({
                                     href={`https://wa.me/${cleanPhone}?text=${waText}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                    className="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors shrink-0"
                                     title={`Chat WhatsApp ke ${name}`}
                                   >
-                                    <MessageCircle size={11} />
+                                    <MessageCircle size={12} />
                                     <span>Ingatkan WA</span>
                                   </a>
                                 ) : email ? (
                                   <a
                                     href={`mailto:${email}?subject=${encodeURIComponent(`Pengingat Tugas: ${selectedTask.title}`)}&body=${waText}`}
-                                    className="px-2 py-1 bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                    className="px-2.5 py-1.5 bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors shrink-0"
                                     title={`Kirim email ke ${email}`}
                                   >
-                                    <Mail size={11} />
+                                    <Mail size={12} />
                                     <span>Email</span>
                                   </a>
                                 ) : null}
@@ -1044,17 +1048,17 @@ export default function ClassTasks({
                           return (
                             <div
                               key={submission.id || submission.userId}
-                              className={`p-2 rounded-xl border flex items-center justify-between text-xs gap-2 transition-colors ${
+                              className={`p-2 sm:p-2.5 rounded-xl border flex items-center justify-between text-xs gap-2 transition-colors ${
                                 subMissing ? 'bg-rose-50/70 border-rose-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
                                   {(submission.userName || member?.name || 'M').charAt(0).toUpperCase()}
                                 </div>
                                 <div className="truncate flex-1">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="font-bold text-[#0F172A] truncate block">
+                                    <span className="font-bold text-[#0F172A] truncate block max-w-[140px] xs:max-w-[190px] sm:max-w-none">
                                       {submission.userName || member?.name}
                                     </span>
                                   </div>
@@ -1075,13 +1079,13 @@ export default function ClassTasks({
                                     href={submission.fileUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="px-2 py-1 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 font-semibold text-[10px] flex items-center gap-1 border border-sky-200 transition-colors"
+                                    className="px-2.5 py-1 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 font-semibold text-[11px] flex items-center gap-1 border border-sky-200 transition-colors"
                                   >
-                                    <ExternalLink size={10} />
+                                    <ExternalLink size={11} />
                                     <span>Drive</span>
                                   </a>
                                 ) : null}
-                                <span className="text-[10px] text-[#94A3B8]">
+                                <span className="text-[10px] text-[#94A3B8] hidden sm:inline">
                                   {new Date(submission.submittedAt).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
                                 </span>
                               </div>
@@ -1096,11 +1100,11 @@ export default function ClassTasks({
             })()}
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-[#F1F5F9]">
               {isManager ? (
                 <button
                   onClick={() => handleDelete(selectedTask.id)}
-                  className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl flex items-center gap-1 cursor-pointer min-h-[38px]"
                 >
                   <Trash2 size={13} />
                   <span>Hapus Tugas</span>
@@ -1109,7 +1113,7 @@ export default function ClassTasks({
 
               <button
                 onClick={() => setSelectedTask(null)}
-                className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] cursor-pointer min-h-[38px] text-center"
               >
                 Tutup
               </button>
@@ -1121,10 +1125,13 @@ export default function ClassTasks({
       {/* MODAL 2: CREATE TASK MODAL (Coordinator) */}
       {showCreateModal && (
         <ModalPortal onClose={() => setShowCreateModal(false)} maxWidth="max-w-md">
-          <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
               <h3 className="font-bold text-base text-[#0F172A]">Tambah Penugasan Baru</h3>
-              <button onClick={() => setShowCreateModal(false)} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A] cursor-pointer">
+              <button 
+                onClick={() => setShowCreateModal(false)} 
+                className="p-1.5 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -1138,13 +1145,13 @@ export default function ClassTasks({
                   value={taskTitle}
                   onChange={(e) => setTaskTitle(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
                 />
               </div>
 
               {/* Course Selection (Dropdown from Schedule or Custom) */}
               <div className="space-y-1">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-1">
                   <label className="text-xs font-semibold text-[#334155]">Mata Kuliah</label>
                   {availableCourses.length > 0 && (
                     <button
@@ -1173,7 +1180,7 @@ export default function ClassTasks({
                       }
                     }}
                     required
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all cursor-pointer"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all cursor-pointer min-h-[40px]"
                   >
                     <option value="">-- Pilih Mata Kuliah --</option>
                     {availableCourses.map(c => (
@@ -1187,7 +1194,7 @@ export default function ClassTasks({
                     value={taskCourse}
                     onChange={(e) => setTaskCourse(e.target.value)}
                     required
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
                   />
                 )}
               </div>
@@ -1199,11 +1206,11 @@ export default function ClassTasks({
                   placeholder="e.g. Dr. Budi Santoso, M.T."
                   value={taskLecturer}
                   onChange={(e) => setTaskLecturer(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-[#334155]">Batas Tanggal (Due Date)</label>
                   <input
@@ -1211,7 +1218,7 @@ export default function ClassTasks({
                     value={taskDueDate}
                     onChange={(e) => setTaskDueDate(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
                   />
                 </div>
                 <div className="space-y-1">
@@ -1221,7 +1228,7 @@ export default function ClassTasks({
                     value={taskDueTime}
                     onChange={(e) => setTaskDueTime(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
                   />
                 </div>
               </div>
@@ -1248,18 +1255,18 @@ export default function ClassTasks({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#F1F5F9]">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#F1F5F9]">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-[#64748B] hover:bg-[#F1F5F9] cursor-pointer"
+                  className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-semibold text-[#64748B] hover:bg-[#F1F5F9] cursor-pointer min-h-[40px] text-center"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isCreating}
-                  className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] disabled:opacity-50 cursor-pointer shadow-2xs"
+                  className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] disabled:opacity-50 cursor-pointer shadow-2xs min-h-[40px] text-center"
                 >
                   {isCreating ? 'Menyimpan...' : 'Publikasikan Tugas'}
                 </button>
