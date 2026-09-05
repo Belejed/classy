@@ -20,9 +20,9 @@ import ModalPortal from './ModalPortal';
 import { parseLecturerInfo } from '../utils/db';
 
 const DAYS_OF_WEEK = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-const DEFAULT_START_HOUR = 7;  // 07:00
+const DEFAULT_START_HOUR = 6;  // 06:00
 const DEFAULT_END_HOUR = 18;   // 18:00
-const COMPACT_HOUR_HEIGHT = 42; // px per hour (fits 07:00-18:00 completely within 1 screen without scrolling)
+const COMPACT_HOUR_HEIGHT = 42; // px per hour (fits 06:00-18:00 completely within 1 screen without scrolling)
 
 const COURSE_PALETTES = [
   {
