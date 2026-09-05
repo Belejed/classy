@@ -695,25 +695,27 @@ export default function ClassSchedule({
           {/* Card 2: Selected Date Agenda Details */}
           <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 shadow-2xs space-y-3">
             {/* Header */}
-            <div className="flex items-center justify-between pb-2.5 border-b border-[#F1F5F9] gap-2">
-              <div className="min-w-0 flex-1">
-                <span className="text-[9px] font-extrabold uppercase tracking-wider text-[#94A3B8] px-1.5 py-0.5 rounded bg-slate-100">
+            <div className="pb-2.5 border-b border-[#F1F5F9] space-y-1.5">
+              {/* Top Row: Tag Label & Badges */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] font-extrabold uppercase tracking-wider text-[#94A3B8] px-1.5 py-0.5 rounded bg-slate-100 shrink-0">
                   Agenda Terpilih
                 </span>
-                <h4 className="font-bold text-xs sm:text-sm text-[#0F172A] flex items-center gap-1.5 mt-1 truncate" title={formatDateIndonesian(selectedCalendarDateStr)}>
-                  <Calendar size={13} className="text-[#0F172A] shrink-0" />
-                  <span className="truncate">{formatDateIndonesian(selectedCalendarDateStr)}</span>
-                </h4>
+                <div className="flex items-center gap-1.5 text-[10px] shrink-0">
+                  <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200 whitespace-nowrap shrink-0 inline-flex items-center gap-1">
+                    {selectedDateTasks.length} Tugas
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 whitespace-nowrap shrink-0 inline-flex items-center gap-1">
+                    {selectedDateClasses.length} Kuliah
+                  </span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-1.5 text-[10px] shrink-0">
-                <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200 whitespace-nowrap shrink-0 inline-flex items-center gap-1">
-                  {selectedDateTasks.length} Tugas
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 whitespace-nowrap shrink-0 inline-flex items-center gap-1">
-                  {selectedDateClasses.length} Kuliah
-                </span>
-              </div>
+              {/* Full-width Date Title: Never truncated */}
+              <h4 className="font-bold text-xs sm:text-sm text-[#0F172A] flex items-center gap-1.5 leading-snug">
+                <Calendar size={13} className="text-[#0F172A] shrink-0" />
+                <span>{formatDateIndonesian(selectedCalendarDateStr)}</span>
+              </h4>
             </div>
 
             {/* Scrollable list of tasks and classes for selected date */}
