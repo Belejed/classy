@@ -1643,7 +1643,7 @@ export default function ClassSchedule({
 
             <div className="space-y-3">
               {selectedTaskDetail.course && (
-                <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 inline-block">
+                <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 inline-block break-words max-w-full">
                   {selectedTaskDetail.course}
                 </span>
               )}

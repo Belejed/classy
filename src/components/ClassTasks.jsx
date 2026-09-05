@@ -744,9 +744,9 @@ export default function ClassTasks({
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#F1F5F9]">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full w-fit mb-1.5 truncate max-w-full">
+                <div className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full w-fit mb-1.5 max-w-full">
                   <BookOpen size={11} className="shrink-0" />
-                  <span className="truncate">{selectedTask.course || currentClass?.name}</span>
+                  <span className="break-words">{selectedTask.course || currentClass?.name}</span>
                 </div>
                 <h3 className="font-bold text-base sm:text-lg text-[#0F172A] leading-snug break-words">
                   {selectedTask.title}
@@ -765,7 +765,7 @@ export default function ClassTasks({
               const isOverdue = isTaskOverdue(selectedTask.dueDate, selectedTask.dueTime);
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                  <div className={`p-2.5 sm:p-3 rounded-xl border ${isOverdue ? 'bg-rose-50/80 border-rose-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'}`}>
+                  <div className={`p-2.5 sm:p-3 rounded-xl border flex flex-col justify-start ${isOverdue ? 'bg-rose-50/80 border-rose-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'}`}>
                     <div className="flex items-center justify-between">
                       <span className={`text-[10px] font-semibold block ${isOverdue ? 'text-rose-700 font-bold' : 'text-[#64748B]'}`}>
                         Deadline
@@ -783,13 +783,13 @@ export default function ClassTasks({
                       {selectedTask.dueTime} WIB
                     </span>
                   </div>
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
-                    <span className="text-[10px] font-semibold text-[#64748B] block">Mata Kuliah</span>
-                    <span className="font-bold text-[#0F172A] text-xs sm:text-sm truncate block">{selectedTask.course || 'Umum'}</span>
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex flex-col justify-start">
+                    <span className="text-[10px] font-semibold text-[#64748B] block mb-0.5">Mata Kuliah</span>
+                    <span className="font-bold text-[#0F172A] text-xs sm:text-sm leading-snug break-words block">{selectedTask.course || 'Umum'}</span>
                   </div>
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] col-span-2 sm:col-span-1">
-                    <span className="text-[10px] font-semibold text-[#64748B] block">Dosen Pengampu</span>
-                    <span className="font-bold text-[#0F172A] text-xs sm:text-sm truncate block">{selectedTask.lecturer || '-'}</span>
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] col-span-2 sm:col-span-1 flex flex-col justify-start">
+                    <span className="text-[10px] font-semibold text-[#64748B] block mb-0.5">Dosen Pengampu</span>
+                    <span className="font-bold text-[#0F172A] text-xs sm:text-sm leading-snug break-words block">{selectedTask.lecturer || '-'}</span>
                   </div>
                 </div>
               );
