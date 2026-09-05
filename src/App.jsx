@@ -505,54 +505,61 @@ export default function App() {
   return (
     <>
       <Toaster 
-        position="top-center" 
-        gutter={10}
+        position="top-right" 
+        gutter={8}
         containerStyle={{
-          top: 24,
+          top: 20,
+          right: 20,
           zIndex: 99999,
         }}
         toastOptions={{ 
           duration: 3500,
           className: 'classy-toast',
           style: {
-            background: '#0F172A',
-            color: '#F8FAFC',
-            borderRadius: '16px',
-            padding: '12px 18px',
+            background: '#FFFFFF',
+            color: '#0F172A',
+            borderRadius: '14px',
+            padding: '10px 16px',
             fontSize: '13px',
             fontWeight: '600',
             letterSpacing: '-0.01em',
-            boxShadow: '0 20px 30px -10px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08)',
-            maxWidth: '480px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 10px 25px -4px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04)',
+            maxWidth: '440px',
+            border: '1px solid #E2E8F0',
           },
           success: {
             duration: 3000,
             iconTheme: {
               primary: '#10B981',
-              secondary: '#FFFFFF',
+              secondary: '#ECFDF5',
             },
             style: {
-              borderLeft: '4px solid #10B981',
+              border: '1px solid #D1FAE5',
+              background: '#FFFFFF',
+              color: '#065F46',
             },
           },
           error: {
             duration: 4000,
             iconTheme: {
-              primary: '#F43F5E',
-              secondary: '#FFFFFF',
+              primary: '#EF4444',
+              secondary: '#FEF2F2',
             },
             style: {
-              borderLeft: '4px solid #F43F5E',
+              border: '1px solid #FFE4E6',
+              background: '#FFFFFF',
+              color: '#9F1239',
             },
           },
           loading: {
             iconTheme: {
-              primary: '#38BDF8',
-              secondary: '#0F172A',
+              primary: '#0F172A',
+              secondary: '#E2E8F0',
             },
             style: {
-              borderLeft: '4px solid #38BDF8',
+              border: '1px solid #E2E8F0',
+              background: '#FFFFFF',
+              color: '#334155',
             },
           },
         }} 
