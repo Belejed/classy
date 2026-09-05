@@ -475,20 +475,9 @@ export default function ClassFiles({
           </div>
 
           <div className="flex items-center gap-2">
-            <a
-              href="https://drive.google.com/drive/folders/1BK-P0mPQF9MSy0wsQ-tqNgVCXHXuCwmf"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#CBD5E1] bg-white text-[#0F172A] hover:bg-slate-50 text-xs font-semibold shadow-2xs transition-colors shrink-0"
-              title="Buka Folder Google Drive Kelas (Termasuk Folder Trash)"
-            >
-              <ExternalLink size={12} className="text-emerald-600" />
-              <span className="hidden sm:inline">Google Drive</span>
-            </a>
-
             <button
               onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer"
             >
               <Upload size={13} />
               <span>Upload Berkas</span>
