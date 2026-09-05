@@ -771,10 +771,11 @@ function ClassWorkspace({
                 currentClass={currentClass}
                 currentUser={user}
                 schedules={schedules}
+                tasks={tasks}
                 onAddSchedule={handleAddSchedule}
                 onUpdateSchedule={handleUpdateSchedule}
                 onDeleteSchedule={handleDeleteSchedule}
-                onNavigateToTask={() => navigate(`/class/${currentClass.id}/tasks`)}
+                onNavigateToTask={(taskId) => navigate(`/class/${currentClass.id}/tasks${taskId ? '?task=' + taskId : ''}`)}
               />
             )}
 

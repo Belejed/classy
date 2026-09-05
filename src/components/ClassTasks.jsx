@@ -149,6 +149,20 @@ export default function ClassTasks({
     }
   }, [tasks]);
 
+  // Auto-open task if ?task=taskId is provided in URL
+  useEffect(() => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const taskIdParam = searchParams.get('task');
+      if (taskIdParam && tasks?.length > 0) {
+        const matched = tasks.find(t => t.id === taskIdParam);
+        if (matched) {
+          setSelectedTask(matched);
+        }
+      }
+    } catch {}
+  }, [tasks]);
+
   // Helper to determine if submission file is missing from Drive
   const isSubmissionFileMissing = (submission) => {
     if (!submission?.fileUrl) return false;

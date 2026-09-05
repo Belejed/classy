@@ -1,19 +1,28 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Calendar, 
+  CalendarDays,
   Clock, 
   MapPin, 
   Plus, 
   X, 
   Trash2, 
   ChevronLeft, 
-  ChevronRight,
-  User,
-  BookOpen,
-  Info,
-  Edit2,
-  Phone,
-  MessageCircle
+  ChevronRight, 
+  User, 
+  BookOpen, 
+  Info, 
+  Edit2, 
+  Phone, 
+  MessageCircle,
+  CheckCircle2,
+  AlertTriangle,
+  FileText,
+  ArrowRight,
+  ExternalLink,
+  Filter,
+  Check,
+  Bookmark
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
@@ -87,17 +96,180 @@ const COURSE_PALETTES = [
   }
 ];
 
+// Helper to check if a task deadline has passed
+const isTaskOverdue = (dueDate, dueTime = '23:59') => {
+  if (!dueDate) return false;
+  try {
+    const [year, month, day] = dueDate.split('-').map(Number);
+    const [hours, minutes] = (dueTime || '23:59').split(':').map(Number);
+    const dueDateTime = new Date(year, month - 1, day, hours || 23, minutes || 59, 59);
+    return new Date() > dueDateTime;
+  } catch {
+    return false;
+  }
+};
+
+const hasUserSubmitted = (task, user) => {
+  if (!task?.submissions || !Array.isArray(task.submissions)) return false;
+  return task.submissions.some(s => 
+    s.userId === user?.uid || 
+    s.userId === user?.id || 
+    s.userName === user?.displayName
+  );
+};
+
+const getTaskDayOfWeek = (dueDate) => {
+  if (!dueDate) return null;
+  try {
+    const [y, m, d] = dueDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const idx = (date.getDay() + 6) % 7;
+    return DAYS_OF_WEEK[idx];
+  } catch {
+    return null;
+  }
+};
+
+const MONTH_NAMES_ID = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
+const formatDateIndonesian = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const dayName = DAYS_OF_WEEK[(date.getDay() + 6) % 7];
+    return `${dayName}, ${d} ${MONTH_NAMES_ID[m - 1]} ${y}`;
+  } catch {
+    return dateStr;
+  }
+};
+
 export default function ClassSchedule({
   currentClass,
   currentUser,
   schedules = [],
+  tasks = [],
   onAddSchedule,
   onUpdateSchedule,
   onDeleteSchedule,
   onNavigateToTask
 }) {
-  const [viewMode, setViewMode] = useState('timetable'); // 'timetable' | 'day' | 'list'
+  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' | 'timetable' | 'day' | 'list'
   
+  // Calendar View State
+  const [calendarDate, setCalendarDate] = useState(() => new Date());
+  const [selectedCalendarDateStr, setSelectedCalendarDateStr] = useState(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+  const [calendarFilter, setCalendarFilter] = useState('all'); // 'all' | 'tasks' | 'classes'
+  const [selectedTaskDetail, setSelectedTaskDetail] = useState(null);
+  const [listFilter, setListFilter] = useState('all'); // 'all' | 'schedules' | 'tasks'
+
+  const calYear = calendarDate.getFullYear();
+  const calMonth = calendarDate.getMonth(); // 0-indexed
+
+  const handlePrevMonth = () => {
+    setCalendarDate(new Date(calYear, calMonth - 1, 1));
+  };
+  const handleNextMonth = () => {
+    setCalendarDate(new Date(calYear, calMonth + 1, 1));
+  };
+  const handleGoToday = () => {
+    const today = new Date();
+    setCalendarDate(today);
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    setSelectedCalendarDateStr(`${y}-${m}-${d}`);
+  };
+
+  const calendarGrid = useMemo(() => {
+    const firstDayIndex = new Date(calYear, calMonth, 1).getDay();
+    const startOffset = (firstDayIndex + 6) % 7; // 0 for Monday, 6 for Sunday
+
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const daysInPrevMonth = new Date(calYear, calMonth, 0).getDate();
+
+    const todayObj = new Date();
+    const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+
+    const cells = [];
+
+    // 1. Prev month trailing days
+    for (let i = startOffset - 1; i >= 0; i--) {
+      const dayNum = daysInPrevMonth - i;
+      const prevDate = new Date(calYear, calMonth - 1, dayNum);
+      const dateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      const dayName = DAYS_OF_WEEK[(prevDate.getDay() + 6) % 7];
+      cells.push({
+        dateNum: dayNum,
+        dateStr,
+        dayName,
+        isCurrentMonth: false,
+        isToday: dateStr === todayStr
+      });
+    }
+
+    // 2. Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayIndex = (new Date(calYear, calMonth, day).getDay() + 6) % 7;
+      const dayName = DAYS_OF_WEEK[dayIndex];
+      cells.push({
+        dateNum: day,
+        dateStr,
+        dayName,
+        isCurrentMonth: true,
+        isToday: dateStr === todayStr
+      });
+    }
+
+    // 3. Next month leading days (to fill 35 or 42 grid slots)
+    const targetLength = cells.length > 35 ? 42 : 35;
+    let nextDay = 1;
+    while (cells.length < targetLength) {
+      const nextDate = new Date(calYear, calMonth + 1, nextDay);
+      const dateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+      const dayName = DAYS_OF_WEEK[(nextDate.getDay() + 6) % 7];
+      cells.push({
+        dateNum: nextDay,
+        dateStr,
+        dayName,
+        isCurrentMonth: false,
+        isToday: dateStr === todayStr
+      });
+      nextDay++;
+    }
+
+    return cells;
+  }, [calYear, calMonth]);
+
+  const selectedDateTasks = useMemo(() => {
+    return (tasks || []).filter(t => t.dueDate === selectedCalendarDateStr);
+  }, [tasks, selectedCalendarDateStr]);
+
+  const selectedDateDayName = useMemo(() => {
+    if (!selectedCalendarDateStr) return 'Senin';
+    try {
+      const [y, m, d] = selectedCalendarDateStr.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      return DAYS_OF_WEEK[(date.getDay() + 6) % 7];
+    } catch {
+      return 'Senin';
+    }
+  }, [selectedCalendarDateStr]);
+
+  const selectedDateClasses = useMemo(() => {
+    return (schedules || []).filter(s => s.day === selectedDateDayName);
+  }, [schedules, selectedDateDayName]);
+
   // Current Day & Time calculation
   const todayIndex = (new Date().getDay() + 6) % 7; // 0 = Senin, 6 = Minggu
   const todayDayName = DAYS_OF_WEEK[todayIndex] || 'Senin';
@@ -332,16 +504,22 @@ export default function ClassSchedule({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2.5 border-b border-[#E2E8F0]">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold tracking-tight text-[#0F172A]">Class Schedule</h2>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-              {String(startHour).padStart(2, '0')}:00 – {String(endHour).padStart(2, '0')}:00 WIB
-            </span>
+            <h2 className="text-xl font-bold tracking-tight text-[#0F172A]">Class Schedule & Calendar</h2>
+            {viewMode === 'calendar' ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                {(tasks || []).length} Tenggat Tugas
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                {String(startHour).padStart(2, '0')}:00 – {String(endHour).padStart(2, '0')}:00 WIB
+              </span>
+            )}
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Fit 1 Layar
+              {(schedules || []).length} Jadwal Kuliah
             </span>
           </div>
           <p className="text-xs text-[#64748B]">
-            Jadwal perkuliahan mingguan detail dengan slot jam, ruang kuliah, dan dosen pengampu.
+            Kalender jadwal perkuliahan mingguan dan tenggat pengumpulan tugas kuliah terpadu.
           </p>
         </div>
 
@@ -349,9 +527,19 @@ export default function ClassSchedule({
           {/* View Mode Switcher */}
           <div className="flex items-center p-1 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold shadow-2xs">
             <button
+              onClick={() => setViewMode('calendar')}
+              className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'calendar' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
+              }`}
+              title="Tampilan Kalender Bulanan & Tenggat Tugas"
+            >
+              <CalendarDays size={13} />
+              <span>Kalender</span>
+            </button>
+            <button
               onClick={() => setViewMode('timetable')}
-              className={`px-3 py-1 rounded-lg transition-colors ${
-                viewMode === 'timetable' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:text-[#0F172A]'
+              className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                viewMode === 'timetable' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
               title="Tampilan Grid Jam Lengkap"
             >
@@ -359,8 +547,8 @@ export default function ClassSchedule({
             </button>
             <button
               onClick={() => setViewMode('day')}
-              className={`px-3 py-1 rounded-lg transition-colors ${
-                viewMode === 'day' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:text-[#0F172A]'
+              className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                viewMode === 'day' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
               title="Tampilan Agenda Harian"
             >
@@ -368,8 +556,8 @@ export default function ClassSchedule({
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-3 py-1 rounded-lg transition-colors ${
-                viewMode === 'list' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:text-[#0F172A]'
+              className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                viewMode === 'list' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
               title="Tampilan Daftar Ringkas"
             >
@@ -389,6 +577,379 @@ export default function ClassSchedule({
           )}
         </div>
       </div>
+
+      {/* VIEW 0: MONTHLY CALENDAR VIEW (FOR TASKS & LECTURES) */}
+      {viewMode === 'calendar' && (
+        <div className="space-y-4">
+          {/* Calendar Toolbar: Month Navigation & Filters */}
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-3.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Month & Year Title with Controls */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center rounded-xl border border-[#CBD5E1] bg-slate-50 p-0.5">
+                <button
+                  onClick={handlePrevMonth}
+                  className="p-1.5 rounded-lg text-[#475569] hover:text-[#0F172A] hover:bg-white transition-colors cursor-pointer"
+                  title="Bulan Sebelumnya"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  onClick={handleNextMonth}
+                  className="p-1.5 rounded-lg text-[#475569] hover:text-[#0F172A] hover:bg-white transition-colors cursor-pointer"
+                  title="Bulan Berikutnya"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              <h3 className="font-bold text-base text-[#0F172A] flex items-center gap-2">
+                <span>{MONTH_NAMES_ID[calMonth]} {calYear}</span>
+              </h3>
+
+              <button
+                onClick={handleGoToday}
+                className="ml-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-[#0F172A] border border-slate-200 transition-colors cursor-pointer"
+              >
+                Hari Ini
+              </button>
+            </div>
+
+            {/* Filter Chips & Legend */}
+            <div className="flex items-center flex-wrap gap-2 text-xs">
+              <div className="flex items-center p-0.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
+                <button
+                  onClick={() => setCalendarFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+                    calendarFilter === 'all' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+                >
+                  Semua ({(tasks || []).length + (schedules || []).length})
+                </button>
+                <button
+                  onClick={() => setCalendarFilter('tasks')}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
+                    calendarFilter === 'tasks' ? 'bg-rose-600 text-white shadow-2xs' : 'text-rose-700 hover:bg-rose-50'
+                  }`}
+                >
+                  <span>📝 Tugas</span>
+                  <span className="text-[10px] px-1 rounded-full bg-rose-100 text-rose-800">
+                    {(tasks || []).length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setCalendarFilter('classes')}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
+                    calendarFilter === 'classes' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-indigo-700 hover:bg-indigo-50'
+                  }`}
+                >
+                  <span>📚 Kuliah</span>
+                  <span className="text-[10px] px-1 rounded-full bg-indigo-100 text-indigo-800">
+                    {(schedules || []).length}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Calendar Month Grid */}
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-2xs overflow-hidden">
+            {/* 7 Days Header */}
+            <div className="grid grid-cols-7 border-b border-[#E2E8F0] bg-[#F8FAFC]">
+              {DAYS_OF_WEEK.map((dayName) => (
+                <div key={dayName} className="py-2.5 text-center border-r border-[#E2E8F0] last:border-r-0">
+                  <span className="text-xs font-bold text-[#475569]">{dayName}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Grid of Days */}
+            <div className="grid grid-cols-7 border-collapse">
+              {calendarGrid.map((cell, idx) => {
+                const cellTasks = (tasks || []).filter(t => t.dueDate === cell.dateStr);
+                const cellClasses = (schedules || []).filter(s => s.day === cell.dayName);
+
+                const itemsToShow = [];
+                if (calendarFilter === 'all' || calendarFilter === 'tasks') {
+                  cellTasks.forEach(t => itemsToShow.push({ ...t, itemType: 'task' }));
+                }
+                if (calendarFilter === 'all' || calendarFilter === 'classes') {
+                  cellClasses.forEach(c => itemsToShow.push({ ...c, itemType: 'class' }));
+                }
+
+                const isSelected = cell.dateStr === selectedCalendarDateStr;
+
+                return (
+                  <div
+                    key={cell.dateStr + '_' + idx}
+                    onClick={() => setSelectedCalendarDateStr(cell.dateStr)}
+                    className={`min-h-[105px] sm:min-h-[120px] p-1.5 sm:p-2 border-b border-r border-[#E2E8F0] last:border-r-0 transition-all flex flex-col justify-between cursor-pointer ${
+                      isSelected
+                        ? 'bg-amber-50/40 ring-2 ring-inset ring-[#0F172A]'
+                        : cell.isToday
+                        ? 'bg-sky-50/30'
+                        : cell.isCurrentMonth
+                        ? 'bg-white hover:bg-slate-50/80'
+                        : 'bg-slate-50/50 text-[#94A3B8]'
+                    }`}
+                  >
+                    {/* Top Row: Date Number */}
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full transition-all ${
+                          cell.isToday
+                            ? 'bg-[#0F172A] text-white shadow-2xs font-extrabold'
+                            : isSelected
+                            ? 'bg-amber-200 text-amber-950'
+                            : cell.isCurrentMonth
+                            ? 'text-[#0F172A]'
+                            : 'text-[#94A3B8]'
+                        }`}
+                      >
+                        {cell.dateNum}
+                      </span>
+
+                      {/* Small counter if multiple tasks */}
+                      {cellTasks.length > 0 && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 border border-rose-200" title={`${cellTasks.length} tugas jatuh tempo`}>
+                          {cellTasks.length} Tugas
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Middle: Items List */}
+                    <div className="space-y-1 my-1 overflow-hidden">
+                      {itemsToShow.slice(0, 3).map((item, itemIdx) => {
+                        if (item.itemType === 'task') {
+                          const isOverdue = isTaskOverdue(item.dueDate, item.dueTime);
+                          const isSubmitted = hasUserSubmitted(item, currentUser);
+
+                          return (
+                            <div
+                              key={item.id || itemIdx}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTaskDetail(item);
+                              }}
+                              className={`p-1 rounded-lg text-[10px] sm:text-[11px] font-semibold border flex items-center gap-1 truncate shadow-2xs transition-transform hover:scale-[1.02] cursor-pointer ${
+                                isSubmitted
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : isOverdue
+                                  ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                  : 'bg-amber-50 text-amber-900 border-amber-200'
+                              }`}
+                              title={`Tugas: ${item.title} (${item.dueTime || '23:59'})`}
+                            >
+                              <span className="shrink-0">
+                                {isSubmitted ? '✅' : isOverdue ? '🔴' : '📝'}
+                              </span>
+                              <span className="truncate flex-1">{item.title}</span>
+                              <span className="text-[9px] opacity-75 font-mono shrink-0 hidden sm:inline">
+                                {item.dueTime}
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        // Class item
+                        return (
+                          <div
+                            key={item.id || itemIdx}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEvent(item);
+                            }}
+                            className="p-1 rounded-lg text-[10px] sm:text-[11px] font-medium bg-slate-50 text-[#334155] border border-slate-200/80 flex items-center gap-1 truncate hover:bg-slate-100 transition-colors cursor-pointer"
+                            title={`Kuliah: ${item.course || item.title} (${item.startTime} - ${item.endTime})`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                            <span className="truncate flex-1">{item.course || item.title}</span>
+                            <span className="text-[9px] text-[#64748B] font-mono shrink-0 hidden sm:inline">
+                              {item.startTime}
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      {itemsToShow.length > 3 && (
+                        <div className="text-[9px] font-bold text-[#64748B] text-center">
+                          +{itemsToShow.length - 3} lainnya
+                        </div>
+                      )}
+                    </div>
+
+                    <div />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Selected Date Detail Panel */}
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#F1F5F9] gap-2">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
+                  Agenda Terpilih
+                </span>
+                <h4 className="font-bold text-base text-[#0F172A] flex items-center gap-2">
+                  <Calendar size={16} className="text-[#0F172A]" />
+                  <span>{formatDateIndonesian(selectedCalendarDateStr)}</span>
+                </h4>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs">
+                <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200">
+                  {selectedDateTasks.length} Tenggat Tugas
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
+                  {selectedDateClasses.length} Perkuliahan
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Left Column: Tasks for selected date */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h5 className="font-bold text-xs uppercase tracking-wider text-rose-700 flex items-center gap-1.5">
+                    <span>📝 Tenggat Tugas</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-100">
+                      {selectedDateTasks.length}
+                    </span>
+                  </h5>
+                </div>
+
+                {selectedDateTasks.length === 0 ? (
+                  <div className="p-6 rounded-xl border border-dashed border-[#CBD5E1] text-center space-y-1 bg-[#F8FAFC]">
+                    <CheckCircle2 size={24} className="mx-auto text-emerald-500/80" />
+                    <p className="text-xs font-semibold text-[#0F172A]">Tidak ada tugas jatuh tempo pada tanggal ini</p>
+                    <p className="text-[11px] text-[#64748B]">Bebas dari deadline tugas kuliah!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {selectedDateTasks.map((t) => {
+                      const isOverdue = isTaskOverdue(t.dueDate, t.dueTime);
+                      const isSubmitted = hasUserSubmitted(t, currentUser);
+
+                      return (
+                        <div
+                          key={t.id}
+                          className={`p-3.5 rounded-xl border transition-all space-y-2 ${
+                            isSubmitted
+                              ? 'bg-emerald-50/40 border-emerald-200'
+                              : isOverdue
+                              ? 'bg-rose-50/40 border-rose-300'
+                              : 'bg-amber-50/40 border-amber-200'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              {t.course && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-[#CBD5E1] text-[#475569]">
+                                  {t.course}
+                                </span>
+                              )}
+                              <h6 className="font-bold text-sm text-[#0F172A] mt-1">{t.title}</h6>
+                            </div>
+
+                            <div className="shrink-0">
+                              {isSubmitted ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                  <Check size={11} />
+                                  <span>Sudah Dikumpul</span>
+                                </span>
+                              ) : isOverdue ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1">
+                                  <AlertTriangle size={11} />
+                                  <span>Terlewat</span>
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                                  Belum Dikumpul
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs text-[#64748B] pt-1">
+                            <span className="flex items-center gap-1 font-mono font-medium">
+                              <Clock size={12} className="text-[#94A3B8]" />
+                              <span>Batas: {t.dueTime || '23:59'} WIB</span>
+                            </span>
+
+                            <button
+                              onClick={() => {
+                                if (onNavigateToTask) {
+                                  onNavigateToTask(t.id);
+                                }
+                              }}
+                              className="px-3 py-1 rounded-lg bg-[#0F172A] text-white text-[11px] font-semibold hover:bg-[#1E293B] flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <span>Buka Tugas</span>
+                              <ArrowRight size={11} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Classes for this day of week */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h5 className="font-bold text-xs uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
+                    <span>📚 Jadwal Kuliah ({selectedDateDayName})</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-100">
+                      {selectedDateClasses.length}
+                    </span>
+                  </h5>
+                </div>
+
+                {selectedDateClasses.length === 0 ? (
+                  <div className="p-6 rounded-xl border border-dashed border-[#CBD5E1] text-center space-y-1 bg-[#F8FAFC]">
+                    <BookOpen size={24} className="mx-auto text-[#94A3B8]" />
+                    <p className="text-xs font-semibold text-[#0F172A]">Tidak ada jadwal perkuliahan</p>
+                    <p className="text-[11px] text-[#64748B]">Hari bebas kuliah atau jadwal mandiri.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {selectedDateClasses
+                      .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'))
+                      .map((cls) => {
+                        const styles = getEventTypeStyles(cls);
+                        return (
+                          <div
+                            key={cls.id}
+                            onClick={() => setSelectedEvent(cls)}
+                            className={`p-3.5 rounded-xl border transition-all space-y-1.5 cursor-pointer hover:shadow-xs ${styles.bg}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-white border border-[#CBD5E1]">
+                                {cls.startTime} – {cls.endTime}
+                              </span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase ${styles.badge}`}>
+                                {cls.code || cls.type}
+                              </span>
+                            </div>
+
+                            <h6 className="font-bold text-sm text-[#0F172A]">{cls.title || cls.course}</h6>
+
+                            <div className="flex items-center gap-3 text-xs opacity-85">
+                              {cls.room && <span className="flex items-center gap-1"><MapPin size={12} /> {cls.room}</span>}
+                              {cls.lecturer && <span className="flex items-center gap-1"><User size={12} /> {cls.lecturer}</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* VIEW 1: DETAILED HOURLY TIMETABLE GRID (DYNAMIC FIT 1 SCREEN) */}
       {viewMode === 'timetable' && (
@@ -413,6 +974,7 @@ export default function ClassSchedule({
                 {DAYS_OF_WEEK.map((dayName) => {
                   const isToday = dayName === todayDayName;
                   const dayEvents = schedules.filter(s => s.day === dayName);
+                  const dayTasks = (tasks || []).filter(t => getTaskDayOfWeek(t.dueDate) === dayName);
 
                   return (
                     <div
@@ -433,6 +995,23 @@ export default function ClassSchedule({
                       <span className="text-[10px] sm:text-[11px] text-[#64748B] block mt-0.5 font-medium">
                         {dayEvents.length} jadwal
                       </span>
+                      {dayTasks.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (dayTasks.length === 1) setSelectedTaskDetail(dayTasks[0]);
+                            else {
+                              setSelectedDay(dayName);
+                              setViewMode('day');
+                            }
+                          }}
+                          className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 border border-rose-200 block mt-0.5 mx-auto cursor-pointer hover:bg-rose-200 transition-colors"
+                          title={`${dayTasks.length} tugas jatuh tempo pada hari ${dayName}`}
+                        >
+                          📝 {dayTasks.length} tugas
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -626,6 +1205,76 @@ export default function ClassSchedule({
               </span>
             </div>
 
+            {/* Tasks due on this day */}
+            {(() => {
+              const dayTasksForDayView = (tasks || []).filter(t => getTaskDayOfWeek(t.dueDate) === selectedDay);
+              if (dayTasksForDayView.length === 0) return null;
+              return (
+                <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-xs uppercase tracking-wider text-rose-800 flex items-center gap-1.5">
+                      <AlertTriangle size={14} className="text-rose-600" />
+                      <span>Tenggat Tugas Hari {selectedDay} ({dayTasksForDayView.length})</span>
+                    </h4>
+                    <span className="text-[10px] text-rose-600 font-medium hidden sm:inline">
+                      Klik kartu tugas untuk lihat detail
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {dayTasksForDayView.map((t) => {
+                      const isOverdue = isTaskOverdue(t.dueDate, t.dueTime);
+                      const isSubmitted = hasUserSubmitted(t, currentUser);
+
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => setSelectedTaskDetail(t)}
+                          className={`p-3 rounded-xl border bg-white flex items-center justify-between gap-3 shadow-2xs hover:shadow-xs transition-all cursor-pointer ${
+                            isSubmitted
+                              ? 'border-emerald-200 hover:border-emerald-400'
+                              : isOverdue
+                              ? 'border-rose-300 hover:border-rose-500'
+                              : 'border-amber-200 hover:border-amber-400'
+                          }`}
+                        >
+                          <div className="min-w-0 space-y-0.5">
+                            <div className="flex items-center gap-1.5">
+                              {t.course && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-[#475569] truncate">
+                                  {t.course}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-[#64748B] font-mono">
+                                🕒 {t.dueTime || '23:59'} WIB
+                              </span>
+                            </div>
+                            <p className="font-bold text-xs text-[#0F172A] truncate">{t.title}</p>
+                          </div>
+
+                          <div className="shrink-0">
+                            {isSubmitted ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                Terkumpul
+                              </span>
+                            ) : isOverdue ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+                                Terlewat
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                                Pending
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             {schedules.filter(s => s.day === selectedDay).length === 0 ? (
               <div className="py-12 text-center space-y-1 text-[#64748B]">
                 <p className="text-xs font-semibold text-[#0F172A]">Tidak ada jadwal perkuliahan pada hari {selectedDay}.</p>
@@ -704,70 +1353,169 @@ export default function ClassSchedule({
 
       {/* VIEW 3: COMPACT LIST VIEW */}
       {viewMode === 'list' && (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs space-y-6">
-          <div className="pb-2 border-b border-[#F1F5F9]">
-            <h3 className="font-bold text-sm text-[#0F172A]">Daftar Seluruh Jadwal Perkuliahan</h3>
-            <p className="text-xs text-[#64748B]">Daftar lengkap jadwal kelas terkelompok berdasarkan hari.</p>
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#F1F5F9] gap-2">
+            <div>
+              <h3 className="font-bold text-sm text-[#0F172A]">Daftar Seluruh Agenda & Jadwal</h3>
+              <p className="text-xs text-[#64748B]">Daftar lengkap jadwal kelas dan tenggat tugas kuliah.</p>
+            </div>
+
+            {/* List Filter Tabs */}
+            <div className="flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold">
+              <button
+                onClick={() => setListFilter('all')}
+                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                  listFilter === 'all' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
+                }`}
+              >
+                Semua ({(schedules || []).length + (tasks || []).length})
+              </button>
+              <button
+                onClick={() => setListFilter('schedules')}
+                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                  listFilter === 'schedules' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
+                }`}
+              >
+                Kuliah ({(schedules || []).length})
+              </button>
+              <button
+                onClick={() => setListFilter('tasks')}
+                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                  listFilter === 'tasks' ? 'bg-rose-600 text-white shadow-2xs' : 'text-rose-700 hover:bg-rose-50'
+                }`}
+              >
+                Tugas ({(tasks || []).length})
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-5">
-            {DAYS_OF_WEEK.map((dayName) => {
-              const dayEvents = schedules
-                .filter(s => s.day === dayName)
-                .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
+          {/* Tasks Section in List View */}
+          {(listFilter === 'all' || listFilter === 'tasks') && (tasks || []).length > 0 && (
+            <div className="space-y-2.5 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-rose-600" />
+                <h4 className="font-bold text-xs uppercase tracking-wider text-rose-800 flex items-center gap-1.5">
+                  <span>📝 Tenggat Tugas Kuliah ({(tasks || []).length})</span>
+                </h4>
+              </div>
 
-              if (dayEvents.length === 0) return null;
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pl-4">
+                {(tasks || [])
+                  .slice()
+                  .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''))
+                  .map(t => {
+                    const isOverdue = isTaskOverdue(t.dueDate, t.dueTime);
+                    const isSubmitted = hasUserSubmitted(t, currentUser);
 
-              return (
-                <div key={dayName} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#0F172A]" />
-                    <h4 className="font-bold text-xs uppercase tracking-wider text-[#0F172A]">
-                      {dayName} ({dayEvents.length} Jadwal)
-                    </h4>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pl-4">
-                    {dayEvents.map(evt => (
+                    return (
                       <div
-                        key={evt.id}
-                        onClick={() => setSelectedEvent(evt)}
-                        className="p-3 rounded-xl border border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-[#F8FAFC] transition-all cursor-pointer flex items-center justify-between gap-3"
+                        key={t.id}
+                        onClick={() => setSelectedTaskDetail(t)}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 shadow-2xs ${
+                          isSubmitted
+                            ? 'bg-emerald-50/40 border-emerald-200 hover:border-emerald-400'
+                            : isOverdue
+                            ? 'bg-rose-50/40 border-rose-300 hover:border-rose-500'
+                            : 'bg-amber-50/40 border-amber-200 hover:border-amber-400'
+                        }`}
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 space-y-0.5">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-[#0F172A]">
-                              {evt.startTime} – {evt.endTime}
-                            </span>
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 uppercase">
-                              {evt.type}
+                            {t.course && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-white border border-[#CBD5E1] text-[#475569]">
+                                {t.course}
+                              </span>
+                            )}
+                            <span className="font-mono text-[10px] text-[#64748B]">
+                              📅 {formatDateIndonesian(t.dueDate)} · {t.dueTime || '23:59'} WIB
                             </span>
                           </div>
-                          <p className="font-bold text-xs text-[#0F172A] truncate mt-0.5">{evt.title}</p>
-                          <p className="text-[10px] text-[#64748B] truncate">
-                            {evt.room ? `📍 ${evt.room}` : ''} {evt.lecturer ? `· 👤 ${evt.lecturer}` : ''}
-                          </p>
+                          <p className="font-bold text-xs text-[#0F172A] truncate">{t.title}</p>
                         </div>
 
-                        {isManager && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleStartEdit(evt);
-                            }}
-                            className="p-1.5 rounded-lg border border-[#CBD5E1] text-[#64748B] hover:text-[#0F172A] hover:bg-white transition-colors shrink-0 cursor-pointer"
-                            title="Edit Jadwal"
-                          >
-                            <Edit2 size={12} />
-                          </button>
-                        )}
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          {isSubmitted ? (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              Terkumpul
+                            </span>
+                          ) : isOverdue ? (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+                              Terlewat
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                              Pending
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    ))}
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* Schedules Section in List View */}
+          {(listFilter === 'all' || listFilter === 'schedules') && (
+            <div className="space-y-5">
+              {DAYS_OF_WEEK.map((dayName) => {
+                const dayEvents = schedules
+                  .filter(s => s.day === dayName)
+                  .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
+
+                if (dayEvents.length === 0) return null;
+
+                return (
+                  <div key={dayName} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#0F172A]" />
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-[#0F172A]">
+                        {dayName} ({dayEvents.length} Jadwal)
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pl-4">
+                      {dayEvents.map(evt => (
+                        <div
+                          key={evt.id}
+                          onClick={() => setSelectedEvent(evt)}
+                          className="p-3 rounded-xl border border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-[#F8FAFC] transition-all cursor-pointer flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-bold text-[#0F172A]">
+                                {evt.startTime} – {evt.endTime}
+                              </span>
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 uppercase">
+                                {evt.type}
+                              </span>
+                            </div>
+                            <p className="font-bold text-xs text-[#0F172A] truncate mt-0.5">{evt.title}</p>
+                            <p className="text-[10px] text-[#64748B] truncate">
+                              {evt.room ? `📍 ${evt.room}` : ''} {evt.lecturer ? `· 👤 ${evt.lecturer}` : ''}
+                            </p>
+                          </div>
+
+                          {isManager && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartEdit(evt);
+                              }}
+                              className="p-1.5 rounded-lg border border-[#CBD5E1] text-[#64748B] hover:text-[#0F172A] hover:bg-white transition-colors shrink-0 cursor-pointer"
+                              title="Edit Jadwal"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -879,6 +1627,97 @@ export default function ClassSchedule({
           </ModalPortal>
         );
       })()}
+
+      {/* MODAL: TASK DETAIL MODAL WITHIN SCHEDULE */}
+      {selectedTaskDetail && (
+        <ModalPortal onClose={() => setSelectedTaskDetail(null)} maxWidth="max-w-md">
+          <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
+              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                <span>📝 Detail Tugas Kuliah</span>
+              </span>
+              <button onClick={() => setSelectedTaskDetail(null)} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A] cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {selectedTaskDetail.course && (
+                <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 inline-block">
+                  {selectedTaskDetail.course}
+                </span>
+              )}
+
+              <h3 className="font-bold text-lg text-[#0F172A] leading-snug">
+                {selectedTaskDetail.title}
+              </h3>
+
+              {/* Status and Deadline Card */}
+              <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5 text-xs text-[#334155]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#64748B]">Tenggat Waktu:</span>
+                  <strong className="text-[#0F172A] font-mono">
+                    {formatDateIndonesian(selectedTaskDetail.dueDate)} · {selectedTaskDetail.dueTime || '23:59'} WIB
+                  </strong>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[#64748B]">Status Kamu:</span>
+                  {hasUserSubmitted(selectedTaskDetail, currentUser) ? (
+                    <span className="font-bold text-emerald-700 flex items-center gap-1">
+                      <CheckCircle2 size={13} />
+                      <span>Sudah Dikumpulkan</span>
+                    </span>
+                  ) : isTaskOverdue(selectedTaskDetail.dueDate, selectedTaskDetail.dueTime) ? (
+                    <span className="font-bold text-rose-600 flex items-center gap-1">
+                      <AlertTriangle size={13} />
+                      <span>Melewati Deadline (Terlewat)</span>
+                    </span>
+                  ) : (
+                    <span className="font-bold text-amber-600">
+                      Belum Mengumpulkan
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Description / Instructions if available */}
+              {(selectedTaskDetail.description || selectedTaskDetail.instructions) && (
+                <div className="space-y-1 pt-1">
+                  <span className="text-xs font-semibold text-[#64748B]">Deskripsi & Petunjuk:</span>
+                  <p className="text-xs text-[#334155] p-3 rounded-xl bg-slate-50 border border-slate-200/70 whitespace-pre-line max-h-36 overflow-y-auto">
+                    {selectedTaskDetail.description || selectedTaskDetail.instructions}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9]">
+              <button
+                onClick={() => setSelectedTaskDetail(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#64748B] hover:text-[#0F172A] hover:bg-slate-50 transition-colors"
+              >
+                Tutup
+              </button>
+
+              <button
+                onClick={() => {
+                  const id = selectedTaskDetail.id;
+                  setSelectedTaskDetail(null);
+                  if (onNavigateToTask) {
+                    onNavigateToTask(id);
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <span>Buka di Halaman Tugas</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
 
       {/* MODAL 2: ADD / EDIT EVENT MODAL (Komti / Dosen) */}
       {showAddModal && (
