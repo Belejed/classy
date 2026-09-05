@@ -123,6 +123,11 @@ export default function App() {
       setFiles(fileData || []);
       setAnnouncements(annData || []);
       setGroups(grpData || []);
+
+      // Auto-sync current user's phone number into class members
+      if (user?.uid && user?.phoneNumber && cls?.id) {
+        dbService.classes.syncMemberPhone(cls.id, user.uid, user.phoneNumber).catch(() => {});
+      }
     } catch (err) {
       console.error('Error loading class data:', err);
       setSchedules([]);

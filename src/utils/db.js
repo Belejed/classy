@@ -306,6 +306,7 @@ export const dbService = {
             userId,
             name: userName || userEmail.split('@')[0],
             email: userEmail,
+            phoneNumber: (phoneNumber || '').trim(),
             role: finalRole,
             joinedAt: new Date().toISOString()
           }
@@ -330,7 +331,7 @@ export const dbService = {
       };
     },
 
-    joinByCode: async (userId, userEmail, userName, joinCode, defaultRole = 'student') => {
+    joinByCode: async (userId, userEmail, userName, joinCode, defaultRole = 'student', phoneNumber = '') => {
       // Rule: 1 user can only have 1 class
       const existingClasses = await dbService.classes.list(userId, userEmail);
       const cleanCode = (joinCode || '').trim().toUpperCase();
@@ -355,6 +356,7 @@ export const dbService = {
             userId,
             name: userName || userEmail.split('@')[0],
             email: userEmail,
+            phoneNumber: (phoneNumber || '').trim(),
             role: defaultRole,
             joinedAt: new Date().toISOString()
           }
@@ -410,6 +412,26 @@ export const dbService = {
       const { error: updErr } = await supabase.from('workspaces').update({ members: updatedMembers }).eq('id', classId);
       if (updErr) throw updErr;
       return updatedMembers;
+    },
+
+    syncMemberPhone: async (classId, userId, phoneNumber) => {
+      if (!classId || !userId || !phoneNumber) return;
+      try {
+        const { data, error } = await supabase.from('workspaces').select('members').eq('id', classId).maybeSingle();
+        if (error || !data) return;
+        const members = data.members || [];
+        let changed = false;
+        const updated = members.map(m => {
+          if (m.userId === userId && m.phoneNumber !== phoneNumber) {
+            changed = true;
+            return { ...m, phoneNumber };
+          }
+          return m;
+        });
+        if (changed) {
+          await supabase.from('workspaces').update({ members: updated }).eq('id', classId);
+        }
+      } catch {}
     },
 
     update: async (classId, { name, classIdentifier, lecturer, academicPeriod }) => {

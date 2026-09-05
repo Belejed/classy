@@ -74,7 +74,9 @@ export default function ClassLobby({
         currentUser.uid,
         currentUser.email,
         currentUser.displayName,
-        joinCodeInput.trim()
+        joinCodeInput.trim(),
+        'student',
+        currentUser.phoneNumber || ''
       );
       toast.success(`Berhasil bergabung ke ${joined.name}!`);
       setShowJoinModal(false);
@@ -106,7 +108,8 @@ export default function ClassLobby({
           classIdentifier: newClassId.trim(),
           lecturer: newLecturer.trim(),
           academicPeriod: newPeriod.trim(),
-          creatorRole
+          creatorRole,
+          phoneNumber: currentUser.phoneNumber || ''
         }
       );
       toast.success('Kelas baru berhasil dibuat!');

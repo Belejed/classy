@@ -12,7 +12,7 @@ import {
   Edit2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { authService, DEFAULT_NOTIFICATION_PREFERENCES } from '../utils/db';
+import { authService, dbService, DEFAULT_NOTIFICATION_PREFERENCES } from '../utils/db';
 import ModalPortal from './ModalPortal';
 
 export default function UserProfileModal({
@@ -43,6 +43,9 @@ export default function UserProfileModal({
         phoneNumber: phoneNumber.trim(),
         notificationPreferences: prefs
       });
+      if (currentClass?.id && currentUser?.uid) {
+        dbService.classes.syncMemberPhone(currentClass.id, currentUser.uid, phoneNumber.trim()).catch(() => {});
+      }
       toast.success('Pengaturan profil & notifikasi disimpan!');
       if (onUpdateUser) onUpdateUser(updated);
       setIsEditingContact(false);
