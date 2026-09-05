@@ -328,16 +328,16 @@ export default function ClassSidebar({
             <button
               key={item.id}
               onClick={() => onSelectTab(item.id)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out ${
                 isActive ? 'text-[#0F172A]' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
             >
-              <div className={`p-1.5 rounded-xl transition-all ${
+              <div className={`p-1.5 rounded-xl transition-all duration-200 ${
                 isActive ? 'bg-[#0F172A] text-white shadow-2xs scale-105' : 'bg-transparent'
               }`}>
                 <Icon size={17} />
               </div>
-              <span className={`text-[10px] tracking-tight mt-0.5 ${
+              <span className={`text-[10px] tracking-tight mt-0.5 transition-all ${
                 isActive ? 'font-bold text-[#0F172A]' : 'font-medium text-[#64748B]'
               }`}>
                 {item.label}
@@ -352,16 +352,16 @@ export default function ClassSidebar({
           return (
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out ${
                 isOtherTabActive ? 'text-[#0F172A]' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
             >
-              <div className={`p-1.5 rounded-xl transition-all ${
+              <div className={`p-1.5 rounded-xl transition-all duration-200 ${
                 isOtherTabActive ? 'bg-[#0F172A] text-white shadow-2xs scale-105' : 'bg-transparent'
               }`}>
                 <Menu size={17} />
               </div>
-              <span className={`text-[10px] tracking-tight mt-0.5 ${
+              <span className={`text-[10px] tracking-tight mt-0.5 transition-all ${
                 isOtherTabActive ? 'font-bold text-[#0F172A]' : 'font-medium text-[#64748B]'
               }`}>
                 Menu
@@ -376,15 +376,15 @@ export default function ClassSidebar({
         <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
           {/* Backdrop */}
           <div 
-            className={`fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity ${
+            className={`fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity ${
               isClosingMobileMenu ? 'animate-classy-backdrop-out' : 'animate-classy-backdrop'
             }`} 
             onClick={handleCloseMobileMenu} 
           />
 
           {/* Bottom Sheet Container */}
-          <div className={`relative w-full bg-white rounded-t-3xl shadow-2xl z-10 max-h-[85vh] flex flex-col overflow-hidden ${
-            isClosingMobileMenu ? 'animate-out slide-out-to-bottom duration-200' : 'animate-in slide-in-from-bottom duration-250'
+          <div className={`relative w-full bg-white rounded-t-[28px] shadow-2xl z-10 max-h-[85vh] flex flex-col overflow-hidden ${
+            isClosingMobileMenu ? 'animate-bottom-sheet-out' : 'animate-bottom-sheet-in'
           }`}>
             {/* Grab Handle */}
             <div className="pt-3 pb-1 flex justify-center shrink-0">
@@ -464,7 +464,7 @@ export default function ClassSidebar({
                       onSelectTab('members');
                       handleCloseMobileMenu();
                     }}
-                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer ${
+                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-1 active:scale-[0.98] ${
                       activeTab === 'members'
                         ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
                         : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
@@ -498,7 +498,7 @@ export default function ClassSidebar({
                       onSelectTab('files');
                       handleCloseMobileMenu();
                     }}
-                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer ${
+                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-2 active:scale-[0.98] ${
                       activeTab === 'files'
                         ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
                         : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
@@ -525,7 +525,7 @@ export default function ClassSidebar({
                       onSelectTab('contacts');
                       handleCloseMobileMenu();
                     }}
-                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer ${
+                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-3 active:scale-[0.98] ${
                       activeTab === 'contacts'
                         ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
                         : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
@@ -552,7 +552,7 @@ export default function ClassSidebar({
                       onSelectTab('forum');
                       handleCloseMobileMenu();
                     }}
-                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer ${
+                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-4 active:scale-[0.98] ${
                       activeTab === 'forum'
                         ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
                         : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
@@ -585,7 +585,7 @@ export default function ClassSidebar({
                         onSelectTab('logs');
                         handleCloseMobileMenu();
                       }}
-                      className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer ${
+                      className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-5 active:scale-[0.98] ${
                         activeTab === 'logs'
                           ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
                           : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'

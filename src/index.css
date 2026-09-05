@@ -279,5 +279,70 @@
   will-change: transform, opacity, filter;
 }
 
+/* ==========================================================================
+   Smooth Native-feeling Mobile Bottom Sheet & Page Transitions
+   ========================================================================== */
+@keyframes classyBottomSheetIn {
+  0% {
+    transform: translateY(100%);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
 
+@keyframes classyBottomSheetOut {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
 
+.animate-bottom-sheet-in {
+  animation: classyBottomSheetIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-bottom-sheet-out {
+  animation: classyBottomSheetOut 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes classyPageEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-enter {
+  animation: classyPageEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes classyItemPop {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-sheet-item-1 { animation: classyItemPop 0.28s 0.04s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.animate-sheet-item-2 { animation: classyItemPop 0.28s 0.08s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.animate-sheet-item-3 { animation: classyItemPop 0.28s 0.12s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.animate-sheet-item-4 { animation: classyItemPop 0.28s 0.16s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.animate-sheet-item-5 { animation: classyItemPop 0.28s 0.20s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
