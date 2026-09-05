@@ -14,6 +14,7 @@ import ClassTasks from './components/ClassTasks';
 import ClassFiles from './components/ClassFiles';
 import ClassAnnouncements from './components/ClassAnnouncements';
 import ClassForum from './components/ClassForum';
+import ClassContacts from './components/ClassContacts';
 import UserProfileModal from './components/UserProfileModal';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -486,7 +487,7 @@ function ClassWorkspace({
   const { classId, tab } = useParams();
   const navigate = useNavigate();
 
-  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'members'];
+  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'contacts', 'members'];
   const activeTab = validTabs.includes(tab) ? tab : 'dashboard';
 
   // Ensure currentClass matches the URL classId
@@ -630,6 +631,15 @@ function ClassWorkspace({
                 onSendMessage={handleSendMessage}
                 handleAddGroupFile={handleAddGroupFile}
                 onDeleteGroup={handleDeleteGroup}
+              />
+            )}
+
+            {activeTab === 'contacts' && (
+              <ClassContacts
+                currentClass={currentClass}
+                currentUser={user}
+                schedules={schedules}
+                onNavigateTab={(targetTab) => navigate(`/class/${currentClass.id}/${targetTab}`)}
               />
             )}
 

@@ -17,7 +17,8 @@ import {
   Menu,
   X,
   Shield,
-  BookOpen
+  BookOpen,
+  Phone
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -65,6 +66,7 @@ export default function ClassSidebar({
     { id: 'files', label: 'Files', icon: Folder },
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'forum', label: 'Forum', icon: MessageSquare },
+    { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
     { id: 'members', label: 'Members (Komti)', icon: Users, isSpecial: true }
   ];
 

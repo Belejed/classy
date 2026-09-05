@@ -32,7 +32,6 @@ export default function ClassDashboard({
   onOpenTaskDetail,
   onOpenAnnouncementDetail
 }) {
-  const [lecturerSearch, setLecturerSearch] = useState('');
   const [copiedId, setCopiedId] = useState(null);
 
   // Day names helper
@@ -65,7 +64,7 @@ export default function ClassDashboard({
   const coordinatorMember = currentClass?.members?.find(m => m.role === 'komti' || m.role === 'coordinator') || 
     (currentClass?.members?.length > 0 ? currentClass.members[0] : { name: 'Komti Kelas', role: 'Komti' });
 
-  // Extract all unique course lecturers from safeSchedules
+  // Extract unique course lecturers count
   const courseLecturers = useMemo(() => {
     const list = [];
     const seen = new Set();
@@ -83,31 +82,13 @@ export default function ClassDashboard({
         list.push({
           id: sch.id,
           lecturer: name,
-          role: info.role || sch.lecturerRole || 'Pengajar Utama',
-          phone: info.phone || sch.lecturerPhone || '',
-          cleanPhone: info.cleanPhone || sch.lecturerCleanPhone || '',
-          course: courseTitle,
-          day: sch.day,
-          time: `${sch.startTime} - ${sch.endTime}`,
-          room: sch.room,
-          type: sch.type
+          course: courseTitle
         });
       }
     });
 
     return list;
   }, [safeSchedules]);
-
-  const filteredLecturers = courseLecturers.filter((l) => {
-    const q = lecturerSearch.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      l.lecturer.toLowerCase().includes(q) ||
-      l.course.toLowerCase().includes(q) ||
-      l.day.toLowerCase().includes(q) ||
-      (l.phone && l.phone.includes(q))
-    );
-  });
 
   const handleCopyPhone = (phone, id) => {
     if (!phone) return;
@@ -353,159 +334,6 @@ export default function ClassDashboard({
             )}
           </div>
 
-          {/* Section: Dosen Pengajar & Kontak Perkuliahan */}
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#F1F5F9]">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <GraduationCap size={14} />
-                  </div>
-                  <h3 className="font-bold text-sm text-[#0F172A]">Dosen Pengajar & Kontak</h3>
-                </div>
-                <p className="text-[11px] text-[#64748B]">
-                  Daftar kontak dosen pengampu tiap mata kuliah dari jadwal untuk keperluan bimbingan dan koordinasi kelas.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-[#475569] border border-slate-200 shrink-0">
-                  {courseLecturers.length} Dosen Terdata
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Search */}
-            {courseLecturers.length > 3 && (
-              <div className="relative">
-                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
-                <input
-                  type="text"
-                  placeholder="Cari nama dosen, mata kuliah, atau hari perkuliahan..."
-                  value={lecturerSearch}
-                  onChange={(e) => setLecturerSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:bg-white transition-all shadow-2xs"
-                />
-              </div>
-            )}
-
-            {filteredLecturers.length === 0 ? (
-              <div className="py-8 text-center space-y-1 text-[#64748B]">
-                <p className="text-xs font-semibold text-[#0F172A]">
-                  {lecturerSearch ? 'Tidak ada dosen pengajar yang cocok.' : 'Belum ada jadwal dosen pengajar.'}
-                </p>
-                <p className="text-[11px]">
-                  {lecturerSearch ? 'Coba gunakan kata kunci pencarian yang lain.' : 'Tambahkan jadwal perkuliahan untuk mencantumkan dosen pengajar.'}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {filteredLecturers.map((lec) => {
-                  const initials = lec.lecturer
-                    .split(' ')
-                    .filter(w => !['dr.', 'dr', 'se', 'mm', 'mmtr', 's.pd', 'm.pd', 'ir.'].includes(w.toLowerCase().replace(/,/g, '')))
-                    .slice(0, 2)
-                    .map(w => w[0]?.toUpperCase())
-                    .join('') || 'D';
-
-                  return (
-                    <div
-                      key={lec.id}
-                      className="p-4 rounded-2xl border border-[#E2E8F0] hover:border-[#CBD5E1] bg-white shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between space-y-3"
-                    >
-                      <div className="space-y-2.5">
-                        {/* Header: Avatar, Name & Role */}
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-                            {initials}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-xs font-bold text-[#0F172A] leading-tight line-clamp-2">
-                              {lec.lecturer}
-                            </h4>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider">
-                                {lec.role}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Course & Schedule Details */}
-                        <div className="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1.5 text-[11px]">
-                          <div className="flex items-center gap-1.5 text-[#0F172A] font-semibold">
-                            <BookOpen size={12} className="text-[#64748B] shrink-0" />
-                            <span className="truncate">{lec.course}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-[#64748B] text-[10px]">
-                            <span className="flex items-center gap-1">
-                              <Calendar size={11} className="shrink-0" />
-                              {lec.day}, {lec.time}
-                            </span>
-                            {lec.room && (
-                              <span className="flex items-center gap-0.5 font-medium text-[#475569]">
-                                <MapPin size={10} className="shrink-0" />
-                                Ruang {lec.room}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Contact & Action Buttons */}
-                      <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between gap-2">
-                        {lec.phone ? (
-                          <>
-                            <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#0F172A] min-w-0">
-                              <Phone size={12} className="text-[#64748B] shrink-0" />
-                              <span className="truncate">{lec.phone}</span>
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => handleCopyPhone(lec.phone, lec.id)}
-                                title="Salin nomor"
-                                className="px-2.5 py-1.5 rounded-xl border border-[#CBD5E1] text-[#475569] hover:text-[#0F172A] hover:bg-slate-50 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                              >
-                                {copiedId === lec.id ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
-                                <span>{copiedId === lec.id ? 'Tersalin' : 'Salin'}</span>
-                              </button>
-
-                              {lec.cleanPhone && (
-                                <a
-                                  href={`https://wa.me/${lec.cleanPhone}?text=${encodeURIComponent(`Halo Bapak/Ibu ${lec.lecturer}, saya mahasiswa kelas ${currentClass?.name || ''} untuk perkuliahan ${lec.course}. Mohon izin bertanya terkait perkuliahan...`)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                                >
-                                  <MessageCircle size={12} />
-                                  <span>Chat WA</span>
-                                </a>
-                              )}
-                            </div>
-                          </>
-                        ) : (
-                          <div className="w-full flex items-center justify-between">
-                            <span className="text-[11px] text-[#94A3B8] italic">No. kontak belum tersedia</span>
-                            <button
-                              type="button"
-                              onClick={() => onNavigateTab('schedule')}
-                              className="text-[10px] font-bold text-[#0F172A] hover:underline cursor-pointer"
-                            >
-                              Lihat Jadwal →
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
         </div>
 
         {/* Right Rail: Contact Person Card & Class Info */}
@@ -543,20 +371,28 @@ export default function ClassDashboard({
                 )}
               </div>
 
-              {/* Dosen Pengajar Quick Summary */}
-              <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-1.5">
+              {/* Dosen Pengajar Quick Summary with Link to Tab */}
+              <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-2">
                 <div className="flex items-center justify-between text-indigo-950">
                   <div className="flex items-center gap-1.5 font-bold text-xs">
                     <GraduationCap size={15} className="text-indigo-600" />
                     <span>Dosen Pengampu</span>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-indigo-700 border border-indigo-200">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-indigo-700 border border-indigo-200 shadow-2xs">
                     {courseLecturers.length} Dosen
                   </span>
                 </div>
                 <p className="text-[11px] text-indigo-900/80 leading-relaxed">
-                  Semua nomor kontak dan jadwal dosen pengampu terintegrasi langsung di jadwal kelas.
+                  Direktori lengkap kontak WhatsApp dan jadwal seluruh dosen pengampu.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab('contacts')}
+                  className="w-full mt-1 px-3 py-1.5 rounded-lg bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold flex items-center justify-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                >
+                  <span>Buka Tab Kontak Dosen</span>
+                  <ChevronRight size={13} />
+                </button>
               </div>
             </div>
 

@@ -13,7 +13,8 @@ import {
   Home,
   User,
   LogOut,
-  Settings
+  Settings,
+  Phone
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -58,7 +59,8 @@ export default function ClassNavbar({
     { id: 'tasks', label: 'Tasks', icon: CheckSquare },
     { id: 'files', label: 'Files', icon: Folder },
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
-    { id: 'forum', label: 'Forum', icon: MessageSquare }
+    { id: 'forum', label: 'Forum', icon: MessageSquare },
+    { id: 'contacts', label: 'Kontak Dosen', icon: Phone }
   ];
 
   return (
