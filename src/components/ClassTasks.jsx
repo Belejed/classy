@@ -24,12 +24,40 @@ import {
   Copy,
   MessageCircle,
   Mail,
-  UserX,
-  UserCheck
+  UserX, 
+  UserCheck,
+  CheckCircle2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
 import ModalPortal from './ModalPortal';
+
+// Helper to check if a task deadline has passed
+export const isTaskOverdue = (dueDate, dueTime = '23:59') => {
+  if (!dueDate) return false;
+  try {
+    const [year, month, day] = dueDate.split('-').map(Number);
+    const [hours, minutes] = (dueTime || '23:59').split(':').map(Number);
+    const dueDateTime = new Date(year, month - 1, day, hours || 23, minutes || 59, 59);
+    return new Date() > dueDateTime;
+  } catch {
+    return false;
+  }
+};
+
+// Helper to check if a submission was made after the deadline
+export const isSubmissionLate = (dueDate, dueTime = '23:59', submittedAt) => {
+  if (!dueDate || !submittedAt) return false;
+  try {
+    const [year, month, day] = dueDate.split('-').map(Number);
+    const [hours, minutes] = (dueTime || '23:59').split(':').map(Number);
+    const dueDateTime = new Date(year, month - 1, day, hours || 23, minutes || 59, 59);
+    const submitDateTime = new Date(submittedAt);
+    return submitDateTime > dueDateTime;
+  } catch {
+    return false;
+  }
+};
 
 // Helper to safely extract clean text if description or instructions contains raw JSON
 const getCleanDescription = (desc) => {
@@ -210,16 +238,20 @@ export default function ClassTasks({
       return;
     }
 
+    const isOverdue = isTaskOverdue(task.dueDate, task.dueTime);
+
     const lines = [
       `📌 REKAP BELUM MENGUMPULKAN TUGAS`,
       `Tugas: ${task.title}`,
       `Mata Kuliah: ${task.course || currentClass?.name || '-'}`,
-      `Deadline: ${task.dueDate} · ${task.dueTime} WIB`,
+      `Deadline: ${task.dueDate} · ${task.dueTime} WIB ${isOverdue ? '⚠️ (SUDAH LEWAT TENGGAT)' : ''}`,
       ``,
       `Daftar Mahasiswa (${unsubmittedList.length} orang):`,
       ...unsubmittedList.map((item, idx) => `${idx + 1}. ${item.member?.name || item.member?.email || 'Mahasiswa'}`),
       ``,
-      `Harap segera dikumpulkan sebelum batas waktu ya. Terima kasih! 🙏`
+      isOverdue
+        ? `Tenggat pengumpulan telah terlewat, mohon segera mengunggah berkas tugas Anda ya. Terima kasih! 🙏`
+        : `Harap segera dikumpulkan sebelum batas waktu ya. Terima kasih! 🙏`
     ];
 
     navigator.clipboard.writeText(lines.join('\n'));
@@ -240,6 +272,16 @@ export default function ClassTasks({
   const role = currentClass?.userRole;
   const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
 
+  // Overdue count for current user
+  const overdueTasksCount = useMemo(() => {
+    return tasks.filter(t => {
+      const userSub = t.submissions?.find(s => s.userId === currentUser?.uid);
+      const isFileMissing = userSub && isSubmissionFileMissing(userSub);
+      const isSubmitted = !!userSub && !isFileMissing;
+      return !isSubmitted && isTaskOverdue(t.dueDate, t.dueTime);
+    }).length;
+  }, [tasks, currentUser]);
+
   // Filter Tasks
   const filteredTasks = tasks.filter(t => {
     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -248,10 +290,12 @@ export default function ClassTasks({
     const userSub = t.submissions?.find(s => s.userId === currentUser?.uid);
     const isFileMissing = userSub && isSubmissionFileMissing(userSub);
     const isSubmitted = !!userSub && !isFileMissing;
+    const isOverdue = isTaskOverdue(t.dueDate, t.dueTime);
 
     let matchesStatus = true;
     if (statusFilter === 'submitted') matchesStatus = isSubmitted;
     if (statusFilter === 'not_submitted') matchesStatus = !isSubmitted;
+    if (statusFilter === 'overdue') matchesStatus = isOverdue && !isSubmitted;
     if (statusFilter === 'missing') matchesStatus = isFileMissing;
 
     const matchesCourse = courseFilter === 'all' || 
@@ -473,6 +517,26 @@ export default function ClassTasks({
                 Belum Dikumpulkan
               </button>
               <button
+                onClick={() => setStatusFilter('overdue')}
+                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap text-xs ${
+                  statusFilter === 'overdue' 
+                    ? 'bg-rose-700 text-white shadow-2xs' 
+                    : overdueTasksCount > 0
+                      ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                      : 'text-[#64748B] hover:bg-[#F1F5F9]'
+                }`}
+              >
+                <Clock size={12} className={overdueTasksCount > 0 && statusFilter !== 'overdue' ? 'text-rose-600' : ''} />
+                <span>Terlewat</span>
+                {overdueTasksCount > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    statusFilter === 'overdue' ? 'bg-white/20 text-white' : 'bg-rose-200 text-rose-800'
+                  }`}>
+                    {overdueTasksCount}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setStatusFilter('submitted')}
                 className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs ${
                   statusFilter === 'submitted' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:bg-[#F1F5F9]'
@@ -543,13 +607,19 @@ export default function ClassTasks({
             const userSub = task.submissions?.find(s => s.userId === currentUser?.uid);
             const isFileMissing = userSub && isSubmissionFileMissing(userSub);
             const isSubmitted = !!userSub && !isFileMissing;
+            const isOverdue = isTaskOverdue(task.dueDate, task.dueTime);
+            const isLate = userSub ? isSubmissionLate(task.dueDate, task.dueTime, userSub.submittedAt) : false;
 
             return (
               <div
                 key={task.id}
                 onClick={() => setSelectedTask(task)}
                 className={`bg-white border p-5 rounded-2xl shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
-                  isFileMissing ? 'border-rose-300 bg-rose-50/15' : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
+                  isFileMissing 
+                    ? 'border-rose-300 bg-rose-50/15' 
+                    : isOverdue && !isSubmitted
+                      ? 'border-rose-300 bg-rose-50/10 hover:border-rose-400 ring-1 ring-rose-200/40'
+                      : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
                 }`}
               >
                 <div className="space-y-1.5">
@@ -565,9 +635,21 @@ export default function ClassTasks({
                         <span>File Hilang di Drive</span>
                       </span>
                     ) : isSubmitted ? (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shrink-0">
-                        <Check size={10} />
-                        <span>Submitted</span>
+                      isLate ? (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 shrink-0" title="Dikumpulkan setelah melewati batas tenggat waktu">
+                          <Clock size={10} className="text-amber-600" />
+                          <span>Terkumpul (Terlambat)</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shrink-0">
+                          <Check size={10} />
+                          <span>Submitted</span>
+                        </span>
+                      )
+                    ) : isOverdue ? (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 shrink-0 animate-pulse">
+                        <AlertCircle size={10} className="text-rose-600" />
+                        <span>Terlewat</span>
                       </span>
                     ) : (
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0">
@@ -588,9 +670,14 @@ export default function ClassTasks({
                 </div>
 
                 <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-xs text-[#64748B]">
-                  <span className="flex items-center gap-1 font-medium">
-                    <Clock size={12} />
+                  <span className={`flex items-center gap-1 font-medium ${isOverdue && !isSubmitted ? 'text-rose-600 font-bold' : ''}`}>
+                    <Clock size={12} className={isOverdue && !isSubmitted ? 'text-rose-600' : ''} />
                     <span>Due {task.dueDate} · {task.dueTime}</span>
+                    {isOverdue && !isSubmitted && (
+                      <span className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-bold uppercase tracking-wider border border-rose-200">
+                        Lewat
+                      </span>
+                    )}
                   </span>
 
                   {task.attachments?.length > 0 && (
@@ -614,8 +701,12 @@ export default function ClassTasks({
                       </span>
 
                       {unsubmittedCount > 0 ? (
-                        <span className="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/80">
-                          {unsubmittedCount} belum kirim
+                        <span className={`font-bold px-2 py-0.5 rounded-full border ${
+                          isOverdue 
+                            ? 'text-rose-700 bg-rose-100/90 border-rose-300' 
+                            : 'text-rose-700 bg-rose-50 border-rose-200/80'
+                        }`}>
+                          {unsubmittedCount} belum kirim {isOverdue && '(Terlewat)'}
                         </span>
                       ) : (
                         <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -656,21 +747,39 @@ export default function ClassTasks({
             </div>
 
             {/* Task Info Chips */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-              <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
-                <span className="text-[10px] font-semibold text-[#64748B] block">Deadline</span>
-                <span className="font-bold text-[#0F172A] text-xs sm:text-sm block">{selectedTask.dueDate}</span>
-                <span className="text-[11px] font-semibold text-slate-500 block">{selectedTask.dueTime} WIB</span>
-              </div>
-              <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
-                <span className="text-[10px] font-semibold text-[#64748B] block">Mata Kuliah</span>
-                <span className="font-bold text-[#0F172A] text-xs sm:text-sm truncate block">{selectedTask.course || 'Umum'}</span>
-              </div>
-              <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] col-span-2 sm:col-span-1">
-                <span className="text-[10px] font-semibold text-[#64748B] block">Dosen Pengampu</span>
-                <span className="font-bold text-[#0F172A] text-xs sm:text-sm truncate block">{selectedTask.lecturer || '-'}</span>
-              </div>
-            </div>
+            {(() => {
+              const isOverdue = isTaskOverdue(selectedTask.dueDate, selectedTask.dueTime);
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  <div className={`p-2.5 sm:p-3 rounded-xl border ${isOverdue ? 'bg-rose-50/80 border-rose-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-semibold block ${isOverdue ? 'text-rose-700 font-bold' : 'text-[#64748B]'}`}>
+                        Deadline
+                      </span>
+                      {isOverdue && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-200 text-rose-800 uppercase">
+                          Terlewat
+                        </span>
+                      )}
+                    </div>
+                    <span className={`font-bold text-xs sm:text-sm block ${isOverdue ? 'text-rose-700' : 'text-[#0F172A]'}`}>
+                      {selectedTask.dueDate}
+                    </span>
+                    <span className={`text-[11px] font-semibold block ${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
+                      {selectedTask.dueTime} WIB
+                    </span>
+                  </div>
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
+                    <span className="text-[10px] font-semibold text-[#64748B] block">Mata Kuliah</span>
+                    <span className="font-bold text-[#0F172A] text-xs sm:text-sm truncate block">{selectedTask.course || 'Umum'}</span>
+                  </div>
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] col-span-2 sm:col-span-1">
+                    <span className="text-[10px] font-semibold text-[#64748B] block">Dosen Pengampu</span>
+                    <span className="font-bold text-[#0F172A] text-xs sm:text-sm truncate block">{selectedTask.lecturer || '-'}</span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Description & Instructions */}
             {getCleanDescription(selectedTask.description) && (
@@ -697,10 +806,23 @@ export default function ClassTasks({
 
               {(() => {
                 const userSub = selectedTask.submissions?.find(s => s.userId === currentUser?.uid);
+                const isOverdue = isTaskOverdue(selectedTask.dueDate, selectedTask.dueTime);
                 
                 if (!userSub) {
                   return (
                     <div className="space-y-3">
+                      {isOverdue && (
+                        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
+                          <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-bold">Batas Waktu Pengumpulan Telah Lewat</p>
+                            <p className="text-[11px] text-rose-700 mt-0.5">
+                              Tenggat tugas ini berakhir pada {selectedTask.dueDate} pukul {selectedTask.dueTime} WIB. Berkas yang dikumpulkan sekarang akan dicatat dengan status terlambat.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Auto-rename toggle and preview info */}
                       <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-left">
                         <div className="flex items-center justify-between gap-2">
@@ -762,6 +884,7 @@ export default function ClassTasks({
                 }
 
                 const isMissing = isSubmissionFileMissing(userSub);
+                const isLate = isSubmissionLate(selectedTask.dueDate, selectedTask.dueTime, userSub.submittedAt);
 
                 if (isMissing) {
                   return (
@@ -804,10 +927,18 @@ export default function ClassTasks({
                 return (
                   <div className="p-3 sm:p-4 rounded-xl bg-white border border-emerald-200 space-y-2.5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                      <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                        <Check size={14} className="text-emerald-600 shrink-0" />
-                        <span>Tugas Berhasil Dikumpulkan</span>
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                          <Check size={14} className="text-emerald-600 shrink-0" />
+                          <span>Tugas Berhasil Dikumpulkan</span>
+                        </span>
+                        {isLate && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+                            <Clock size={10} className="text-amber-600" />
+                            <span>Dikumpulkan Terlambat</span>
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-[#64748B]">
                         {new Date(userSub.submittedAt).toLocaleString('id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </span>
@@ -972,9 +1103,12 @@ export default function ClassTasks({
                             cleanPhone = '62' + cleanPhone.slice(1);
                           }
                           const isMissingFile = submission && isSubmissionFileMissing(submission);
+                          const isOverdue = isTaskOverdue(selectedTask.dueDate, selectedTask.dueTime);
 
                           const waText = encodeURIComponent(
-                            `Halo ${name}, mengingatkan untuk tugas *${selectedTask.title}* (${selectedTask.course || currentClass?.name || 'Kuliah'}) batas pengumpulannya adalah ${selectedTask.dueDate} pukul ${selectedTask.dueTime} WIB. Mohon segera diunggah ya. Terima kasih! 🙏`
+                            isOverdue
+                              ? `Halo ${name}, mengingatkan untuk tugas *${selectedTask.title}* (${selectedTask.course || currentClass?.name || 'Kuliah'}) batas pengumpulannya telah LEWAT (${selectedTask.dueDate} pukul ${selectedTask.dueTime} WIB). Mohon segera diunggah ya. Terima kasih! 🙏`
+                              : `Halo ${name}, mengingatkan untuk tugas *${selectedTask.title}* (${selectedTask.course || currentClass?.name || 'Kuliah'}) batas pengumpulannya adalah ${selectedTask.dueDate} pukul ${selectedTask.dueTime} WIB. Mohon segera diunggah ya. Terima kasih! 🙏`
                           );
 
                           return (
@@ -991,6 +1125,11 @@ export default function ClassTasks({
                                     <span className="font-bold text-xs text-[#0F172A] truncate block max-w-[140px] xs:max-w-[190px] sm:max-w-none">
                                       {name}
                                     </span>
+                                    {isOverdue && (
+                                      <span className="shrink-0 px-1.5 py-0.2 text-[9px] font-bold bg-rose-100 text-rose-700 rounded border border-rose-200">
+                                        Melewati Tenggat
+                                      </span>
+                                    )}
                                     {isMissingFile && (
                                       <span className="shrink-0 px-1.5 py-0.2 text-[9px] font-bold bg-rose-100 text-rose-700 rounded">
                                         File Hilang di Drive
@@ -1045,6 +1184,7 @@ export default function ClassTasks({
                       ) : (
                         status.submittedList.map(({ member, submission }) => {
                           const subMissing = isSubmissionFileMissing(submission);
+                          const isLate = isSubmissionLate(selectedTask.dueDate, selectedTask.dueTime, submission.submittedAt);
                           return (
                             <div
                               key={submission.id || submission.userId}
@@ -1057,10 +1197,15 @@ export default function ClassTasks({
                                   {(submission.userName || member?.name || 'M').charAt(0).toUpperCase()}
                                 </div>
                                 <div className="truncate flex-1">
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-bold text-[#0F172A] truncate block max-w-[140px] xs:max-w-[190px] sm:max-w-none">
                                       {submission.userName || member?.name}
                                     </span>
+                                    {isLate && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                                        Terlambat
+                                      </span>
+                                    )}
                                   </div>
                                   <span className="text-[10px] text-[#64748B] block truncate font-mono">
                                     {submission.fileName}

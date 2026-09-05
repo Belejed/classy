@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseLecturerInfo } from '../utils/db';
+import { isTaskOverdue } from './ClassTasks';
 
 export default function ClassDashboard({
   currentClass,
@@ -60,20 +61,30 @@ export default function ClassDashboard({
     .filter(s => s.day === todayDayName)
     .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
 
-  // Pending tasks that are not submitted yet by current user
+  // Pending tasks that are not submitted yet by current user (including overdue)
   const pendingTasks = safeTasks
     .filter(t => {
       const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
       return !isSubmitted;
     })
-    .filter(t => t.dueDate === todayIsoDate || t.dueDate >= todayIsoDate || !t.dueDate)
-    .sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'))
+    .sort((a, b) => {
+      const isOverdueA = isTaskOverdue(a.dueDate, a.dueTime);
+      const isOverdueB = isTaskOverdue(b.dueDate, b.dueTime);
+      if (isOverdueA && !isOverdueB) return -1;
+      if (!isOverdueA && isOverdueB) return 1;
+      return (a.dueDate || '9999').localeCompare(b.dueDate || '9999');
+    })
     .slice(0, 4);
 
   const hasCompletedTasks = safeTasks.some(t => t.submissions?.some(s => s.userId === currentUser?.uid));
   const pendingTasksCount = safeTasks.filter(t => {
     const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
     return !isSubmitted;
+  }).length;
+
+  const overdueTasksCount = safeTasks.filter(t => {
+    const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
+    return !isSubmitted && isTaskOverdue(t.dueDate, t.dueTime);
   }).length;
 
   // Overview Counts
@@ -399,14 +410,28 @@ export default function ClassDashboard({
               </div>
             ) : (
               <div className="space-y-2.5">
+                {overdueTasksCount > 0 && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                    <AlertCircle size={14} className="text-rose-600 shrink-0" />
+                    <span className="text-[11px] font-medium">
+                      Ada <strong className="font-bold">{overdueTasksCount} tugas</strong> yang telah melewati batas tenggat!
+                    </span>
+                  </div>
+                )}
+
                 {pendingTasks.map((t) => {
                   const isDueToday = t.dueDate === todayIsoDate;
+                  const isOverdue = isTaskOverdue(t.dueDate, t.dueTime);
 
                   return (
                     <div
                       key={t.id}
                       onClick={() => onOpenTaskDetail(t)}
-                      className="p-3.5 rounded-xl border border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-[#F8FAFC] transition-all cursor-pointer flex items-center justify-between gap-3"
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                        isOverdue 
+                          ? 'border-rose-200 bg-rose-50/30 hover:border-rose-300 hover:bg-rose-50/60' 
+                          : 'border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-[#F8FAFC]'
+                      }`}
                     >
                       <div className="space-y-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -421,16 +446,24 @@ export default function ClassDashboard({
                               {t.course}
                             </span>
                           )}
-                          <span className={isDueToday ? 'font-bold text-rose-600' : ''}>
-                            Due {t.dueDate || 'No deadline'}
+                          <span className={isOverdue ? 'font-bold text-rose-600 flex items-center gap-1' : isDueToday ? 'font-bold text-amber-600' : ''}>
+                            {isOverdue && <Clock size={11} className="text-rose-600 animate-pulse" />}
+                            <span>Due {t.dueDate || 'No deadline'} {t.dueTime ? `· ${t.dueTime}` : ''}</span>
                           </span>
                         </div>
                       </div>
 
                       <div className="shrink-0">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                          Belum Dikumpulkan
-                        </span>
+                        {isOverdue ? (
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1 animate-pulse">
+                            <AlertCircle size={10} className="text-rose-600" />
+                            <span>Terlewat</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                            Belum Dikumpulkan
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
