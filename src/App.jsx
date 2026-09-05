@@ -51,15 +51,7 @@ export default function App() {
     } catch {}
   }, []);
 
-  // 1. Auth Listener & Minimum Splash Duration (2.5s ~ 2-3 seconds)
-  const [minSplashDone, setMinSplashDone] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMinSplashDone(true);
-    }, 2500); // 2.5 detik
-    return () => clearTimeout(timer);
-  }, []);
+  // 1. Auth Listener
 
   useEffect(() => {
     const unsubscribe = authService.onAuthStateChanged((currentUser) => {
@@ -525,21 +517,12 @@ export default function App() {
     toast.success('Berhasil keluar.');
   };
 
-  // Loading Screen (stays for ~2.5 seconds)
-  if (authLoading || !minSplashDone) {
+  // Loading Screen: Minimalist fast breathing logo without text or progress bar
+  if (authLoading) {
     return (
-      <div className="h-screen w-screen bg-[#FDFBF7] flex flex-col items-center justify-center space-y-4 font-sans select-none">
-        <div className="relative flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-white border border-[#E2E8F0] shadow-sm flex items-center justify-center p-2 mb-3">
-            <img src="/logo.png" alt="Classy" className="w-full h-full object-contain animate-pulse" />
-          </div>
-          <h2 className="font-bold text-lg text-[#0F172A] tracking-tight">Classy</h2>
-          <p className="text-xs text-[#64748B] mt-0.5 font-medium">Memuat ruang akademik...</p>
-          
-          {/* Animated loading bar lasting 2.5s */}
-          <div className="w-36 h-1.5 bg-[#E2E8F0] rounded-full overflow-hidden mt-4">
-            <div className="h-full bg-[#0F172A] rounded-full animate-classy-progress" />
-          </div>
+      <div className="h-screen w-screen bg-[#FDFBF7] flex items-center justify-center font-sans select-none">
+        <div className="w-16 h-16 rounded-2xl bg-white border border-[#E2E8F0] shadow-sm flex items-center justify-center p-2.5 animate-classy-breathing">
+          <img src="/logo.png" alt="Classy" className="w-full h-full object-contain" />
         </div>
       </div>
     );
@@ -824,16 +807,9 @@ function ClassWorkspace({
 
   if (!currentClass || !isDataReady) {
     return (
-      <div className="h-screen w-screen bg-[#FDFBF7] flex flex-col items-center justify-center space-y-4 font-sans select-none">
-        <div className="relative flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-white border border-[#E2E8F0] shadow-sm flex items-center justify-center p-2 mb-3">
-            <img src="/logo.png" alt="Classy" className="w-full h-full object-contain animate-pulse" />
-          </div>
-          <h2 className="font-bold text-lg text-[#0F172A] tracking-tight">Classy</h2>
-          <p className="text-xs text-[#64748B] mt-0.5 font-medium">Memuat data kelas...</p>
-          <div className="w-36 h-1.5 bg-[#E2E8F0] rounded-full overflow-hidden mt-4">
-            <div className="h-full bg-[#0F172A] rounded-full animate-classy-progress" />
-          </div>
+      <div className="h-screen w-screen bg-[#FDFBF7] flex items-center justify-center font-sans select-none">
+        <div className="w-16 h-16 rounded-2xl bg-white border border-[#E2E8F0] shadow-sm flex items-center justify-center p-2.5 animate-classy-breathing">
+          <img src="/logo.png" alt="Classy" className="w-full h-full object-contain" />
         </div>
       </div>
     );
