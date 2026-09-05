@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { 
   CheckSquare, 
   Search, 
@@ -96,6 +96,7 @@ export default function ClassTasks({
   schedules = [],
   onCreateTask,
   onSubmitAssignment,
+  onDeleteSubmission,
   onDeleteTask
 }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -109,6 +110,10 @@ export default function ClassTasks({
   // In-app Delete Confirmation Modal
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
+
+  // Submission cancellation state
+  const [showCancelSubmissionConfirm, setShowCancelSubmissionConfirm] = useState(false);
+  const [isCancelingSubmission, setIsCancelingSubmission] = useState(false);
 
   // File upload state for submission
   const [isSubmittingFile, setIsSubmittingFile] = useState(false);
@@ -133,9 +138,9 @@ export default function ClassTasks({
   }, [schedules, tasks]);
 
   // Check Google Drive files for all tasks
-  useEffect(() => {
+  const checkDriveStatuses = useCallback(async (customTasks = tasks) => {
     const fileIdsToCheck = [];
-    (tasks || []).forEach(t => {
+    (customTasks || []).forEach(t => {
       (t.submissions || []).forEach(s => {
         const fileId = extractDriveFileId(s.fileUrl);
         if (fileId && !fileIdsToCheck.includes(fileId)) {
@@ -146,13 +151,43 @@ export default function ClassTasks({
 
     if (fileIdsToCheck.length > 0) {
       setIsCrosschecking(true);
-      checkDriveFiles(fileIdsToCheck)
-        .then(results => {
-          setDriveStatusMap(prev => ({ ...prev, ...results }));
-        })
-        .finally(() => setIsCrosschecking(false));
+      try {
+        const results = await checkDriveFiles(fileIdsToCheck);
+        setDriveStatusMap(prev => ({ ...prev, ...results }));
+      } catch (err) {
+        console.error("Failed to check drive statuses:", err);
+      } finally {
+        setIsCrosschecking(false);
+      }
     }
   }, [tasks]);
+
+  useEffect(() => {
+    checkDriveStatuses();
+  }, [checkDriveStatuses]);
+
+  // Re-check drive status when user refocuses the tab/window
+  useEffect(() => {
+    const handleFocus = () => {
+      checkDriveStatuses();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [checkDriveStatuses]);
+
+  // When a task is selected/opened, immediately verify its submission files
+  useEffect(() => {
+    if (selectedTask?.submissions?.length) {
+      const fileIds = selectedTask.submissions
+        .map(s => extractDriveFileId(s.fileUrl))
+        .filter(Boolean);
+      if (fileIds.length > 0) {
+        checkDriveFiles(fileIds).then(results => {
+          setDriveStatusMap(prev => ({ ...prev, ...results }));
+        }).catch(err => console.error(err));
+      }
+    }
+  }, [selectedTask?.id]);
 
   // Auto-open task if ?task=taskId is provided in URL
   useEffect(() => {
@@ -449,6 +484,50 @@ export default function ClassTasks({
       toast.error('Gagal menghapus tugas');
     } finally {
       setIsDeletingTask(false);
+    }
+  };
+
+  const handleCancelSubmission = async () => {
+    if (!selectedTask || !currentUser) return;
+    setIsCancelingSubmission(true);
+    try {
+      if (onDeleteSubmission) {
+        await onDeleteSubmission(selectedTask.id, currentUser.uid);
+      }
+      setSelectedTask(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          submissions: (prev.submissions || []).filter(s => s.userId !== currentUser.uid)
+        };
+      });
+      setShowCancelSubmissionConfirm(false);
+      toast.success('Pengumpulan berhasil dibatalkan dan file telah dihapus.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal membatalkan pengumpulan');
+    } finally {
+      setIsCancelingSubmission(false);
+    }
+  };
+
+  const handleManualCheckDrive = async () => {
+    if (!selectedTask?.submissions?.length) return;
+    const fileIds = selectedTask.submissions
+      .map(s => extractDriveFileId(s.fileUrl))
+      .filter(Boolean);
+    if (fileIds.length === 0) return;
+
+    setIsCrosschecking(true);
+    try {
+      const results = await checkDriveFiles(fileIds);
+      setDriveStatusMap(prev => ({ ...prev, ...results }));
+      toast.success('Status Google Drive diperbarui');
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal memeriksa status Drive');
+    } finally {
+      setIsCrosschecking(false);
     }
   };
 
@@ -956,26 +1035,48 @@ export default function ClassTasks({
                         </span>
                       </div>
                       <p className="text-[11px] text-rose-700 leading-relaxed">
-                        Berkas tugas ini terhapus atau tidak ditemukan di Google Drive. Status tugas tidak lagi dianggap "Submitted". Harap unggah ulang berkas tugas agar dapat dinilai dosen/komti.
+                        Berkas tugas ini terhapus atau berada di Sampah Google Drive. Status tugas tidak lagi dianggap "Submitted". Harap unggah ulang berkas tugas agar dapat dinilai dosen/komti.
                       </p>
                       <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-rose-200/60">
-                        <span className="font-mono text-[11px] text-rose-600 break-all">
-                          ⚠️ {userSub.fileName}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={isSubmittingFile}
-                          onClick={() => {
-                            if (fileInputRef.current) {
-                              fileInputRef.current.value = '';
-                              fileInputRef.current.click();
-                            }
-                          }}
-                          className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer disabled:opacity-50 min-h-[38px]"
-                        >
-                          <Upload size={12} className={isSubmittingFile ? "animate-bounce" : ""} />
-                          <span>{isSubmittingFile ? 'Mengunggah...' : 'Upload Ulang Sekarang'}</span>
-                        </button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-[11px] text-rose-600 break-all">
+                            ⚠️ {userSub.fileName}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={isCrosschecking}
+                            onClick={handleManualCheckDrive}
+                            className="text-xs font-semibold text-rose-700 hover:text-rose-900 flex items-center gap-1 cursor-pointer shrink-0"
+                            title="Periksa ulang Google Drive"
+                          >
+                            <RefreshCw size={11} className={isCrosschecking ? "animate-spin" : ""} />
+                            <span>{isCrosschecking ? 'Memeriksa...' : 'Cek Ulang Drive'}</span>
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => setShowCancelSubmissionConfirm(true)}
+                            className="px-3 py-1.5 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-100 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={12} />
+                            <span>Hapus Data Pengumpulan</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isSubmittingFile}
+                            onClick={() => {
+                              if (fileInputRef.current) {
+                                fileInputRef.current.value = '';
+                                fileInputRef.current.click();
+                              }
+                            }}
+                            className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer disabled:opacity-50 min-h-[36px]"
+                          >
+                            <Upload size={12} className={isSubmittingFile ? "animate-bounce" : ""} />
+                            <span>{isSubmittingFile ? 'Mengunggah...' : 'Upload Ulang Sekarang'}</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1006,7 +1107,7 @@ export default function ClassTasks({
                     </p>
 
                     <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-emerald-100">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3 flex-wrap">
                         {userSub.fileUrl?.includes('drive.google.com') ? (
                           <a
                             href={userSub.fileUrl}
@@ -1020,20 +1121,41 @@ export default function ClassTasks({
                         ) : (
                           <span className="text-[10px] text-[#64748B]">Tersimpan di Sistem</span>
                         )}
+                        <button
+                          type="button"
+                          disabled={isCrosschecking}
+                          onClick={handleManualCheckDrive}
+                          className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+                          title="Periksa keberadaan file di Google Drive"
+                        >
+                          <RefreshCw size={11} className={isCrosschecking ? "animate-spin text-sky-600" : ""} />
+                          <span>{isCrosschecking ? 'Memeriksa...' : 'Cek Drive'}</span>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        disabled={isSubmittingFile}
-                        onClick={() => {
-                          if (fileInputRef.current) {
-                            fileInputRef.current.value = '';
-                            fileInputRef.current.click();
-                          }
-                        }}
-                        className="text-xs font-bold text-[#0F172A] hover:underline cursor-pointer disabled:opacity-50 text-left sm:text-right py-1"
-                      >
-                        {isSubmittingFile ? 'Mengunggah...' : 'Kirim Ulang File (Resubmit)'}
-                      </button>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <button
+                          type="button"
+                          disabled={isSubmittingFile}
+                          onClick={() => {
+                            if (fileInputRef.current) {
+                              fileInputRef.current.value = '';
+                              fileInputRef.current.click();
+                            }
+                          }}
+                          className="text-xs font-bold text-[#0F172A] hover:underline cursor-pointer disabled:opacity-50 text-left sm:text-right py-1"
+                        >
+                          {isSubmittingFile ? 'Mengunggah...' : 'Kirim Ulang File (Resubmit)'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowCancelSubmissionConfirm(true)}
+                          className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:underline flex items-center gap-1 cursor-pointer py-1"
+                          title="Batalkan pengumpulan dan hapus file"
+                        >
+                          <Trash2 size={12} />
+                          <span>Hapus File</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1490,6 +1612,19 @@ export default function ClassTasks({
         cancelText="Batal"
         type="danger"
         isLoading={isDeletingTask}
+      />
+
+      {/* CONFIRM CANCEL SUBMISSION MODAL */}
+      <ConfirmModal
+        isOpen={showCancelSubmissionConfirm}
+        onClose={() => !isCancelingSubmission && setShowCancelSubmissionConfirm(false)}
+        onConfirm={handleCancelSubmission}
+        title="Hapus & Batalkan Pengumpulan?"
+        message="Berkas pengumpulan kamu akan dipindahkan ke folder Sampah di Google Drive dan status pengumpulan akan dibatalkan. Kamu dapat mengunggah ulang file kapan saja."
+        confirmText="Ya, Hapus & Batalkan"
+        cancelText="Batal"
+        type="danger"
+        isLoading={isCancelingSubmission}
       />
     </div>
   );

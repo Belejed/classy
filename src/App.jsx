@@ -245,6 +245,39 @@ export default function App() {
     return sub;
   };
 
+  const handleDeleteSubmission = async (taskId, userId) => {
+    const currentTask = tasks?.find(t => t.id === taskId);
+    const existingSub = currentTask?.submissions?.find(s => s.userId === userId);
+    if (existingSub?.fileUrl) {
+      try {
+        await moveFileToDriveTrash(existingSub.fileUrl);
+      } catch (trashErr) {
+        console.warn('Gagal memindahkan berkas tugas ke folder Trash di Drive:', trashErr);
+      }
+    }
+
+    await dbService.tasks.unsubmit(taskId, userId);
+    const refreshed = await dbService.tasks.list(currentClass.id);
+    setTasks(refreshed);
+
+    try {
+      const freshFiles = await dbService.files.list(currentClass.id);
+      setFiles(freshFiles);
+    } catch {}
+
+    try {
+      await dbService.logs.create(currentClass.id, {
+        actionType: 'task_unsubmit',
+        title: `Pengumpulan tugas dibatalkan`,
+        details: `${user?.displayName || 'Mahasiswa'} membatalkan pengumpulan tugas "${currentTask?.title || taskId}". Berkas dipindahkan ke folder Trash di Drive.`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        targetName: currentTask?.title || '',
+        color: 'rose'
+      });
+      handleRefreshLogs();
+    } catch {}
+  };
+
   const handleDeleteTask = async (taskId) => {
     const taskToDelete = tasks?.find(t => t.id === taskId);
 
@@ -308,6 +341,16 @@ export default function App() {
     if (idToDelete) {
       await dbService.files.delete(idToDelete);
       setFiles(prev => prev ? prev.filter(f => f.id !== idToDelete) : []);
+
+      // If deleted file was a task submission, refresh tasks so task cards reflect it immediately!
+      if (targetFile?.isSubmission || (typeof idToDelete === 'string' && idToDelete.startsWith('sub_'))) {
+        try {
+          const freshTasks = await dbService.tasks.list(currentClass.id);
+          setTasks(freshTasks);
+        } catch (taskErr) {
+          console.warn('Could not refresh tasks after submission file deletion:', taskErr);
+        }
+      }
     }
 
     try {
@@ -657,6 +700,7 @@ export default function App() {
                   handleDeleteSchedule={handleDeleteSchedule}
                   handleCreateTask={handleCreateTask}
                   handleSubmitAssignment={handleSubmitAssignment}
+                  handleDeleteSubmission={handleDeleteSubmission}
                   handleDeleteTask={handleDeleteTask}
                   handleUploadFile={handleUploadFile}
                   handleDeleteFile={handleDeleteFile}
@@ -720,6 +764,7 @@ function ClassWorkspace({
   handleDeleteSchedule,
   handleCreateTask,
   handleSubmitAssignment,
+  handleDeleteSubmission,
   handleDeleteTask,
   handleUploadFile,
   handleDeleteFile,
@@ -853,6 +898,7 @@ function ClassWorkspace({
                 schedules={schedules}
                 onCreateTask={handleCreateTask}
                 onSubmitAssignment={handleSubmitAssignment}
+                onDeleteSubmission={handleDeleteSubmission}
                 onDeleteTask={handleDeleteTask}
               />
             )}

@@ -46,6 +46,43 @@ const getDriveClient = () => {
   return google.drive({ version: 'v3', auth });
 };
 
+const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '1BK-P0mPQF9MSy0wsQ-tqNgVCXHXuCwmf';
+const TRASH_FOLDER_NAME = 'Trash';
+
+let cachedTrashFolderId = null;
+
+async function getTrashFolderId(drive) {
+  if (cachedTrashFolderId) {
+    try {
+      const check = await drive.files.get({
+        fileId: cachedTrashFolderId,
+        fields: 'id, trashed',
+        supportsAllDrives: true
+      });
+      if (check.data && !check.data.trashed) return cachedTrashFolderId;
+    } catch {
+      cachedTrashFolderId = null;
+    }
+  }
+
+  try {
+    const q = `mimeType = 'application/vnd.google-apps.folder' and name = '${TRASH_FOLDER_NAME}' and '${ROOT_FOLDER_ID}' in parents and trashed = false`;
+    const listRes = await drive.files.list({
+      q,
+      fields: 'files(id, name)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+    if (listRes.data.files && listRes.data.files.length > 0) {
+      cachedTrashFolderId = listRes.data.files[0].id;
+      return cachedTrashFolderId;
+    }
+  } catch (e) {
+    console.warn('Error finding trash folder:', e);
+  }
+  return null;
+}
+
 export default async function handler(req, res) {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -73,29 +110,36 @@ export default async function handler(req, res) {
     }
 
     const drive = getDriveClient();
+    const trashFolderId = await getTrashFolderId(drive);
     const results = {};
 
-    // Check files concurrently (limit max 20 at a time)
+    // Check files concurrently (limit max 30 at a time)
     const checkPromises = fileIds.slice(0, 30).map(async (fileId) => {
       if (!fileId) return;
       try {
         const fileRes = await drive.files.get({
           fileId: fileId,
-          fields: 'id, name, trashed, explicitlyTrashed',
+          fields: 'id, name, trashed, explicitlyTrashed, parents',
           supportsAllDrives: true
         });
 
-        const isTrashed = !!(fileRes.data.trashed || fileRes.data.explicitlyTrashed);
+        const isExplicitlyTrashed = !!(fileRes.data.trashed || fileRes.data.explicitlyTrashed);
+        const parents = fileRes.data.parents || [];
+        const isInTrashFolder = Boolean(trashFolderId && parents.includes(trashFolderId));
+
+        const isMissingOrTrashed = isExplicitlyTrashed || isInTrashFolder;
+
         results[fileId] = {
-          exists: !isTrashed,
-          trashed: isTrashed,
+          exists: !isMissingOrTrashed,
+          trashed: isMissingOrTrashed,
+          inTrashFolder: isInTrashFolder,
           name: fileRes.data.name
         };
       } catch (err) {
         // If 404 or not found, it's missing
         results[fileId] = {
           exists: false,
-          trashed: false,
+          trashed: true,
           error: err.message || 'File not found'
         };
       }

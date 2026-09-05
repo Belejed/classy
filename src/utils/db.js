@@ -739,6 +739,30 @@ export const dbService = {
       return newSubmission;
     },
 
+    unsubmit: async (taskId, userId) => {
+      const { data: existing, error: getErr } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
+      if (getErr || !existing) throw new Error('Tugas tidak ditemukan.');
+
+      let meta = {};
+      try {
+        meta = typeof existing.description === 'string' && existing.description.startsWith('{') ? JSON.parse(existing.description) : {};
+      } catch {
+        meta = { text: existing.description };
+      }
+
+      const submissions = meta.submissions || [];
+      const updatedSubmissions = submissions.filter(s => s.userId !== userId);
+      meta.submissions = updatedSubmissions;
+
+      const { error: updErr } = await supabase.from('tasks').update({
+        description: JSON.stringify(meta),
+        updated_at: new Date().toISOString()
+      }).eq('id', taskId);
+
+      if (updErr) throw updErr;
+      return true;
+    },
+
     delete: async (taskId) => {
       await supabase.from('tasks').delete().eq('id', taskId);
     }
