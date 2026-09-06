@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
+import EmptyState from './EmptyState';
 
 export default function ClassMembers({
   currentClass,
@@ -313,24 +314,24 @@ export default function ClassMembers({
 
       {/* Overview Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-2xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B] block">Total Anggota</span>
-          <p className="text-2xl font-bold text-[#0F172A] mt-1">{approvedMembers.length}</p>
+        <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-200 hover:border-slate-300 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Total Anggota</span>
+          <p className="text-2xl font-extrabold text-[#0F172A] mt-1 tracking-tight">{approvedMembers.length}</p>
         </div>
 
-        <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-2xs">
+        <div className="bg-gradient-to-br from-white to-amber-50/40 border border-slate-200 hover:border-amber-300 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all">
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block">Komti / Koordinator</span>
-          <p className="text-2xl font-bold text-amber-800 mt-1">{komtiCount}</p>
+          <p className="text-2xl font-extrabold text-amber-800 mt-1 tracking-tight">{komtiCount}</p>
         </div>
 
-        <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-2xs">
+        <div className="bg-gradient-to-br from-white to-emerald-50/40 border border-slate-200 hover:border-emerald-300 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all">
           <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">Dosen Pengampu</span>
-          <p className="text-2xl font-bold text-emerald-800 mt-1">{lecturerCount}</p>
+          <p className="text-2xl font-extrabold text-emerald-800 mt-1 tracking-tight">{lecturerCount}</p>
         </div>
 
-        <div className="bg-white border border-[#E2E8F0] p-4 rounded-2xl shadow-2xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">Mahasiswa</span>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{studentCount}</p>
+        <div className="bg-gradient-to-br from-white to-indigo-50/40 border border-slate-200 hover:border-indigo-300 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 block">Mahasiswa</span>
+          <p className="text-2xl font-extrabold text-slate-800 mt-1 tracking-tight">{studentCount}</p>
         </div>
       </div>
 
@@ -409,11 +410,11 @@ export default function ClassMembers({
 
       {/* Member Cards List */}
       {filteredMembers.length === 0 ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-12 text-center space-y-2 shadow-2xs">
-          <Users size={32} className="mx-auto text-[#94A3B8] opacity-60" />
-          <h3 className="font-bold text-sm text-[#0F172A]">Tidak ada anggota yang cocok</h3>
-          <p className="text-xs text-[#64748B]">Coba ubah kata kunci pencarian atau filter peran.</p>
-        </div>
+        <EmptyState
+          variant="tasks"
+          title="Tidak ada anggota yang cocok"
+          description="Coba ubah kata kunci pencarian nama/email atau filter peran."
+        />
       ) : (
         <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden shadow-2xs divide-y divide-[#F1F5F9]">
           {filteredMembers.map((member) => {

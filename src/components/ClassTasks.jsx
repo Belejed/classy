@@ -703,7 +703,7 @@ export default function ClassTasks({
 
       {/* Tasks List */}
       {filteredTasks.length === 0 ? (
-        <div className="bg-white dark:bg-[#151D2F] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-10 text-center shadow-2xs">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-10 text-center shadow-2xs">
           <EmptyState
             variant={statusFilter === 'submitted' ? 'completed' : 'tasks'}
             title="Tidak Ada Tugas yang Cocok"
@@ -725,12 +725,14 @@ export default function ClassTasks({
               <div
                 key={task.id}
                 onClick={() => setSelectedTask(task)}
-                className={`bg-white border p-4 sm:p-5 rounded-2xl shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                className={`bg-white border p-4 sm:p-5 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
                   isFileMissing 
-                    ? 'border-rose-300 bg-rose-50/15' 
+                    ? 'border-l-4 border-l-rose-600 border-rose-300 bg-rose-50/20' 
                     : isOverdue && !isSubmitted
-                      ? 'border-rose-300 bg-rose-50/10 hover:border-rose-400 ring-1 ring-rose-200/40'
-                      : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
+                      ? 'border-l-4 border-l-rose-500 border-rose-200 bg-rose-50/15 ring-1 ring-rose-200/40'
+                      : isSubmitted
+                        ? 'border-l-4 border-l-emerald-500 border-slate-200 hover:border-emerald-300'
+                        : 'border-l-4 border-l-indigo-400 border-slate-200 hover:border-slate-300'
                 }`}
               >
                 <div className="space-y-1.5">

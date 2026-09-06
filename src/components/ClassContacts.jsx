@@ -274,7 +274,7 @@ export default function ClassContacts({
             return (
               <div
                 key={lec.id}
-                className="bg-white border border-[#E2E8F0] hover:border-[#CBD5E1] rounded-2xl p-5 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between space-y-4"
+                className="bg-white border border-slate-200 hover:border-indigo-200 rounded-2xl p-5 shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col justify-between space-y-4"
               >
                 <div className="space-y-3.5">
                   {/* Top: Avatar, Lecturer Name & Role */}

@@ -13,6 +13,7 @@ import {
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
+import EmptyState from './EmptyState';
 
 export default function ClassAnnouncements({
   currentClass,
@@ -102,10 +103,14 @@ export default function ClassAnnouncements({
 
       {/* Announcements Feed or Empty State */}
       {announcements.length === 0 ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-12 text-center space-y-2 shadow-2xs">
-          <Megaphone size={32} className="mx-auto text-[#94A3B8] opacity-60" />
-          <h3 className="font-bold text-sm text-[#0F172A]">No announcements yet.</h3>
-          <p className="text-xs text-[#64748B]">Broadcasts from the class coordinator will appear here.</p>
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 text-center shadow-2xs max-w-3xl">
+          <EmptyState
+            variant="announcements"
+            title="Belum Ada Pengumuman"
+            description="Informasi penting, pergantian ruangan, dan pengumuman resmi dari Komti atau Dosen akan tampil di sini."
+            actionLabel={isManager ? 'Buat Pengumuman Baru' : undefined}
+            onAction={isManager ? () => setShowCreateModal(true) : undefined}
+          />
         </div>
       ) : (
         <div className="space-y-3.5 max-w-3xl">
@@ -116,8 +121,10 @@ export default function ClassAnnouncements({
               <div
                 key={ann.id}
                 onClick={() => setSelectedAnnouncement(ann)}
-                className={`bg-white border p-5 rounded-2xl shadow-2xs hover:shadow-xs transition-all cursor-pointer space-y-2.5 ${
-                  isImportant ? 'border-rose-300 ring-1 ring-rose-100' : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
+                className={`bg-white border p-5 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer space-y-2.5 ${
+                  isImportant 
+                    ? 'border-l-4 border-l-rose-500 border-rose-200 ring-1 ring-rose-100' 
+                    : 'border-l-4 border-l-indigo-400 border-slate-200 hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -142,7 +149,7 @@ export default function ClassAnnouncements({
                   )}
 
                   <span className="text-[11px] text-[#94A3B8]">
-                    {new Date(ann.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {new Date(ann.createdAt).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                   </span>
                 </div>
 
@@ -156,8 +163,8 @@ export default function ClassAnnouncements({
                 </div>
 
                 <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[11px] text-[#64748B]">
-                  <span>By {ann.author}</span>
-                  <span className="font-medium text-[#0F172A] hover:underline">Read full</span>
+                  <span>Oleh {ann.author}</span>
+                  <span className="font-semibold text-indigo-600 hover:underline">Baca selengkapnya →</span>
                 </div>
               </div>
             );
