@@ -838,10 +838,10 @@ export default function ClassTasks({
       {/* MODAL 1: TASK DETAIL & ASSIGNMENT SUBMISSION */}
       {selectedTask && (
         <ModalPortal onClose={() => setSelectedTask(null)} maxWidth="max-w-xl">
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[88vh] sm:max-h-[85vh] overflow-y-auto">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full shadow-2xl max-h-[88vh] sm:max-h-[85vh] flex flex-col overflow-hidden">
             
             {/* Modal Header */}
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#F1F5F9]">
+            <div className="flex items-start justify-between gap-3 p-4 sm:p-6 pb-3 border-b border-[#F1F5F9] shrink-0">
               <div className="min-w-0 flex-1">
                 <div className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full w-fit mb-1.5 max-w-full">
                   <BookOpen size={11} className="shrink-0" />
@@ -860,8 +860,10 @@ export default function ClassTasks({
               </button>
             </div>
 
-            {/* Task Info Chips */}
-            {(() => {
+            {/* Scrollable Modal Body */}
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 custom-scrollbar">
+              {/* Task Info Chips */}
+              {(() => {
               const userSub = selectedTask.submissions?.find(s => s.userId === currentUser?.uid);
               const isFileMissing = userSub && isSubmissionFileMissing(userSub);
               const isSubmitted = !!userSub && !isFileMissing;
@@ -1434,9 +1436,10 @@ export default function ClassTasks({
                 </div>
               );
             })()}
+            </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between gap-2 pt-3 border-t border-[#F1F5F9]">
+            <div className="flex items-center justify-between gap-2 p-4 sm:p-6 pt-3 border-t border-[#F1F5F9] shrink-0 bg-white">
               {isManager ? (
                 <button
                   type="button"
@@ -1462,8 +1465,8 @@ export default function ClassTasks({
       {/* MODAL 2: CREATE TASK MODAL (Coordinator) */}
       {showCreateModal && (
         <ModalPortal onClose={() => setShowCreateModal(false)} maxWidth="max-w-md">
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-6 pb-3 border-b border-[#F1F5F9] shrink-0">
               <h3 className="font-bold text-base text-[#0F172A]">Tambah Penugasan Baru</h3>
               <button 
                 onClick={() => setShowCreateModal(false)} 
@@ -1474,7 +1477,7 @@ export default function ClassTasks({
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="space-y-3.5">
+            <form onSubmit={handleCreateSubmit} className="p-4 sm:p-6 pt-3 space-y-3.5 overflow-y-auto flex-1 custom-scrollbar">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[#334155]">Judul Penugasan</label>
                 <input

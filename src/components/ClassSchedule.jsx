@@ -1117,8 +1117,8 @@ export default function ClassSchedule({
         const selectedLecturerInfo = parseLecturerInfo(selectedEvent.lecturer, selectedEvent.description, selectedEvent.lecturerPhone);
         return (
           <ModalPortal onClose={() => setSelectedEvent(null)} maxWidth="max-w-md">
-            <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto">
-              <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
+            <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between p-6 pb-3 border-b border-[#F1F5F9] shrink-0">
                 <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#475569]">
                   Detail {selectedEvent.type}
                 </span>
@@ -1131,7 +1131,7 @@ export default function ClassSchedule({
                 </button>
               </div>
 
-              <div className="space-y-3">
+              <div className="p-6 pt-3 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                 <h3 className="font-bold text-lg text-[#0F172A] leading-snug">
                   {selectedEvent.title}
                 </h3>
@@ -1235,7 +1235,7 @@ export default function ClassSchedule({
                 </button>
               </div>
             </div>
-          </ModalPortal>
+        </ModalPortal>
         );
       })()}
 

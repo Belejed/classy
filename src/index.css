@@ -125,6 +125,7 @@
 
 ::-webkit-scrollbar-track {
   background: transparent;
+  margin: 10px 0;
 }
 
 ::-webkit-scrollbar-thumb {
