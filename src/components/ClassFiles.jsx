@@ -289,12 +289,12 @@ export default function ClassFiles({
   const handleConfirmDelete = async () => {
     if (!fileToDelete) return;
     setIsDeleting(true);
-    toast.loading('Memindahkan berkas ke folder Trash...', { id: 'delete-file' });
+    toast.loading('Menghapus berkas...', { id: 'delete-file' });
     try {
       await onDeleteFile(fileToDelete.id, fileToDelete);
       setSelectedFile(null);
       setFileToDelete(null);
-      toast.success('Berkas berhasil dipindahkan ke folder Trash di Drive', { id: 'delete-file' });
+      toast.success('Berkas berhasil dihapus', { id: 'delete-file' });
     } catch {
       toast.error('Gagal menghapus berkas', { id: 'delete-file' });
     } finally {
@@ -718,10 +718,10 @@ export default function ClassFiles({
                   type="button"
                   onClick={() => setFileToDelete(selectedFile)}
                   className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3.5 py-2.5 rounded-xl flex items-center justify-center sm:justify-start gap-1.5 transition-colors cursor-pointer border border-rose-200/60 sm:border-transparent"
-                  title="Hapus dari web & pindahkan ke folder Trash di Google Drive"
+                  title="Hapus berkas dari kelas"
                 >
                   <Trash2 size={14} />
-                  <span>Hapus Berkas (Pindah ke Trash)</span>
+                  <span>Hapus Berkas</span>
                 </button>
               ) : <div />}
 
@@ -865,8 +865,8 @@ export default function ClassFiles({
         onClose={() => !isDeleting && setFileToDelete(null)}
         onConfirm={handleConfirmDelete}
         title="Hapus Berkas dari Repositori?"
-        message={`Berkas "${fileToDelete?.name || ''}" akan dihapus dari web kelas dan dipindahkan ke folder "Trash" di Google Drive (tidak dihapus permanen).`}
-        confirmText="Ya, Pindahkan ke Trash"
+        message={`Apakah Anda yakin ingin menghapus berkas "${fileToDelete?.name || ''}" dari repositori kelas?`}
+        confirmText="Ya, Hapus Berkas"
         cancelText="Batal"
         type="danger"
         isLoading={isDeleting}

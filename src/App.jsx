@@ -273,7 +273,7 @@ export default function App() {
       await dbService.logs.create(currentClass.id, {
         actionType: 'task_unsubmit',
         title: `Pengumpulan tugas dibatalkan`,
-        details: `${user?.displayName || 'Mahasiswa'} membatalkan pengumpulan tugas "${currentTask?.title || taskId}". Berkas dipindahkan ke folder Trash di Drive.`,
+        details: `${user?.displayName || 'Mahasiswa'} membatalkan pengumpulan tugas "${currentTask?.title || taskId}". Berkas tugas telah dihapus.`,
         actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
         targetName: currentTask?.title || '',
         color: 'rose'
@@ -310,7 +310,7 @@ export default function App() {
       await dbService.logs.create(currentClass.id, {
         actionType: 'task_delete',
         title: `Tugas dihapus`,
-        details: `${user?.displayName || 'Komti'} menghapus tugas "${taskToDelete?.title || taskId}". Berkas di Google Drive dipindahkan ke folder Trash.`,
+        details: `${user?.displayName || 'Komti'} menghapus tugas "${taskToDelete?.title || taskId}".`,
         actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
         targetName: taskToDelete?.title || '',
         color: 'rose'
@@ -361,7 +361,7 @@ export default function App() {
       await dbService.logs.create(currentClass.id, {
         actionType: 'file_delete',
         title: `Berkas dihapus`,
-        details: `${user?.displayName || 'Komti'} menghapus berkas "${targetFile?.name || idToDelete}". Berkas di Google Drive dipindahkan ke folder Trash.`,
+        details: `${user?.displayName || 'Komti'} menghapus berkas "${targetFile?.name || idToDelete}".`,
         actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
         targetName: targetFile?.name || '',
         color: 'rose'
