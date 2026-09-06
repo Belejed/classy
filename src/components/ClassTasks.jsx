@@ -924,7 +924,7 @@ export default function ClassTasks({
                     <span className="font-bold text-[#0F172A] text-xs sm:text-sm leading-snug break-words block">{selectedTask.course || 'Umum'}</span>
                   </div>
                   <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] col-span-2 sm:col-span-1 flex flex-col justify-start">
-                    <span className="text-[10px] font-semibold text-[#64748B] block mb-0.5">Dosen Pengampu</span>
+                    <span className="text-[10px] font-semibold text-[#64748B] block mb-0.5">Dosen Pengajar</span>
                     <span className="font-bold text-[#0F172A] text-xs sm:text-sm leading-snug break-words block">{selectedTask.lecturer || '-'}</span>
                   </div>
                 </div>

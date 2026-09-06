@@ -56,7 +56,7 @@ export default function ClassContacts({
         seen.add(key);
         list.push({
           id: sch.id,
-          lecturer: lecturerName || 'Dosen Pengampu',
+          lecturer: lecturerName || 'Dosen Pengajar',
           role: parsed.role || 'Pengajar Utama',
           phone: sch.lecturerPhone || parsed.phone || '',
           cleanPhone: sch.lecturerCleanPhone || parsed.cleanPhone || '',
@@ -129,7 +129,7 @@ export default function ClassContacts({
                   Kontak Dosen & Pengajar
                 </h2>
                 <p className="text-xs text-[#64748B]">
-                  Direktori lengkap dosen pengampu mata kuliah kelas <strong className="text-[#0F172A]">{currentClass?.name}</strong> untuk keperluan bimbingan, izin, dan koordinasi perkuliahan.
+                  Direktori lengkap dosen pengajar mata kuliah kelas <strong className="text-[#0F172A]">{currentClass?.name}</strong> untuk keperluan bimbingan, izin, dan koordinasi perkuliahan.
                 </p>
               </div>
             </div>

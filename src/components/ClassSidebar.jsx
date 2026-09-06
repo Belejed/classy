@@ -644,7 +644,7 @@ export default function ClassSidebar({
                       <div className="min-w-0">
                         <p className="font-bold text-xs truncate">Kontak Dosen</p>
                         <p className={`text-[10px] truncate ${activeTab === 'contacts' ? 'text-white/80' : 'text-[#64748B]'}`}>
-                          WhatsApp & dosen pengampu
+                          WhatsApp & dosen pengajar
                         </p>
                       </div>
                     </div>

@@ -93,7 +93,7 @@ export const formatClassReminderMessage = (schedule, minutesBefore = 15) => {
   return `🔔 *PENGINGAT KELAS KULIAH* 🎓
 ━━━━━━━━━━━━━━━━━━━━
 📚 *Mata Kuliah:* ${schedule.subject} ${schedule.sks ? `(${schedule.sks} SKS)` : ''}
-${schedule.code ? `🏷️ *Kode MK:* ${schedule.code}\n` : ''}👨‍🏫 *Dosen:* ${schedule.lecturer || 'Dosen Pengampu'}
+${schedule.code ? `🏷️ *Kode MK:* ${schedule.code}\n` : ''}👨‍🏫 *Dosen:* ${schedule.lecturer || 'Dosen Pengajar'}
 ⏰ *Waktu:* ${schedule.startTime} - ${schedule.endTime} WIB
 📍 *Ruangan / Link:* ${schedule.room || 'Ruang Kelas'}
 ${schedule.notes ? `📝 *Catatan:* ${schedule.notes}\n` : ''}━━━━━━━━━━━━━━━━━━━━

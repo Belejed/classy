@@ -236,7 +236,7 @@ export const dbService = {
           id: c.id,
           name: c.name,
           classIdentifier: meta.classIdentifier || c.description || 'TI-3A',
-          lecturer: meta.lecturer || 'Dosen Pengampu',
+          lecturer: meta.lecturer || 'Dosen Pengajar',
           academicPeriod: meta.academicPeriod || '2026/2027 Ganjil',
           waGroupLink: meta.waGroupLink || '',
           joinCode: c.invite_code,
@@ -265,7 +265,7 @@ export const dbService = {
         id: data.id,
         name: data.name,
         classIdentifier: meta.classIdentifier || data.description || 'TI-3A',
-        lecturer: meta.lecturer || 'Dosen Pengampu',
+        lecturer: meta.lecturer || 'Dosen Pengajar',
         academicPeriod: meta.academicPeriod || '2026/2027 Ganjil',
         waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
@@ -292,7 +292,7 @@ export const dbService = {
         id: data.id,
         name: data.name,
         classIdentifier: meta.classIdentifier || data.description || 'TI-3A',
-        lecturer: meta.lecturer || 'Dosen Pengampu',
+        lecturer: meta.lecturer || 'Dosen Pengajar',
         academicPeriod: meta.academicPeriod || '2026/2027',
         joinCode: data.invite_code,
         members: data.members || [],
@@ -312,7 +312,7 @@ export const dbService = {
 
       const meta = {
         classIdentifier: (classIdentifier || 'TI-3A').trim(),
-        lecturer: (lecturer || 'Dosen Pengampu').trim(),
+        lecturer: (lecturer || 'Dosen Pengajar').trim(),
         academicPeriod: (academicPeriod || '2026/2027').trim(),
         waGroupLink: (waGroupLink || '').trim()
       };
@@ -452,7 +452,7 @@ export const dbService = {
         id: data.id,
         name: data.name,
         classIdentifier: meta.classIdentifier || data.description || 'TI-3A',
-        lecturer: meta.lecturer || 'Dosen Pengampu',
+        lecturer: meta.lecturer || 'Dosen Pengajar',
         academicPeriod: meta.academicPeriod || '2026/2027',
         waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,

@@ -271,7 +271,7 @@ export default function ClassMembers({
             )}
           </div>
           <p className="text-xs text-[#64748B] mt-0.5">
-            Daftar seluruh mahasiswa, komti, dan dosen pengampu mata kuliah {currentClass?.name}.
+            Daftar seluruh mahasiswa, komti, dan dosen pengajar mata kuliah {currentClass?.name}.
           </p>
         </div>
 
@@ -325,7 +325,7 @@ export default function ClassMembers({
         </div>
 
         <div className="bg-gradient-to-br from-white to-emerald-50/40 border border-slate-200 hover:border-emerald-300 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md transition-all">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block truncate">Dosen Pengampu</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block truncate">Dosen Pengajar</span>
           <p className="text-xl sm:text-2xl font-extrabold text-emerald-800 mt-0.5 tracking-tight">{lecturerCount}</p>
         </div>
 
@@ -612,7 +612,7 @@ export default function ClassMembers({
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-[#0F172A]">Pengaturan Ruang Kelas</h3>
-                    <p className="text-xs text-[#64748B]">Khusus Komti & Dosen Pengampu</p>
+                    <p className="text-xs text-[#64748B]">Khusus Komti & Dosen Pengajar</p>
                   </div>
                 </div>
                 <button 
@@ -650,7 +650,7 @@ export default function ClassMembers({
                       value={settingClassIdentifier}
                       onChange={(e) => setSettingClassIdentifier(e.target.value)}
                       placeholder="Contoh: 26B (S1 - M.Log)"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 transition-all bg-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 transition-all bg-white"
                     />
                   </div>
 
@@ -661,13 +661,13 @@ export default function ClassMembers({
                       value={settingAcademicPeriod}
                       onChange={(e) => setSettingAcademicPeriod(e.target.value)}
                       placeholder="Contoh: Semester 1 (2026/2027)"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 transition-all bg-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 transition-all bg-white"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#0F172A]">Dosen Pengampu / Pembimbing Utama</label>
+                  <label className="text-xs font-bold text-[#0F172A]">Dosen Pengajar / Pembimbing Utama</label>
                   <input
                     type="text"
                     value={settingLecturer}

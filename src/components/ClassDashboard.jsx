@@ -355,7 +355,7 @@ export default function ClassDashboard({
           <EmptyState
             variant="announcements"
             title="Belum Ada Pengumuman Kelas"
-            description="Pengumuman penting perkuliahan dari Komti atau Dosen pengampu akan disematkan di sini."
+            description="Pengumuman penting perkuliahan dari Komti atau Dosen pengajar akan disematkan di sini."
             actionLabel="Buka Tab Pengumuman"
             onAction={() => onNavigateTab('announcements')}
           />
@@ -405,14 +405,14 @@ export default function ClassDashboard({
           </div>
         </div>
 
-        {/* Card 3: Dosen Pengampu & Kontak */}
+        {/* Card 3: Dosen Pengajar & Kontak */}
         <div 
           onClick={() => onNavigateTab('contacts')}
           className="bg-gradient-to-br from-white via-white to-indigo-50/40 dark:from-[#151D2F] dark:via-[#151D2F] dark:to-indigo-950/20 border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex items-center justify-between group"
         >
           <div className="space-y-0.5">
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-              Dosen Pengampu
+              Dosen Pengajar
             </span>
             <p className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {courseLecturers.length} dosen pengajar
@@ -674,12 +674,12 @@ export default function ClassDashboard({
               </a>
             )}
 
-            {/* Dosen Pengampu Directory Quick Card */}
+            {/* Dosen Pengajar Directory Quick Card */}
             <div className="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 space-y-2">
               <div className="flex items-center justify-between text-indigo-950 dark:text-indigo-200">
                 <div className="flex items-center gap-1.5 font-bold text-xs">
                   <GraduationCap size={15} className="text-indigo-600 dark:text-indigo-400" />
-                  <span>Dosen Pengampu</span>
+                  <span>Dosen Pengajar</span>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 shadow-2xs">
                   {courseLecturers.length} Dosen

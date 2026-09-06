@@ -212,7 +212,7 @@ export default function ClassActivityLog({
         <div>
           <h2 className="text-lg font-bold text-[#0F172A]">Akses Khusus Komti & Dosen</h2>
           <p className="text-xs text-[#64748B] mt-1.5 leading-relaxed">
-            Halaman log aktivitas dan audit riwayat kelas ini hanya dapat diakses oleh Komti (Koordinator Kelas) atau Dosen Pengampu demi privasi data akademik.
+            Halaman log aktivitas dan audit riwayat kelas ini hanya dapat diakses oleh Komti (Koordinator Kelas) atau Dosen Pengajar demi privasi data akademik.
           </p>
         </div>
       </div>

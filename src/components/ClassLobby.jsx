@@ -308,7 +308,7 @@ export default function ClassLobby({
 
                       <div className="p-3.5 rounded-2xl bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/60 text-xs text-[#475569] dark:text-slate-300 space-y-1">
                         <p><strong className="text-[#0F172A] dark:text-white">Rombel:</strong> {cls.classIdentifier || '-'}</p>
-                        <p><strong className="text-[#0F172A] dark:text-white">Dosen:</strong> {cls.lecturer || 'Dosen Pengampu'}</p>
+                        <p><strong className="text-[#0F172A] dark:text-white">Dosen:</strong> {cls.lecturer || 'Dosen Pengajar'}</p>
                         <p><strong className="text-[#0F172A] dark:text-white">Periode:</strong> {cls.academicPeriod || '-'}</p>
                       </div>
 
@@ -360,7 +360,7 @@ export default function ClassLobby({
                         <div className="mt-2 space-y-1 text-xs text-slate-500 dark:text-slate-400">
                           <p className="flex items-center gap-1.5">
                             <span>👨‍🏫</span>
-                            <span className="font-medium text-slate-700 dark:text-slate-300">{cls.lecturer || 'Dosen Pengampu'}</span>
+                            <span className="font-medium text-slate-700 dark:text-slate-300">{cls.lecturer || 'Dosen Pengajar'}</span>
                           </p>
                           {cls.academicPeriod && (
                             <p className="flex items-center gap-1.5">
@@ -564,7 +564,7 @@ export default function ClassLobby({
                         <span>🎓</span>
                         <span>Dosen (Lecturer)</span>
                       </div>
-                      <p className="text-[10px] text-[#64748B] mt-0.5">Dosen pengampu mata kuliah</p>
+                      <p className="text-[10px] text-[#64748B] mt-0.5">Dosen pengajar mata kuliah</p>
                     </button>
                   </div>
                 </div>
@@ -582,7 +582,7 @@ export default function ClassLobby({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#334155]">Lecturer (Dosen Pengampu)</label>
+                  <label className="text-xs font-semibold text-[#334155]">Lecturer (Dosen Pengajar)</label>
                   <input
                     type="text"
                     placeholder="e.g. Pak Budi Raharjo, M.T."
