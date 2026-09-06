@@ -1047,7 +1047,7 @@ export default function ClassTasks({
                         </span>
                       </div>
                       <p className="text-[11px] text-rose-700 leading-relaxed">
-                        Berkas tugas ini terhapus atau berada di Sampah Google Drive. Status tugas tidak lagi dianggap "Submitted". Harap unggah ulang berkas tugas agar dapat dinilai dosen/komti.
+                        Berkas tugas ini tidak ditemukan atau telah terhapus. Status tugas tidak lagi dianggap "Submitted". Harap unggah ulang berkas tugas agar dapat dinilai dosen/komti.
                       </p>
                       <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-rose-200/60">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1633,7 +1633,7 @@ export default function ClassTasks({
         onClose={() => !isCancelingSubmission && setShowCancelSubmissionConfirm(false)}
         onConfirm={handleCancelSubmission}
         title="Hapus & Batalkan Pengumpulan?"
-        message="Berkas pengumpulan kamu akan dipindahkan ke folder Sampah di Google Drive dan status pengumpulan akan dibatalkan. Kamu dapat mengunggah ulang file kapan saja."
+        message="Berkas pengumpulan kamu akan dihapus dan status pengumpulan akan dibatalkan. Kamu dapat mengunggah ulang file kapan saja."
         confirmText="Ya, Hapus & Batalkan"
         cancelText="Batal"
         type="danger"
