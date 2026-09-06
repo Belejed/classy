@@ -19,6 +19,8 @@ import ClassContacts from './components/ClassContacts';
 import ClassActivityLog from './components/ClassActivityLog';
 import UserProfileModal from './components/UserProfileModal';
 import ErrorBoundary from './components/ErrorBoundary';
+import ClassTopHeader from './components/ClassTopHeader';
+import { DashboardSkeleton, TasksSkeleton, ScheduleSkeleton } from './components/SkeletonLoader';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -41,13 +43,46 @@ export default function App() {
   // Modals
   const [showProfileModal, setShowProfileModal] = useState(false);
 
+  // Theme Management (Light / Dark / System)
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('classy_theme');
+      if (saved) return saved;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('classy_theme', theme);
+    } catch {}
+
+    const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add('theme-dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove('theme-dark');
+    }
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const handleSelectTheme = (newTheme) => {
+    setTheme(newTheme);
+  };
+
   const navigate = useNavigate();
 
   // Clean old cached keys from legacy app
   useEffect(() => {
     try {
       localStorage.removeItem('noted_files');
-      localStorage.removeItem('app_theme');
     } catch {}
   }, []);
 
@@ -744,6 +779,8 @@ export default function App() {
                   classesLoading={classesLoading}
                   logs={logs}
                   onRefreshLogs={handleRefreshLogs}
+                  theme={theme}
+                  onToggleTheme={handleToggleTheme}
                   onOpenProfile={() => setShowProfileModal(true)}
                   onLogout={handleLogout}
                 />
@@ -764,6 +801,8 @@ export default function App() {
           onClose={() => setShowProfileModal(false)}
           onLogout={handleLogout}
           onUpdateUser={(updated) => setUser(updated)}
+          currentTheme={theme}
+          onSelectTheme={handleSelectTheme}
         />
       )}
     </>
@@ -811,6 +850,8 @@ function ClassWorkspace({
   classesLoading,
   logs,
   onRefreshLogs,
+  theme,
+  onToggleTheme,
   onOpenProfile,
   onLogout
 }) {
@@ -869,9 +910,9 @@ function ClassWorkspace({
 
   const isDataReady = !contentLoading && schedules !== null && tasks !== null && files !== null && announcements !== null;
 
-  if (!currentClass || !isDataReady) {
+  if (!currentClass) {
     return (
-      <div className="h-screen w-screen bg-[#FDFBF7] flex items-center justify-center font-sans select-none">
+      <div className="h-screen w-screen bg-[#FDFBF7] dark:bg-[#0B0F19] flex items-center justify-center font-sans select-none">
         <div className="w-20 h-20 flex items-center justify-center animate-classy-breathing">
           <img src="/logo.png" alt="Classy" className="w-full h-full object-contain" />
         </div>
@@ -880,7 +921,7 @@ function ClassWorkspace({
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#FDFBF7] text-[#1E293B] flex flex-col md:flex-row font-sans overflow-x-hidden">
+    <div className="min-h-screen w-full bg-[#FDFBF7] dark:bg-[#0B0F19] text-[#1E293B] dark:text-slate-100 flex flex-col md:flex-row font-sans overflow-x-hidden transition-colors">
       {/* Left Navigation Sidebar */}
       <ClassSidebar
         currentClass={currentClass}
@@ -901,21 +942,37 @@ function ClassWorkspace({
       />
 
       {/* Main Workspace Content Column */}
-      <div className="flex-1 min-w-0 min-h-screen flex flex-col bg-[#FDFBF7]">
+      <div className="flex-1 min-w-0 min-h-screen flex flex-col bg-[#FDFBF7] dark:bg-[#0B0F19] transition-colors">
+        {/* Sticky Top Workspace Header */}
+        <ClassTopHeader
+          currentClass={currentClass}
+          activeTab={activeTab}
+          currentUser={user}
+          currentTheme={theme}
+          onToggleTheme={onToggleTheme}
+          onOpenProfile={onOpenProfile}
+        />
+
         <ErrorBoundary key={activeTab}>
           <main className={`flex-1 min-w-0 w-full animate-page-enter pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 ${activeTab === 'schedule' ? 'max-w-[1500px] mx-auto px-3 sm:px-6 py-2 sm:py-3' : 'max-w-6xl mx-auto px-3.5 sm:px-8 py-4 sm:py-8'}`}>
-            {activeTab === 'dashboard' && (
-              <ClassDashboard
-                currentClass={currentClass}
-                currentUser={user}
-                schedules={schedules}
-                tasks={tasks}
-                announcements={announcements}
-                onNavigateTab={(targetTab) => navigate(`/class/${currentClass.id}/${targetTab}`)}
-                onOpenTaskDetail={() => navigate(`/class/${currentClass.id}/tasks`)}
-                onOpenAnnouncementDetail={() => navigate(`/class/${currentClass.id}/announcements`)}
-              />
-            )}
+            {!isDataReady ? (
+              activeTab === 'tasks' ? <TasksSkeleton /> :
+              activeTab === 'schedule' ? <ScheduleSkeleton /> :
+              <DashboardSkeleton />
+            ) : (
+              <>
+                {activeTab === 'dashboard' && (
+                  <ClassDashboard
+                    currentClass={currentClass}
+                    currentUser={user}
+                    schedules={schedules}
+                    tasks={tasks}
+                    announcements={announcements}
+                    onNavigateTab={(targetTab) => navigate(`/class/${currentClass.id}/${targetTab}`)}
+                    onOpenTaskDetail={() => navigate(`/class/${currentClass.id}/tasks`)}
+                    onOpenAnnouncementDetail={() => navigate(`/class/${currentClass.id}/announcements`)}
+                  />
+                )}
 
             {activeTab === 'schedule' && (
               <ClassSchedule
@@ -1005,6 +1062,8 @@ function ClassWorkspace({
                 loading={contentLoading}
                 onRefresh={onRefreshLogs}
               />
+            )}
+              </>
             )}
           </main>
         </ErrorBoundary>

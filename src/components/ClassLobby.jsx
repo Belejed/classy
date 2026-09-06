@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { dbService } from '../utils/db';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
+import EmptyState from './EmptyState';
 import { 
   Plus, 
   Users, 
@@ -151,15 +152,15 @@ export default function ClassLobby({
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#FDFBF7] text-[#1E293B] flex flex-col font-sans">
+    <div className="min-h-screen w-screen bg-[#FDFBF7] dark:bg-[#0B0F19] text-[#1E293B] dark:text-slate-100 flex flex-col font-sans transition-colors">
       
       {/* Top Navbar */}
-      <header className="w-full border-b border-[#E2E8F0] bg-white sticky top-0 z-20">
+      <header className="w-full border-b border-[#E2E8F0] dark:border-slate-800 bg-white/90 dark:bg-[#0B0F19]/90 backdrop-blur-md sticky top-0 z-20 transition-colors">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <img src="/logo.png" alt="Classy" className="w-8 h-8 object-contain shrink-0" />
-            <span className="font-bold text-lg text-[#0F172A] tracking-tight">Classy</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-[#F1F5F9] text-[#64748B] font-medium ml-1">
+            <span className="font-bold text-lg text-[#0F172A] dark:text-white tracking-tight">Classy</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-[#F1F5F9] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 font-medium ml-1">
               Class Lobby
             </span>
           </div>
@@ -167,9 +168,9 @@ export default function ClassLobby({
           <div className="flex items-center gap-3">
             <button
               onClick={onOpenProfile}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#E2E8F0] hover:border-[#CBD5E1] transition-colors text-xs font-semibold text-[#0F172A] cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#E2E8F0] dark:border-slate-800 hover:border-[#CBD5E1] dark:hover:border-slate-700 transition-colors text-xs font-semibold text-[#0F172A] dark:text-slate-200 cursor-pointer shadow-2xs"
             >
-              <div className="w-6 h-6 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-[10px] font-bold">
+              <div className="w-6 h-6 rounded-full bg-[#0F172A] dark:bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">
                 {currentUser?.displayName ? currentUser.displayName[0].toUpperCase() : 'U'}
               </div>
               <span className="max-w-[120px] truncate">{currentUser?.displayName || 'Student'}</span>
@@ -181,24 +182,30 @@ export default function ClassLobby({
       {/* Main Container */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-8">
         
-        {/* Editorial Greeting */}
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#0F172A]">
-            {greeting}, {firstName}.
-          </h1>
-          <p className="text-sm text-[#64748B]">
-            Select a class workspace below or join a new one using your class join code.
-          </p>
+        {/* Editorial Greeting Hero */}
+        <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-white via-slate-50 to-indigo-50/40 dark:from-[#151D2F] dark:via-[#151D2F] dark:to-indigo-950/20 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+          <div className="absolute -right-8 -top-8 w-40 h-40 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="space-y-1.5 relative z-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+              <span>Portal Akademik & Kolaborasi</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0F172A] dark:text-white">
+              {greeting}, {firstName}.
+            </h1>
+            <p className="text-sm text-[#64748B] dark:text-slate-400 max-w-xl">
+              Pilih ruang kelas aktifmu di bawah ini untuk mengakses tugas, jadwal kuliah, dan berkas materi.
+            </p>
+          </div>
         </div>
 
         {/* Classes Section */}
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#E2E8F0]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#E2E8F0] dark:border-slate-800">
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-wider text-[#475569]">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-[#475569] dark:text-slate-400">
                 {classes.length > 0 ? 'Ruang Kelas Anda' : 'Ruang Kelas'}
               </h2>
-              <p className="text-xs text-[#64748B]">
+              <p className="text-xs text-[#64748B] dark:text-slate-400">
                 {classes.length > 0 
                   ? 'Setiap akun mahasiswa/dosen terdaftar di 1 ruang kelas aktif.' 
                   : 'Pilih untuk bergabung dengan kode kelas atau buat ruang kelas baru.'}
@@ -214,7 +221,7 @@ export default function ClassLobby({
                       setPreviewClass(null);
                       setShowJoinModal(true);
                     }}
-                    className="px-3.5 py-1.5 rounded-xl border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] hover:bg-white transition-all flex items-center gap-1.5 shadow-2xs"
+                    className="px-3.5 py-1.5 rounded-xl border border-[#CBD5E1] dark:border-slate-700 text-xs font-semibold text-[#0F172A] dark:text-white hover:bg-white dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 shadow-2xs"
                   >
                     <Plus size={13} />
                     <span>Join Class</span>
@@ -226,14 +233,14 @@ export default function ClassLobby({
                       setCreatedClassInfo(null);
                       setShowCreateModal(true);
                     }}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] transition-all flex items-center gap-1.5 shadow-xs"
+                    className="px-3.5 py-1.5 rounded-xl bg-[#0F172A] text-white dark:bg-indigo-600 text-xs font-semibold hover:bg-[#1E293B] dark:hover:bg-indigo-500 transition-all flex items-center gap-1.5 shadow-xs"
                   >
                     <Plus size={13} />
                     <span>Create Class</span>
                   </button>
                 </>
               ) : (
-                <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
                   <span>1 Akun = 1 Kelas Aktif</span>
                 </span>
@@ -244,46 +251,30 @@ export default function ClassLobby({
           {/* Loading Skeleton, Empty State, or Class Cards */}
           {classesLoading ? (
             <div className="max-w-xl">
-              <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-7 shadow-xs space-y-5 animate-pulse">
+              <div className="bg-white dark:bg-[#151D2F] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
                 <div className="flex items-center justify-between">
-                  <div className="w-20 h-6 bg-[#E2E8F0] rounded-full" />
-                  <div className="w-24 h-5 bg-[#E2E8F0] rounded-full" />
+                  <div className="w-20 h-6 rounded-full animate-shimmer" />
+                  <div className="w-24 h-5 rounded-full animate-shimmer" />
                 </div>
                 <div className="space-y-2">
-                  <div className="w-52 h-6 bg-[#E2E8F0] rounded-lg" />
-                  <div className="w-32 h-4 bg-[#F1F5F9] rounded" />
+                  <div className="w-52 h-6 rounded-lg animate-shimmer" />
+                  <div className="w-32 h-4 rounded animate-shimmer" />
                 </div>
-                <div className="pt-4 border-t border-[#F1F5F9] flex justify-between items-center">
-                  <div className="w-28 h-4 bg-[#F1F5F9] rounded" />
-                  <div className="w-32 h-9 bg-[#E2E8F0] rounded-xl" />
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                  <div className="w-28 h-4 rounded animate-shimmer" />
+                  <div className="w-32 h-9 rounded-xl animate-shimmer" />
                 </div>
               </div>
             </div>
           ) : classes.length === 0 ? (
-            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-12 text-center space-y-4 shadow-2xs">
-              <div className="w-12 h-12 rounded-2xl bg-[#F1F5F9] text-[#64748B] flex items-center justify-center mx-auto">
-                <BookOpen size={24} />
-              </div>
-              <div className="space-y-1 max-w-sm mx-auto">
-                <h3 className="font-bold text-base text-[#0F172A]">Kamu belum terdaftar di kelas manapun.</h3>
-                <p className="text-xs text-[#64748B]">
-                  Silakan bergabung menggunakan kode kelas yang dibagikan oleh Komti/Dosen, atau buat ruang kelas baru.
-                </p>
-              </div>
-              <div className="flex items-center justify-center gap-3 pt-2">
-                <button
-                  onClick={() => setShowJoinModal(true)}
-                  className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] transition-colors shadow-xs"
-                >
-                  Gabung Kelas
-                </button>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="px-4 py-2 rounded-xl border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] hover:bg-white transition-colors"
-                >
-                  Buat Kelas Baru
-                </button>
-              </div>
+            <div className="bg-white dark:bg-[#151D2F] border border-[#E2E8F0] dark:border-slate-800 rounded-3xl p-6 sm:p-10 text-center space-y-4 shadow-2xs">
+              <EmptyState
+                variant="tasks"
+                title="Kamu belum terdaftar di kelas manapun"
+                description="Silakan bergabung menggunakan kode kelas yang dibagikan oleh Komti/Dosen, atau buat ruang kelas baru."
+                actionLabel="Gabung Kelas"
+                onAction={() => setShowJoinModal(true)}
+              />
             </div>
           ) : (
             <div className="max-w-xl space-y-4">
@@ -294,39 +285,39 @@ export default function ClassLobby({
                   return (
                     <div
                       key={cls.id}
-                      className="bg-amber-50/70 border-2 border-amber-300 rounded-3xl p-6 sm:p-7 shadow-xs space-y-4 relative overflow-hidden"
+                      className="bg-amber-50/70 dark:bg-amber-950/20 border-2 border-amber-300 dark:border-amber-700/80 rounded-3xl p-6 sm:p-7 shadow-xs space-y-4 relative overflow-hidden"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-150 text-amber-900 border border-amber-300 flex items-center gap-1.5">
-                          <Clock size={12} className="animate-spin text-amber-700" />
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-150 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 flex items-center gap-1.5">
+                          <Clock size={12} className="animate-spin text-amber-700 dark:text-amber-300" />
                           <span>Menunggu Persetujuan</span>
                         </span>
-                        <span className="text-[11px] font-mono text-amber-800">
+                        <span className="text-[11px] font-mono text-amber-800 dark:text-amber-300 font-bold">
                           Kode: {cls.joinCode}
                         </span>
                       </div>
 
                       <div className="space-y-1.5">
-                        <h3 className="font-bold text-xl text-[#0F172A] tracking-tight leading-snug">
+                        <h3 className="font-bold text-xl text-[#0F172A] dark:text-white tracking-tight leading-snug">
                           {cls.name}
                         </h3>
-                        <p className="text-xs text-amber-900 leading-relaxed">
+                        <p className="text-xs text-amber-900 dark:text-amber-200/90 leading-relaxed">
                           Permintaan bergabung Anda telah terkirim. Untuk mencegah akun penyusup, Komti atau Dosen kelas ini harus menyetujui akun Anda terlebih dahulu sebelum Anda dapat mengakses ruang kelas.
                         </p>
                       </div>
 
-                      <div className="p-3.5 rounded-2xl bg-white/90 border border-amber-200 text-xs text-[#475569] space-y-1">
-                        <p><strong className="text-[#0F172A]">Rombel:</strong> {cls.classIdentifier || '-'}</p>
-                        <p><strong className="text-[#0F172A]">Dosen:</strong> {cls.lecturer || 'Dosen Pengampu'}</p>
-                        <p><strong className="text-[#0F172A]">Periode:</strong> {cls.academicPeriod || '-'}</p>
+                      <div className="p-3.5 rounded-2xl bg-white/90 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/60 text-xs text-[#475569] dark:text-slate-300 space-y-1">
+                        <p><strong className="text-[#0F172A] dark:text-white">Rombel:</strong> {cls.classIdentifier || '-'}</p>
+                        <p><strong className="text-[#0F172A] dark:text-white">Dosen:</strong> {cls.lecturer || 'Dosen Pengampu'}</p>
+                        <p><strong className="text-[#0F172A] dark:text-white">Periode:</strong> {cls.academicPeriod || '-'}</p>
                       </div>
 
-                      <div className="pt-3 border-t border-amber-200/80 flex items-center justify-between gap-2">
+                      <div className="pt-3 border-t border-amber-200/80 dark:border-amber-800/60 flex items-center justify-between gap-2">
                         <button
                           type="button"
                           disabled={isCancelling}
                           onClick={() => handleCancelRequest(cls.id)}
-                          className="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
+                          className="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition-colors cursor-pointer disabled:opacity-50"
                         >
                           Batalkan Permintaan
                         </button>
@@ -334,7 +325,7 @@ export default function ClassLobby({
                         <button
                           type="button"
                           onClick={() => onRefreshClasses()}
-                          className="px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                         >
                           <RefreshCw size={13} />
                           <span>Cek Status</span>
@@ -347,26 +338,29 @@ export default function ClassLobby({
                 return (
                   <div
                     key={cls.id}
-                    className="bg-white border border-[#E2E8F0] hover:border-[#0F172A]/30 rounded-3xl p-6 sm:p-7 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-5"
+                    className="relative overflow-hidden bg-white dark:bg-[#151D2F] border border-slate-200 dark:border-slate-800 hover:border-indigo-400/50 dark:hover:border-indigo-500/50 rounded-3xl p-6 sm:p-7 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-5 group"
                   >
-                    <div className="space-y-3">
+                    {/* Top gradient accent line */}
+                    <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500" />
+
+                    <div className="space-y-3 pt-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#F1F5F9] text-[#334155] border border-[#E2E8F0]">
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                           {cls.classIdentifier || 'Rombel'}
                         </span>
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                           {cls.userRole === 'komti' || cls.userRole === 'coordinator' ? '👑 Komti' : cls.userRole === 'lecturer' ? '🎓 Dosen' : '👤 Mahasiswa'}
                         </span>
                       </div>
 
                       <div>
-                        <h3 className="font-bold text-xl text-[#0F172A] tracking-tight leading-snug">
+                        <h3 className="font-extrabold text-xl text-slate-900 dark:text-white tracking-tight leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                           {cls.name}
                         </h3>
-                        <div className="mt-2 space-y-1 text-xs text-[#64748B]">
+                        <div className="mt-2 space-y-1 text-xs text-slate-500 dark:text-slate-400">
                           <p className="flex items-center gap-1.5">
                             <span>👨‍🏫</span>
-                            <span className="font-medium text-[#334155]">{cls.lecturer || 'Dosen Pengampu'}</span>
+                            <span className="font-medium text-slate-700 dark:text-slate-300">{cls.lecturer || 'Dosen Pengampu'}</span>
                           </p>
                           {cls.academicPeriod && (
                             <p className="flex items-center gap-1.5">
@@ -378,15 +372,15 @@ export default function ClassLobby({
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-[#F1F5F9] flex items-center justify-between">
-                      <span className="text-xs text-[#64748B] flex items-center gap-1.5 font-medium">
-                        <Users size={14} className="text-[#94A3B8]" />
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+                        <Users size={14} className="text-slate-400" />
                         <span>{cls.memberCount} Anggota terdaftar</span>
                       </span>
 
                       <button
                         onClick={() => onSelectClass(cls)}
-                        className="px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold transition-all flex items-center gap-2 shadow-xs hover:gap-3 cursor-pointer"
+                        className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-xs group-hover:gap-3 cursor-pointer"
                       >
                         <span>Masuk ke Kelas</span>
                         <ArrowRight size={14} />

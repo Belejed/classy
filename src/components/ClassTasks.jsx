@@ -32,6 +32,7 @@ import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
+import EmptyState from './EmptyState';
 
 // Helper to check if a task deadline has passed
 export const isTaskOverdue = (dueDate, dueTime = '23:59') => {
@@ -702,10 +703,14 @@ export default function ClassTasks({
 
       {/* Tasks List */}
       {filteredTasks.length === 0 ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-12 text-center space-y-2 shadow-2xs">
-          <CheckSquare size={32} className="mx-auto text-[#94A3B8] opacity-60" />
-          <h3 className="font-bold text-sm text-[#0F172A]">Tidak ada tugas yang cocok</h3>
-          <p className="text-xs text-[#64748B]">Semua tugas sudah dikumpulkan atau tidak ada tugas yang cocok dengan filter mata kuliah / status.</p>
+        <div className="bg-white dark:bg-[#151D2F] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-10 text-center shadow-2xs">
+          <EmptyState
+            variant={statusFilter === 'submitted' ? 'completed' : 'tasks'}
+            title="Tidak Ada Tugas yang Cocok"
+            description="Semua tugas sudah dikumpulkan atau tidak ada tugas yang cocok dengan filter pencarian dan status saat ini."
+            actionLabel={statusFilter !== 'all' ? 'Reset Semua Filter' : undefined}
+            onAction={statusFilter !== 'all' ? () => { setStatusFilter('all'); setCourseFilter('all'); setSearchQuery(''); } : undefined}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
