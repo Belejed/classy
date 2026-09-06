@@ -40,6 +40,13 @@ export default function ClassSidebar({
   const [copiedCode, setCopiedCode] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isClosingMobileMenu, setIsClosingMobileMenu] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const touchStartYRef = useRef(0);
+  const touchCurrentYRef = useRef(0);
+  const touchStartTimeRef = useRef(0);
+  const scrollableContentRef = useRef(null);
+  const isDragFromContentRef = useRef(false);
   const switcherRef = useRef(null);
 
   const handleCloseMobileMenu = () => {
@@ -48,7 +55,64 @@ export default function ClassSidebar({
     setTimeout(() => {
       setMobileMenuOpen(false);
       setIsClosingMobileMenu(false);
-    }, 180);
+      setDragOffset(0);
+      setIsDragging(false);
+    }, 200);
+  };
+
+  const handleTouchStart = (e, fromContent = false) => {
+    const touch = e.touches ? e.touches[0] : e;
+    touchStartYRef.current = touch.clientY;
+    touchCurrentYRef.current = touch.clientY;
+    touchStartTimeRef.current = Date.now();
+    isDragFromContentRef.current = fromContent;
+
+    if (fromContent) {
+      if (scrollableContentRef.current && scrollableContentRef.current.scrollTop > 0) {
+        return;
+      }
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (isClosingMobileMenu) return;
+    const touch = e.touches ? e.touches[0] : e;
+    touchCurrentYRef.current = touch.clientY;
+    const deltaY = touch.clientY - touchStartYRef.current;
+
+    if (isDragFromContentRef.current) {
+      if (scrollableContentRef.current && scrollableContentRef.current.scrollTop > 0) {
+        return;
+      }
+      if (deltaY <= 0) {
+        return;
+      }
+    }
+
+    if (deltaY > 0) {
+      setIsDragging(true);
+      setDragOffset(deltaY);
+    } else if (!isDragFromContentRef.current) {
+      setIsDragging(true);
+      setDragOffset(Math.max(-15, deltaY * 0.15));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging && dragOffset === 0) return;
+
+    const deltaY = touchCurrentYRef.current - touchStartYRef.current;
+    const duration = Date.now() - touchStartTimeRef.current;
+    const velocity = deltaY / Math.max(duration, 1);
+
+    setIsDragging(false);
+
+    // Threshold: dragged down > 80px or fling velocity > 0.4px/ms
+    if (deltaY > 80 || (deltaY > 30 && velocity > 0.4)) {
+      handleCloseMobileMenu();
+    } else {
+      setDragOffset(0);
+    }
   };
 
   // Close dropdown on outside click
@@ -379,27 +443,60 @@ export default function ClassSidebar({
             className={`fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity ${
               isClosingMobileMenu ? 'animate-classy-backdrop-out' : 'animate-classy-backdrop'
             }`} 
+            style={isDragging && dragOffset > 0 ? { opacity: Math.max(0.1, 0.6 * (1 - dragOffset / 350)) } : undefined}
             onClick={handleCloseMobileMenu} 
           />
 
           {/* Bottom Sheet Container */}
-          <div className={`relative w-full bg-white dark:bg-[#151D2F] border-t border-slate-200 dark:border-slate-800 rounded-t-[28px] shadow-2xl z-10 max-h-[85vh] flex flex-col overflow-hidden pb-[calc(0.85rem+env(safe-area-inset-bottom,0px))] transition-colors ${
-            isClosingMobileMenu ? 'animate-bottom-sheet-out' : 'animate-bottom-sheet-in'
-          }`}>
-            {/* Grab Handle */}
-            <div className="pt-3 pb-1 flex justify-center shrink-0">
-              <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+          <div 
+            className={`relative w-full bg-white dark:bg-[#151D2F] border-t border-slate-200 dark:border-slate-800 rounded-t-[28px] shadow-2xl z-10 max-h-[85vh] flex flex-col overflow-hidden pb-[calc(0.85rem+env(safe-area-inset-bottom,0px))] transition-colors ${
+              isClosingMobileMenu && dragOffset === 0 ? 'animate-bottom-sheet-out' : !isDragging && dragOffset === 0 && !isClosingMobileMenu ? 'animate-bottom-sheet-in' : ''
+            }`}
+            style={{
+              transform: isClosingMobileMenu
+                ? 'translateY(100%)'
+                : dragOffset !== 0
+                ? `translateY(${Math.max(0, dragOffset)}px)`
+                : undefined,
+              transition: isClosingMobileMenu
+                ? 'transform 0.2s cubic-bezier(0.32, 0, 0.67, 0)'
+                : isDragging
+                ? 'none'
+                : dragOffset === 0
+                ? undefined
+                : 'transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)'
+            }}
+          >
+            {/* Grab Handle Header Bar - Touch Drag Target */}
+            <div 
+              className="pt-3 pb-2 flex flex-col items-center justify-center shrink-0 cursor-grab active:cursor-grabbing touch-none select-none"
+              onTouchStart={(e) => handleTouchStart(e, false)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onMouseDown={(e) => handleTouchStart(e, false)}
+              onMouseMove={handleTouchMove}
+              onMouseUp={handleTouchEnd}
+            >
+              <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600 transition-colors" />
             </div>
 
             {/* Sheet Header */}
-            <div className="px-5 py-2.5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 shrink-0">
+            <div 
+              className="px-5 py-2 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 shrink-0 select-none cursor-grab active:cursor-grabbing touch-none"
+              onTouchStart={(e) => handleTouchStart(e, false)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onMouseDown={(e) => handleTouchStart(e, false)}
+              onMouseMove={handleTouchMove}
+              onMouseUp={handleTouchEnd}
+            >
               <div>
                 <h3 className="font-bold text-sm text-[#0F172A] dark:text-white">Menu & Fitur Kelas</h3>
                 <p className="text-[11px] text-[#64748B] dark:text-slate-400">Fitur lainnya di luar taskbar utama</p>
               </div>
               <button 
                 onClick={handleCloseMobileMenu}
-                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer transition-colors pointer-events-auto"
                 title="Tutup Menu"
               >
                 <X size={18} />
@@ -407,7 +504,13 @@ export default function ClassSidebar({
             </div>
 
             {/* Scrollable Content */}
-            <div className="p-4 space-y-4 overflow-y-auto">
+            <div 
+              ref={scrollableContentRef}
+              onTouchStart={(e) => handleTouchStart(e, true)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className="p-4 space-y-4 overflow-y-auto overscroll-contain"
+            >
               {/* Active Class Card */}
               <div className="p-3.5 rounded-2xl bg-[#F8FAFC] dark:bg-slate-800/60 border border-[#E2E8F0] dark:border-slate-700 space-y-2.5">
                 <div className="flex items-center justify-between">
