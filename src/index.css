@@ -48,30 +48,17 @@
     padding: 0;
   }
 
-  /* Clean readable form inputs with theme awareness */
+  /* Explicitly enforce light theme form inputs with clean background and crisp readable text */
   input:not([type="checkbox"]):not([type="radio"]),
   textarea,
   select {
-    background-color: #FFFFFF;
-    color: #0F172A;
-  }
-
-  .dark input:not([type="checkbox"]):not([type="radio"]),
-  .dark textarea,
-  .dark select {
-    background-color: #1E293B !important;
-    color: #F8FAFC !important;
-    border-color: #334155 !important;
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
   }
 
   input::placeholder,
   textarea::placeholder {
-    color: #94A3B8;
-  }
-
-  .dark input::placeholder,
-  .dark textarea::placeholder {
-    color: #64748B !important;
+    color: #94A3B8 !important;
   }
 
   /* Mobile Native Touch Behavior */
@@ -85,7 +72,7 @@
     touch-action: manipulation;
   }
 
-  /* Prevent browser autofill colors */
+  /* Prevent dark browser autofill colors */
   input:-webkit-autofill,
   input:-webkit-autofill:hover, 
   input:-webkit-autofill:focus,
@@ -95,14 +82,6 @@
     -webkit-box-shadow: 0 0 0px 1000px #FFFFFF inset !important;
     box-shadow: 0 0 0px 1000px #FFFFFF inset !important;
     transition: background-color 5000s ease-in-out 0s;
-  }
-
-  .dark input:-webkit-autofill,
-  .dark textarea:-webkit-autofill,
-  .dark select:-webkit-autofill {
-    -webkit-text-fill-color: #F8FAFC !important;
-    -webkit-box-shadow: 0 0 0px 1000px #1E293B inset !important;
-    box-shadow: 0 0 0px 1000px #1E293B inset !important;
   }
 }
 
@@ -114,12 +93,6 @@
 
 .animate-shimmer {
   background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.8s infinite cubic-bezier(0.4, 0, 0.6, 1);
-}
-
-.dark .animate-shimmer {
-  background: linear-gradient(90deg, #1E293B 25%, #334155 50%, #1E293B 75%);
   background-size: 200% 100%;
   animation: shimmer 1.8s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }

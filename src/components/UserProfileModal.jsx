@@ -9,10 +9,7 @@ import {
   Lock, 
   LogOut, 
   Check, 
-  Edit2,
-  Sun,
-  Moon,
-  Laptop
+  Edit2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authService, dbService, DEFAULT_NOTIFICATION_PREFERENCES } from '../utils/db';
@@ -23,9 +20,7 @@ export default function UserProfileModal({
   currentClass,
   onClose,
   onLogout,
-  onUpdateUser,
-  currentTheme = 'light',
-  onSelectTheme
+  onUpdateUser
 }) {
   const [fullName, setFullName] = useState(currentUser?.displayName || '');
   const [phoneNumber, setPhoneNumber] = useState(currentUser?.phoneNumber || '+62 ');
@@ -67,14 +62,14 @@ export default function UserProfileModal({
 
   return (
     <ModalPortal onClose={onClose} maxWidth="max-w-md">
-      <div className="bg-white dark:bg-[#151D2F] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-3xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white border border-slate-200 text-slate-900 rounded-3xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
         
         {/* Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-          <h3 className="font-bold text-base text-slate-900 dark:text-white">Profil Pengguna</h3>
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <h3 className="font-bold text-base text-slate-900">Profil Pengguna</h3>
           <button 
             onClick={onClose} 
-            className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
             title="Tutup"
           >
             <X size={18} />
@@ -82,23 +77,23 @@ export default function UserProfileModal({
         </div>
 
         {/* Profile Header Box */}
-        <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
-          <div className="w-14 h-14 rounded-2xl bg-slate-900 dark:bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-2xs">
+        <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+          <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-2xs">
             {userInitial}
           </div>
           <div className="min-w-0 flex-1">
-            <h4 className="font-bold text-base text-slate-900 dark:text-white truncate">
+            <h4 className="font-bold text-base text-slate-900 truncate">
               {currentUser?.displayName || 'Student'}
             </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser?.email}</p>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 inline-block mt-1">
+            <p className="text-xs text-slate-500 truncate">{currentUser?.email}</p>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 inline-block mt-1">
               {currentClass?.userRole === 'coordinator' ? 'Class Coordinator' : 'Student'}
             </span>
           </div>
         </div>
 
         {/* Contact Information (WhatsApp Number) */}
-        <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5">
+        <div className="p-4 rounded-2xl border border-slate-200 space-y-2.5">
           <div className="flex items-center justify-between">
             <h4 className="font-bold text-xs uppercase tracking-wider text-[#475569]">
               Contact Information
@@ -243,78 +238,27 @@ export default function UserProfileModal({
           <button
             onClick={handleSaveProfile}
             disabled={isSaving}
-            className="w-full py-2 rounded-xl bg-[#F1F5F9] dark:bg-slate-800 hover:bg-[#E2E8F0] dark:hover:bg-slate-700 text-xs font-semibold text-[#0F172A] dark:text-white transition-colors mt-2"
+            className="w-full py-2 rounded-xl bg-[#F1F5F9] hover:bg-[#E2E8F0] text-xs font-semibold text-[#0F172A] transition-colors mt-2"
           >
             {isSaving ? 'Saving...' : 'Update Notification Settings'}
           </button>
         </div>
 
-        {/* Theme Settings (Dark Mode Toggle) */}
-        <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Tema Tampilan
-            </h4>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">Light / Dark Mode</span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => onSelectTheme && onSelectTheme('light')}
-              className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                currentTheme === 'light'
-                  ? 'border-slate-900 bg-slate-100 text-slate-900 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-white shadow-xs ring-2 ring-slate-900/10'
-                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Sun size={18} className="mb-1 text-amber-500" />
-              <span>Terang</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onSelectTheme && onSelectTheme('dark')}
-              className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                currentTheme === 'dark'
-                  ? 'border-slate-900 bg-slate-900 text-white dark:border-indigo-400 dark:bg-indigo-600 dark:text-white shadow-xs ring-2 ring-indigo-500/20'
-                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Moon size={18} className="mb-1 text-indigo-400" />
-              <span>Gelap</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onSelectTheme && onSelectTheme('system')}
-              className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                currentTheme === 'system'
-                  ? 'border-slate-900 bg-slate-100 text-slate-900 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-white shadow-xs ring-2 ring-slate-900/10'
-                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Laptop size={18} className="mb-1 text-slate-500" />
-              <span>Sistem</span>
-            </button>
-          </div>
-        </div>
-
         {/* Account Section: Password & Logout */}
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
           <button
             onClick={() => {
               onClose();
               navigate('/reset-password');
             }}
-            className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+            className="text-xs font-semibold text-slate-500 hover:text-slate-900 cursor-pointer"
           >
             Ganti Kata Sandi
           </button>
 
           <button
             onClick={onLogout}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
           >
             <LogOut size={13} />
             <span>Keluar</span>
