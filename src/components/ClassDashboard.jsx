@@ -20,9 +20,7 @@ import {
   GraduationCap,
   BookOpen,
   Sparkles,
-  ExternalLink,
-  Trophy,
-  Flame
+  ExternalLink
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseLecturerInfo } from '../utils/db';
@@ -90,53 +88,6 @@ export default function ClassDashboard({
     return !isSubmitted && isTaskOverdue(t.dueDate, t.dueTime);
   }).length;
 
-  // Gamification & Completion Progress
-  const totalTasksCount = safeTasks.length;
-  const completedTasksCount = safeTasks.filter(t => t.submissions?.some(s => s.userId === currentUser?.uid)).length;
-  const completionPercentage = totalTasksCount > 0 
-    ? Math.round((completedTasksCount / totalTasksCount) * 100) 
-    : 100;
-
-  const motivationalInfo = useMemo(() => {
-    if (totalTasksCount === 0) {
-      return {
-        badge: 'Santai Sejenak ✨',
-        title: 'Belum ada tugas perkuliahan',
-        desc: 'Nikmati waktu luangmu atau pelajari materi perkuliahan berikutnya.',
-        badgeColor: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
-      };
-    }
-    if (completionPercentage === 100) {
-      return {
-        badge: 'Sempurna 100% 🏆',
-        title: 'Luar biasa, semua tugas beres!',
-        desc: 'Seluruh penugasan kelas semester ini sudah berhasil kamu kumpulkan tepat waktu.',
-        badgeColor: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-      };
-    }
-    if (completionPercentage >= 75) {
-      return {
-        badge: 'Hampir Tuntas 🚀',
-        title: `${completionPercentage}% Tugas Selesai`,
-        desc: `Tinggal ${pendingTasksCount} tugas lagi untuk mencapai skor sempurna 100%!`,
-        badgeColor: 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800'
-      };
-    }
-    if (completionPercentage >= 50) {
-      return {
-        badge: 'Separuh Jalan 💪',
-        title: `${completionPercentage}% Tugas Terkumpul`,
-        desc: `${completedTasksCount} dari ${totalTasksCount} tugas telah diserahkan. Terus pertahankan ritmemu!`,
-        badgeColor: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
-      };
-    }
-    return {
-      badge: 'Fokus & Mulai ✍️',
-      title: `${completionPercentage}% Tugas Selesai`,
-      desc: `Ada ${pendingTasksCount} tugas aktif menunggu untuk kamu kerjakan. Ayo mulai sekarang!`,
-      badgeColor: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-    };
-  }, [totalTasksCount, completedTasksCount, completionPercentage, pendingTasksCount]);
 
   // Overview Counts
   const tasksDueCount = safeTasks.filter(t => {
@@ -410,51 +361,6 @@ export default function ClassDashboard({
           />
         </div>
       )}
-
-      {/* 2. GAMIFICATION PROGRESS WIDGET (% Tugas Terkumpul) */}
-      <div className="bg-white dark:bg-[#151D2F] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3 transition-all hover:border-slate-300 dark:hover:border-slate-700">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-              completionPercentage === 100 
-                ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-600' 
-                : 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400'
-            }`}>
-              {completionPercentage === 100 ? <Trophy size={18} /> : <Flame size={18} className="animate-pulse" />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-900 dark:text-white">
-                  Progress Tugas Kelas
-                </span>
-                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${motivationalInfo.badgeColor}`}>
-                  {motivationalInfo.badge}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                {motivationalInfo.desc}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
-            <span className="text-sm font-extrabold font-mono text-slate-900 dark:text-white">
-              {completedTasksCount} / {totalTasksCount} <span className="text-xs font-semibold text-slate-400">selesai</span>
-            </span>
-            <span className="text-base font-extrabold text-indigo-600 dark:text-indigo-400 font-mono">
-              {completionPercentage}%
-            </span>
-          </div>
-        </div>
-
-        {/* Dynamic Gradient Progress Bar */}
-        <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 ring-1 ring-slate-200/50 dark:ring-slate-700/50">
-          <div 
-            className="h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r from-indigo-500 via-teal-400 to-emerald-500 shadow-xs"
-            style={{ width: `${Math.max(completionPercentage, totalTasksCount === 0 ? 100 : 4)}%` }}
-          />
-        </div>
-      </div>
 
       {/* 3. SUMMARY METRICS ROW (3 Cards with Hover Elevation) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">

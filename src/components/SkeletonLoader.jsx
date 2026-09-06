@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 
 export function DashboardSkeleton() {
   return (
@@ -29,14 +29,6 @@ export function DashboardSkeleton() {
         ))}
       </div>
 
-      {/* Progress Bar Shimmer */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-[#151D2F] border border-slate-200 dark:border-slate-800 space-y-3 shadow-2xs">
-        <div className="flex items-center justify-between">
-          <div className="w-48 h-4 rounded-full animate-shimmer" />
-          <div className="w-12 h-4 rounded-full animate-shimmer" />
-        </div>
-        <div className="w-full h-3 rounded-full animate-shimmer" />
-      </div>
 
       {/* 3 Column Grid Shimmer */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
