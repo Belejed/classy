@@ -19,8 +19,7 @@ import {
   Shield,
   BookOpen,
   Phone,
-  History,
-  Download
+  History
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -285,22 +284,6 @@ export default function ClassSidebar({
 
       {/* Bottom Profile & Actions */}
       <div className="pt-4 border-t border-[#E2E8F0] space-y-2">
-        <button
-          onClick={() => window.dispatchEvent(new CustomEvent('classy:open-pwa-install'))}
-          className="w-full flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-slate-50 to-indigo-50/60 hover:from-slate-100 hover:to-indigo-100/60 transition-colors text-left border border-slate-200 cursor-pointer group"
-          title="Download Classy PWA"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-[#0F172A] text-white flex items-center justify-center text-xs group-hover:scale-105 transition-transform">
-              <Download size={12} />
-            </div>
-            <span className="text-xs font-bold text-[#0F172A]">Download App</span>
-          </div>
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
-            PWA
-          </span>
-        </button>
-
         <button
           onClick={onOpenProfile}
           className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-[#F8FAFC] transition-colors text-left border border-transparent hover:border-[#E2E8F0]"
@@ -629,30 +612,6 @@ export default function ClassSidebar({
                       </span>
                     </button>
                   )}
-
-                  {/* 6. Download Aplikasi (PWA) */}
-                  <button
-                    onClick={() => {
-                      handleCloseMobileMenu();
-                      window.dispatchEvent(new CustomEvent('classy:open-pwa-install'));
-                    }}
-                    className="flex items-center justify-between p-3 rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50/80 via-blue-50/60 to-purple-50/40 hover:from-indigo-100 hover:to-blue-100 transition-all text-left cursor-pointer animate-sheet-item-5 active:scale-[0.98]"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                        <Download size={18} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-xs text-[#0F172A] truncate">Download Aplikasi (PWA)</p>
-                        <p className="text-[10px] text-indigo-700/80 truncate">
-                          Pasang di layar HP tanpa browser
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white shrink-0 ml-1 shadow-2xs">
-                      Install
-                    </span>
-                  </button>
                 </div>
               </div>
 
