@@ -446,7 +446,7 @@ export default function ClassFiles({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           {/* View Mode Toggle: Folders vs All Files */}
           <div className="flex items-center p-1 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold shadow-2xs">
             <button
@@ -454,7 +454,7 @@ export default function ClassFiles({
                 setViewMode('folders');
                 setActiveFolder(null);
               }}
-              className={`flex items-center gap-1 px-3 py-1 rounded-lg transition-colors ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 px-3 py-1.5 sm:py-1 rounded-lg transition-colors ${
                 viewMode === 'folders' && !activeFolder ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
             >
@@ -466,7 +466,7 @@ export default function ClassFiles({
                 setViewMode('all');
                 setActiveFolder(null);
               }}
-              className={`flex items-center gap-1 px-3 py-1 rounded-lg transition-colors ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 px-3 py-1.5 sm:py-1 rounded-lg transition-colors ${
                 viewMode === 'all' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
             >
@@ -475,15 +475,13 @@ export default function ClassFiles({
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer"
-            >
-              <Upload size={13} />
-              <span>Upload Berkas</span>
-            </button>
-          </div>
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[38px]"
+          >
+            <Upload size={13} />
+            <span>Upload Berkas</span>
+          </button>
         </div>
       </div>
 

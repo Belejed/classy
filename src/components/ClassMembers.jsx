@@ -257,32 +257,32 @@ export default function ClassMembers({
   };
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-4 sm:space-y-6 font-sans">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0]">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold tracking-tight text-[#0F172A]">Anggota & Pengurus Kelas</h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-[#0F172A]">Anggota & Pengurus Kelas</h2>
             {isManager && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                Akses Pengelola (Komti/Dosen)
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                Pengelola
               </span>
             )}
           </div>
-          <p className="text-xs text-[#64748B]">
+          <p className="text-xs text-[#64748B] mt-0.5">
             Daftar seluruh mahasiswa, komti, dan dosen pengampu mata kuliah {currentClass?.name}.
           </p>
         </div>
 
         {/* Actions: Setting Kelas (Komti/Dosen only) + Join Code */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {isManager && (
-            <>
+            <div className="flex items-center gap-2 flex-1 sm:flex-none">
               {onNavigateTab && (
                 <button
                   onClick={() => onNavigateTab('logs')}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#0F172A] text-xs font-semibold shadow-2xs transition-colors"
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#0F172A] text-xs font-semibold shadow-2xs transition-colors whitespace-nowrap min-h-[38px]"
                   title="Lihat Log Riwayat & Audit Aktivitas Kelas"
                 >
                   <History size={14} className="text-indigo-600" />
@@ -291,18 +291,18 @@ export default function ClassMembers({
               )}
               <button
                 onClick={handleOpenSettings}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-2xs transition-colors"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-2xs transition-colors whitespace-nowrap min-h-[38px]"
                 title="Pengaturan Ruang Kelas (Khusus Komti/Dosen)"
               >
                 <Settings size={14} />
-                <span>Pengaturan Kelas</span>
+                <span>Pengaturan</span>
               </button>
-            </>
+            </div>
           )}
 
           <button
             onClick={handleCopyCode}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-[#CBD5E1] hover:border-[#0F172A] text-xs font-mono font-bold text-[#0F172A] shadow-2xs transition-colors"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-[#CBD5E1] hover:border-[#0F172A] text-xs font-mono font-bold text-[#0F172A] shadow-2xs transition-colors min-h-[38px]"
             title="Klik untuk salin kode kelas"
           >
             <span className="font-sans text-[11px] text-[#64748B] font-normal">Kode Kelas:</span>
@@ -312,31 +312,31 @@ export default function ClassMembers({
         </div>
       </div>
 
-      {/* Overview Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-200 hover:border-slate-300 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Total Anggota</span>
-          <p className="text-2xl font-extrabold text-[#0F172A] mt-1 tracking-tight">{approvedMembers.length}</p>
+      {/* Overview Stats Cards - Compact on mobile */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+        <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-200 hover:border-slate-300 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md transition-all">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block truncate">Total Anggota</span>
+          <p className="text-xl sm:text-2xl font-extrabold text-[#0F172A] mt-0.5 tracking-tight">{approvedMembers.length}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-white to-amber-50/40 border border-slate-200 hover:border-amber-300 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block">Komti / Koordinator</span>
-          <p className="text-2xl font-extrabold text-amber-800 mt-1 tracking-tight">{komtiCount}</p>
+        <div className="bg-gradient-to-br from-white to-amber-50/40 border border-slate-200 hover:border-amber-300 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md transition-all">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block truncate">Komti / Koordinator</span>
+          <p className="text-xl sm:text-2xl font-extrabold text-amber-800 mt-0.5 tracking-tight">{komtiCount}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-white to-emerald-50/40 border border-slate-200 hover:border-emerald-300 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">Dosen Pengampu</span>
-          <p className="text-2xl font-extrabold text-emerald-800 mt-1 tracking-tight">{lecturerCount}</p>
+        <div className="bg-gradient-to-br from-white to-emerald-50/40 border border-slate-200 hover:border-emerald-300 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md transition-all">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block truncate">Dosen Pengampu</span>
+          <p className="text-xl sm:text-2xl font-extrabold text-emerald-800 mt-0.5 tracking-tight">{lecturerCount}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-white to-indigo-50/40 border border-slate-200 hover:border-indigo-300 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 block">Mahasiswa</span>
-          <p className="text-2xl font-extrabold text-slate-800 mt-1 tracking-tight">{studentCount}</p>
+        <div className="bg-gradient-to-br from-white to-indigo-50/40 border border-slate-200 hover:border-indigo-300 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md transition-all">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 block truncate">Mahasiswa</span>
+          <p className="text-xl sm:text-2xl font-extrabold text-slate-800 mt-0.5 tracking-tight">{studentCount}</p>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-2xs">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-white p-2.5 sm:p-3 rounded-2xl border border-[#E2E8F0] shadow-2xs">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
           <input
@@ -344,12 +344,12 @@ export default function ClassMembers({
             placeholder="Cari anggota berdasarkan nama atau email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] focus:outline-none focus:border-[#0F172A]"
+            className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] focus:outline-none focus:border-[#0F172A]"
           />
         </div>
 
         {/* Role Filter Chips */}
-        <div className="flex items-center gap-1.5 text-xs overflow-x-auto pb-1 sm:pb-0 mask-scroll-fade sm:mask-none -mx-0.5 px-0.5">
+        <div className="flex items-center gap-1.5 text-xs overflow-x-auto pb-1 sm:pb-0 no-scrollbar scrollbar-none mask-scroll-fade sm:mask-none -mx-0.5 px-0.5">
           <button
             onClick={() => setRoleFilter('all')}
             className={`px-3.5 py-1.5 min-h-[36px] rounded-xl font-semibold transition-colors shrink-0 cursor-pointer flex items-center justify-center ${
@@ -427,7 +427,7 @@ export default function ClassMembers({
             return (
               <div 
                 key={member.userId || member.email}
-                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FDFBF7] transition-colors"
+                className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 hover:bg-[#FDFBF7] transition-colors"
               >
                 {/* Member Identity */}
                 <div className="flex items-center gap-3 min-w-0">
