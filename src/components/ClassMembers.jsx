@@ -348,11 +348,11 @@ export default function ClassMembers({
         </div>
 
         {/* Role Filter Chips */}
-        <div className="flex items-center gap-1.5 text-xs overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-1.5 text-xs overflow-x-auto pb-1 sm:pb-0 mask-scroll-fade sm:mask-none -mx-0.5 px-0.5">
           <button
             onClick={() => setRoleFilter('all')}
-            className={`px-3 py-1 rounded-xl font-semibold transition-colors shrink-0 cursor-pointer ${
-              roleFilter === 'all' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:bg-[#F1F5F9]'
+            className={`px-3.5 py-1.5 min-h-[36px] rounded-xl font-semibold transition-colors shrink-0 cursor-pointer flex items-center justify-center ${
+              roleFilter === 'all' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:bg-[#F1F5F9]'
             }`}
           >
             Semua ({approvedMembers.length})
@@ -361,9 +361,9 @@ export default function ClassMembers({
           {isManager && (
             <button
               onClick={() => setRoleFilter('pending')}
-              className={`px-3 py-1 rounded-xl font-semibold transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-1.5 min-h-[36px] rounded-xl font-semibold transition-colors shrink-0 flex items-center justify-center gap-1.5 cursor-pointer ${
                 roleFilter === 'pending' 
-                  ? 'bg-rose-600 text-white' 
+                  ? 'bg-rose-600 text-white shadow-2xs' 
                   : pendingCount > 0 
                   ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100' 
                   : 'text-[#64748B] hover:bg-[#F1F5F9]'
@@ -617,7 +617,8 @@ export default function ClassMembers({
                 <button 
                   onClick={() => setShowSettingsModal(false)}
                   disabled={savingSettings}
-                  className="p-1.5 rounded-xl text-[#64748B] hover:text-[#0F172A] hover:bg-slate-100 transition-colors"
+                  className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-xl text-[#64748B] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Tutup"
                 >
                   <X size={18} />
                 </button>

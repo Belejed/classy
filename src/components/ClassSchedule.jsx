@@ -581,14 +581,14 @@ export default function ClassSchedule({
                 <div className="flex items-center rounded-xl border border-[#CBD5E1] bg-slate-50 p-0.5">
                   <button
                     onClick={handlePrevMonth}
-                    className="p-1 rounded-lg text-[#475569] hover:text-[#0F172A] hover:bg-white transition-colors cursor-pointer"
+                    className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-[#475569] hover:text-[#0F172A] hover:bg-white transition-colors cursor-pointer"
                     title="Bulan Sebelumnya"
                   >
                     <ChevronLeft size={16} />
                   </button>
                   <button
                     onClick={handleNextMonth}
-                    className="p-1 rounded-lg text-[#475569] hover:text-[#0F172A] hover:bg-white transition-colors cursor-pointer"
+                    className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-[#475569] hover:text-[#0F172A] hover:bg-white transition-colors cursor-pointer"
                     title="Bulan Berikutnya"
                   >
                     <ChevronRight size={16} />
@@ -601,17 +601,17 @@ export default function ClassSchedule({
 
               <button
                 onClick={handleGoToday}
-                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-[#0F172A] border border-slate-200 transition-colors cursor-pointer"
+                className="px-3 py-1.5 min-h-[36px] flex items-center justify-center rounded-xl text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-[#0F172A] border border-slate-200 transition-colors cursor-pointer active:scale-95"
               >
                 Hari Ini
               </button>
             </div>
 
             {/* Filter Pills */}
-            <div className="flex items-center p-0.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs">
+            <div className="flex items-center p-1 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs gap-1">
               <button
                 onClick={() => setCalendarFilter('all')}
-                className={`flex-1 py-1 rounded-lg font-semibold transition-colors cursor-pointer text-center text-[11px] ${
+                className={`flex-1 py-1.5 min-h-[34px] rounded-lg font-semibold transition-colors cursor-pointer text-center text-[11px] flex items-center justify-center ${
                   calendarFilter === 'all' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:text-[#0F172A]'
                 }`}
               >
@@ -619,7 +619,7 @@ export default function ClassSchedule({
               </button>
               <button
                 onClick={() => setCalendarFilter('tasks')}
-                className={`flex-1 py-1 rounded-lg font-semibold transition-colors cursor-pointer text-center text-[11px] flex items-center justify-center gap-1 ${
+                className={`flex-1 py-1.5 min-h-[34px] rounded-lg font-semibold transition-colors cursor-pointer text-center text-[11px] flex items-center justify-center gap-1 ${
                   calendarFilter === 'tasks' ? 'bg-rose-600 text-white shadow-2xs' : 'text-rose-700 hover:bg-rose-50'
                 }`}
               >
@@ -630,7 +630,7 @@ export default function ClassSchedule({
               </button>
               <button
                 onClick={() => setCalendarFilter('classes')}
-                className={`flex-1 py-1 rounded-lg font-semibold transition-colors cursor-pointer text-center text-[11px] flex items-center justify-center gap-1 ${
+                className={`flex-1 py-1.5 min-h-[34px] rounded-lg font-semibold transition-colors cursor-pointer text-center text-[11px] flex items-center justify-center gap-1 ${
                   calendarFilter === 'classes' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-indigo-700 hover:bg-indigo-50'
                 }`}
               >
@@ -1122,7 +1122,11 @@ export default function ClassSchedule({
                 <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#475569]">
                   Detail {selectedEvent.type}
                 </span>
-                <button onClick={() => setSelectedEvent(null)} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A]">
+                <button 
+                  onClick={() => setSelectedEvent(null)} 
+                  className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Tutup"
+                >
                   <X size={18} />
                 </button>
               </div>
@@ -1243,7 +1247,11 @@ export default function ClassSchedule({
               <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
                 <span>📝 Detail Tugas Kuliah</span>
               </span>
-              <button onClick={() => setSelectedTaskDetail(null)} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A] cursor-pointer">
+              <button 
+                onClick={() => setSelectedTaskDetail(null)} 
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Tutup"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -1341,7 +1349,8 @@ export default function ClassSchedule({
               </div>
               <button 
                 onClick={() => { setShowAddModal(false); setEditingSchedule(null); }} 
-                className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A] cursor-pointer"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Tutup"
               >
                 <X size={18} />
               </button>

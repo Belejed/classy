@@ -79,7 +79,7 @@ export default function ModalPortal({ children, onClose, maxWidth = 'max-w-lg' }
     <ModalContext.Provider value={{ closeModal: handleClose, isClosing }}>
       <div 
         onClickCapture={handleCaptureClick}
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-2.5 sm:p-5 overflow-y-auto font-sans"
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] overflow-y-auto font-sans"
       >
         {/* Fullscreen Dark Dimming Backdrop with smooth fade in & fade out */}
         <div 

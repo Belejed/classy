@@ -130,7 +130,7 @@ export default function ClassSidebar({
           {/* Close button on mobile */}
           <button 
             onClick={handleCloseMobileMenu}
-            className="md:hidden p-1.5 rounded-xl hover:bg-slate-100 text-slate-500"
+            className="md:hidden p-2 rounded-xl min-w-[40px] min-h-[40px] flex items-center justify-center hover:bg-slate-100 text-slate-500 cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -332,7 +332,7 @@ export default function ClassSidebar({
   return (
     <>
       {/* Mobile Bottom Navigation Bar (Single Unified Navigation on Mobile) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] shadow-lg px-2 py-1 flex items-center justify-around">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] shadow-lg px-2 pt-1 pb-[calc(0.45rem+env(safe-area-inset-bottom,0px))] flex items-center justify-around select-none">
         {[
           { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
           { id: 'schedule', label: 'Jadwal', icon: Calendar },
@@ -345,7 +345,7 @@ export default function ClassSidebar({
             <button
               key={item.id}
               onClick={() => onSelectTab(item.id)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out ${
+              className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out cursor-pointer ${
                 isActive ? 'text-[#0F172A]' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
             >
@@ -369,7 +369,7 @@ export default function ClassSidebar({
           return (
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out ${
+              className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out cursor-pointer ${
                 isOtherTabActive ? 'text-[#0F172A]' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
             >
@@ -400,7 +400,7 @@ export default function ClassSidebar({
           />
 
           {/* Bottom Sheet Container */}
-          <div className={`relative w-full bg-white rounded-t-[28px] shadow-2xl z-10 max-h-[85vh] flex flex-col overflow-hidden ${
+          <div className={`relative w-full bg-white rounded-t-[28px] shadow-2xl z-10 max-h-[85vh] flex flex-col overflow-hidden pb-[calc(0.85rem+env(safe-area-inset-bottom,0px))] ${
             isClosingMobileMenu ? 'animate-bottom-sheet-out' : 'animate-bottom-sheet-in'
           }`}>
             {/* Grab Handle */}
@@ -416,7 +416,8 @@ export default function ClassSidebar({
               </div>
               <button 
                 onClick={handleCloseMobileMenu}
-                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer transition-colors"
+                title="Tutup Menu"
               >
                 <X size={18} />
               </button>

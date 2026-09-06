@@ -126,7 +126,7 @@ export default function PwaInstallPrompt() {
     <>
       {/* 1. Floating Banner for new visitors */}
       {showBanner && !showGuideModal && (
-        <div className="fixed bottom-20 md:bottom-6 right-4 left-4 sm:left-auto sm:right-6 sm:max-w-sm z-50 animate-sheet-item-1">
+        <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-6 right-4 left-4 sm:left-auto sm:right-6 sm:max-w-sm z-50 animate-sheet-item-1 select-none">
           <div className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#E2E8F0] shadow-2xl text-[#0F172A] flex items-start justify-between gap-3 ring-1 ring-black/5">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#0F172A] text-white flex items-center justify-center shrink-0 shadow-xs relative overflow-hidden">
@@ -150,14 +150,14 @@ export default function PwaInstallPrompt() {
                 <div className="pt-1 flex items-center gap-2">
                   <button
                     onClick={handleBannerInstallClick}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-slate-800 transition-all active:scale-95 shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-slate-800 transition-all active:scale-95 shadow-xs cursor-pointer"
                   >
                     <Download size={13} />
                     <span>Download Sekarang</span>
                   </button>
                   <button
                     onClick={handleDismissBanner}
-                    className="text-[11px] text-[#64748B] hover:text-[#0F172A] px-2 py-1 transition-colors cursor-pointer"
+                    className="text-[11px] text-[#64748B] hover:text-[#0F172A] px-2.5 py-1.5 min-h-[36px] flex items-center justify-center transition-colors cursor-pointer"
                   >
                     Nanti
                   </button>
@@ -167,10 +167,10 @@ export default function PwaInstallPrompt() {
 
             <button
               onClick={handleDismissBanner}
-              className="p-1 rounded-lg text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors shrink-0 cursor-pointer"
+              className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors shrink-0 cursor-pointer"
               title="Tutup"
             >
-              <X size={15} />
+              <X size={16} />
             </button>
           </div>
         </div>
@@ -179,7 +179,7 @@ export default function PwaInstallPrompt() {
       {/* 2. Step-by-Step Installation Modal (For iOS or Manual Installation) */}
       {showGuideModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-sheet-item-1">
-          <div className="bg-white rounded-3xl border border-[#E2E8F0] shadow-2xl max-w-md w-full p-6 space-y-5">
+          <div className="bg-white rounded-3xl border border-[#E2E8F0] shadow-2xl max-w-md w-full p-5 sm:p-6 space-y-4 sm:space-y-5 max-h-[90vh] overflow-y-auto custom-scrollbar">
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -197,7 +197,7 @@ export default function PwaInstallPrompt() {
               </div>
               <button
                 onClick={() => setShowGuideModal(false)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl hover:bg-slate-100 text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>

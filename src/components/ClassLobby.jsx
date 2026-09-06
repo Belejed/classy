@@ -420,7 +420,11 @@ export default function ClassLobby({
           <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
               <h3 className="font-bold text-base text-[#0F172A]">Join a Class</h3>
-              <button onClick={() => setShowJoinModal(false)} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A]">
+              <button 
+                onClick={() => setShowJoinModal(false)} 
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Tutup"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -485,7 +489,11 @@ export default function ClassLobby({
               <h3 className="font-bold text-base text-[#0F172A]">
                 {createdClassInfo ? 'Class Created' : 'Create Class'}
               </h3>
-              <button onClick={() => setShowCreateModal(false)} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A]">
+              <button 
+                onClick={() => setShowCreateModal(false)} 
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Tutup"
+              >
                 <X size={18} />
               </button>
             </div>

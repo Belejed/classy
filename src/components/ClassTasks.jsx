@@ -601,97 +601,101 @@ export default function ClassTasks({
             )}
 
             {/* Status Filter Chips (Horizontally scrollable with smooth touch on mobile) */}
-            <div className="flex items-center gap-1 text-xs overflow-x-auto pb-1 sm:pb-0 no-scrollbar -mx-0.5 px-0.5">
-              <button
-                onClick={() => setStatusFilter('all')}
-                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs ${
-                  statusFilter === 'all' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:bg-[#F1F5F9]'
-                }`}
-              >
-                Semua
-              </button>
-              <button
-                onClick={() => setStatusFilter('not_submitted')}
-                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs ${
-                  statusFilter === 'not_submitted' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:bg-[#F1F5F9]'
-                }`}
-              >
-                Belum Dikumpulkan
-              </button>
-              <button
-                onClick={() => setStatusFilter('overdue')}
-                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap text-xs ${
-                  statusFilter === 'overdue' 
-                    ? 'bg-rose-700 text-white shadow-2xs' 
-                    : overdueTasksCount > 0
-                      ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
-                      : 'text-[#64748B] hover:bg-[#F1F5F9]'
-                }`}
-              >
-                <Clock size={12} className={overdueTasksCount > 0 && statusFilter !== 'overdue' ? 'text-rose-600' : ''} />
-                <span>Terlewat</span>
-                {overdueTasksCount > 0 && (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                    statusFilter === 'overdue' ? 'bg-white/20 text-white' : 'bg-rose-200 text-rose-800'
-                  }`}>
-                    {overdueTasksCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setStatusFilter('submitted')}
-                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs ${
-                  statusFilter === 'submitted' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:bg-[#F1F5F9]'
-                }`}
-              >
-                Sudah Dikumpulkan
-              </button>
-              <button
-                onClick={() => setStatusFilter('missing')}
-                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap text-xs ${
-                  statusFilter === 'missing' ? 'bg-rose-600 text-white' : 'text-rose-600 hover:bg-rose-50'
-                }`}
-              >
-                <AlertTriangle size={12} />
-                <span>File Hilang</span>
-              </button>
+            <div className="relative -mx-1 px-1">
+              <div className="flex items-center gap-1 text-xs overflow-x-auto pb-1 sm:pb-0 no-scrollbar mask-scroll-fade sm:mask-none -mx-0.5 px-0.5">
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className={`px-3.5 py-2 min-h-[38px] rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs flex items-center justify-center ${
+                    statusFilter === 'all' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:bg-[#F1F5F9]'
+                  }`}
+                >
+                  Semua
+                </button>
+                <button
+                  onClick={() => setStatusFilter('not_submitted')}
+                  className={`px-3.5 py-2 min-h-[38px] rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs flex items-center justify-center ${
+                    statusFilter === 'not_submitted' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:bg-[#F1F5F9]'
+                  }`}
+                >
+                  Belum Dikumpulkan
+                </button>
+                <button
+                  onClick={() => setStatusFilter('overdue')}
+                  className={`px-3.5 py-2 min-h-[38px] rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap text-xs ${
+                    statusFilter === 'overdue' 
+                      ? 'bg-rose-700 text-white shadow-2xs' 
+                      : overdueTasksCount > 0
+                        ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                        : 'text-[#64748B] hover:bg-[#F1F5F9]'
+                  }`}
+                >
+                  <Clock size={12} className={overdueTasksCount > 0 && statusFilter !== 'overdue' ? 'text-rose-600' : ''} />
+                  <span>Terlewat</span>
+                  {overdueTasksCount > 0 && (
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      statusFilter === 'overdue' ? 'bg-white/20 text-white' : 'bg-rose-200 text-rose-800'
+                    }`}>
+                      {overdueTasksCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setStatusFilter('submitted')}
+                  className={`px-3.5 py-2 min-h-[38px] rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs flex items-center justify-center ${
+                    statusFilter === 'submitted' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:bg-[#F1F5F9]'
+                  }`}
+                >
+                  Sudah Dikumpulkan
+                </button>
+                <button
+                  onClick={() => setStatusFilter('missing')}
+                  className={`px-3.5 py-2 min-h-[38px] rounded-xl font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer shrink-0 whitespace-nowrap text-xs ${
+                    statusFilter === 'missing' ? 'bg-rose-600 text-white shadow-2xs' : 'text-rose-600 hover:bg-rose-50'
+                  }`}
+                >
+                  <AlertTriangle size={12} />
+                  <span>File Hilang</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Course Quick Category Pills */}
         {availableCourses.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 text-xs no-scrollbar">
-            <span className="text-[11px] font-semibold text-[#64748B] shrink-0 flex items-center gap-1 mr-1">
-              <BookOpen size={12} className="text-[#94A3B8]" />
-              <span>Mata Kuliah:</span>
-            </span>
-            <button
-              onClick={() => setCourseFilter('all')}
-              className={`px-3 py-1.5 sm:py-1 rounded-lg text-xs font-semibold shrink-0 transition-colors cursor-pointer whitespace-nowrap ${
-                courseFilter === 'all' 
-                  ? 'bg-[#0F172A] text-white shadow-2xs' 
-                  : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
-              }`}
-            >
-              Semua ({tasks.length})
-            </button>
-            {availableCourses.map(c => {
-              const count = tasks.filter(t => (t.course || '').toLowerCase() === c.toLowerCase()).length;
-              return (
-                <button
-                  key={c}
-                  onClick={() => setCourseFilter(c)}
-                  className={`px-3 py-1.5 sm:py-1 rounded-lg text-xs font-semibold shrink-0 transition-colors cursor-pointer whitespace-nowrap ${
-                    courseFilter === c 
-                      ? 'bg-[#0F172A] text-white shadow-2xs' 
-                      : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
-                  }`}
-                >
-                  {c} ({count})
-                </button>
-              );
-            })}
+          <div className="relative -mx-1 px-1">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 text-xs no-scrollbar mask-scroll-fade sm:mask-none -mx-0.5 px-0.5">
+              <span className="text-[11px] font-semibold text-[#64748B] shrink-0 flex items-center gap-1 mr-1">
+                <BookOpen size={12} className="text-[#94A3B8]" />
+                <span>Mata Kuliah:</span>
+              </span>
+              <button
+                onClick={() => setCourseFilter('all')}
+                className={`px-3.5 py-2 sm:py-1 min-h-[36px] rounded-xl text-xs font-semibold shrink-0 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center ${
+                  courseFilter === 'all' 
+                    ? 'bg-[#0F172A] text-white shadow-2xs' 
+                    : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
+                }`}
+              >
+                Semua ({tasks.length})
+              </button>
+              {availableCourses.map(c => {
+                const count = tasks.filter(t => (t.course || '').toLowerCase() === c.toLowerCase()).length;
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setCourseFilter(c)}
+                    className={`px-3.5 py-2 sm:py-1 min-h-[36px] rounded-xl text-xs font-semibold shrink-0 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center ${
+                      courseFilter === c 
+                        ? 'bg-[#0F172A] text-white shadow-2xs' 
+                        : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    {c} ({count})
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -842,7 +846,8 @@ export default function ClassTasks({
               </div>
               <button 
                 onClick={() => setSelectedTask(null)} 
-                className="p-1.5 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+                title="Tutup Modal"
               >
                 <X size={18} />
               </button>
@@ -1455,7 +1460,8 @@ export default function ClassTasks({
               <h3 className="font-bold text-base text-[#0F172A]">Tambah Penugasan Baru</h3>
               <button 
                 onClick={() => setShowCreateModal(false)} 
-                className="p-1.5 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Tutup Modal"
               >
                 <X size={18} />
               </button>
