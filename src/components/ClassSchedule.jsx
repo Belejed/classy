@@ -1117,26 +1117,29 @@ export default function ClassSchedule({
         const selectedLecturerInfo = parseLecturerInfo(selectedEvent.lecturer, selectedEvent.description, selectedEvent.lecturerPhone);
         return (
           <ModalPortal onClose={() => setSelectedEvent(null)} maxWidth="max-w-md">
-            <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between p-6 pb-3 border-b border-[#F1F5F9] shrink-0">
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#475569]">
-                  Detail {selectedEvent.type}
-                </span>
+            <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full shadow-2xl max-h-[88vh] sm:max-h-[85vh] flex flex-col overflow-hidden font-sans">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between gap-3 p-5 sm:p-6 pb-3.5 border-b border-[#F1F5F9] shrink-0">
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 inline-block mb-1.5">
+                    Detail {selectedEvent.type}
+                  </span>
+                  <h3 className="font-bold text-base sm:text-lg text-[#0F172A] leading-snug break-words">
+                    {selectedEvent.title}
+                  </h3>
+                </div>
                 <button 
                   onClick={() => setSelectedEvent(null)} 
-                  className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="min-w-[36px] min-h-[36px] flex items-center justify-center p-1.5 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
                   title="Tutup"
                 >
                   <X size={18} />
                 </button>
               </div>
 
-              <div className="p-6 pt-3 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
-                <h3 className="font-bold text-lg text-[#0F172A] leading-snug">
-                  {selectedEvent.title}
-                </h3>
-
-                <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5 text-xs text-[#334155]">
+              {/* Scrollable Modal Content */}
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5 text-xs text-[#334155]">
                   <div className="flex items-center justify-between">
                     <span className="text-[#64748B]">Hari:</span>
                     <strong className="text-[#0F172A]">{selectedEvent.day}</strong>
@@ -1152,7 +1155,7 @@ export default function ClassSchedule({
                     </div>
                   )}
                   {selectedEvent.lecturer && (
-                    <div className="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/50">
+                    <div className="flex items-start justify-between gap-2 pt-1.5 border-t border-slate-200/50">
                       <span className="text-[#64748B] shrink-0">Dosen:</span>
                       <div className="text-right">
                         <strong className="text-[#0F172A] block">{selectedLecturerInfo.lecturerName || selectedEvent.lecturer}</strong>
@@ -1186,20 +1189,36 @@ export default function ClassSchedule({
                 {selectedEvent.description && (
                   <div className="space-y-1">
                     <span className="text-xs font-bold text-[#0F172A]">Catatan Tambahan:</span>
-                    <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#334155] whitespace-pre-wrap">
+                    <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#334155] whitespace-pre-wrap leading-relaxed">
                       {selectedEvent.description}
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9] gap-2 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-5 border-t border-[#F1F5F9] shrink-0 bg-white space-y-2">
+                {/* Primary Action: WhatsApp Share */}
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                    `*INFORMASI JADWAL / RUANGAN KULIAH*\n*Kelas:* ${currentClass?.name || 'Kuliah'}\n\n*Mata Kuliah:* ${selectedEvent.title || selectedEvent.course || '-'}\n*Hari/Waktu:* ${selectedEvent.day}, ${selectedEvent.startTime || ''} – ${selectedEvent.endTime || ''} WIB\n*Ruangan:* ${selectedEvent.room || '-'}\n*Dosen:* ${selectedLecturerInfo.lecturerName || selectedEvent.lecturer || '-'}${selectedEvent.description ? `\n*Catatan:* ${selectedEvent.description}` : ''}\n\nPortal Kelas: ${typeof window !== 'undefined' ? window.location.origin : ''}`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs min-h-[40px]"
+                >
+                  <MessageCircle size={15} />
+                  <span>Bagikan Jadwal ke WhatsApp</span>
+                </a>
+
+                {/* Secondary Action Row: Manager controls + Tutup */}
+                <div className="flex items-center gap-2">
                   {isManager && (
                     <>
                       <button
+                        type="button"
                         onClick={() => handleStartEdit(selectedEvent)}
-                        className="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] hover:bg-slate-50 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                        className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold text-[#0F172A] border border-[#CBD5E1] hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs min-h-[38px]"
                       >
                         <Edit2 size={13} />
                         <span>Edit Jadwal</span>
@@ -1207,32 +1226,24 @@ export default function ClassSchedule({
                       <button
                         type="button"
                         onClick={() => setEventToDelete(selectedEvent)}
-                        className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1 cursor-pointer transition-colors border border-rose-200/60 sm:border-transparent"
+                        className="py-2 px-3 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center justify-center gap-1 cursor-pointer transition-colors min-h-[38px]"
+                        title="Hapus Jadwal"
                       >
                         <Trash2 size={13} />
                         <span>Hapus</span>
                       </button>
                     </>
                   )}
-                  <a
-                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                      `*INFORMASI JADWAL / RUANGAN KULIAH*\n*Kelas:* ${currentClass?.name || 'Kuliah'}\n\n*Mata Kuliah:* ${selectedEvent.title || selectedEvent.course || '-'}\n*Hari/Waktu:* ${selectedEvent.day}, ${selectedEvent.startTime || ''} – ${selectedEvent.endTime || ''} WIB\n*Ruangan:* ${selectedEvent.room || '-'}\n*Dosen:* ${selectedLecturerInfo.lecturerName || selectedEvent.lecturer || '-'}${selectedEvent.description ? `\n*Catatan:* ${selectedEvent.description}` : ''}\n\nPortal Kelas: ${typeof window !== 'undefined' ? window.location.origin : ''}`
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEvent(null)}
+                    className={`py-2 px-4 rounded-xl border border-[#CBD5E1] text-xs font-semibold text-[#475569] hover:text-[#0F172A] hover:bg-slate-50 transition-colors cursor-pointer min-h-[38px] ${
+                      isManager ? '' : 'flex-1 text-center'
+                    }`}
                   >
-                    <MessageCircle size={13} />
-                    <span>Share ke WA</span>
-                  </a>
+                    Tutup
+                  </button>
                 </div>
-
-                <button
-                  onClick={() => setSelectedEvent(null)}
-                  className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B]"
-                >
-                  Tutup
-                </button>
               </div>
             </div>
         </ModalPortal>
