@@ -873,6 +873,11 @@ function ClassWorkspace({
     }
   }, [classId, classes, classesLoading, currentClass, user]);
 
+  // Scroll to top cleanly when switching tabs
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeTab]);
+
   const isDataReady = !contentLoading && schedules !== null && tasks !== null && files !== null && announcements !== null;
 
   if (!currentClass) {
@@ -917,7 +922,7 @@ function ClassWorkspace({
         />
 
         <ErrorBoundary key={activeTab}>
-          <main className={`flex-1 min-w-0 w-full animate-page-enter pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 ${activeTab === 'schedule' ? 'max-w-[1500px] mx-auto px-3 sm:px-6 py-2 sm:py-3' : 'max-w-6xl mx-auto px-3.5 sm:px-8 py-4 sm:py-8'}`}>
+          <main className={`flex-1 min-w-0 w-full animate-page-enter pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 px-3.5 sm:px-8 py-4 sm:py-6 mx-auto ${activeTab === 'schedule' ? 'max-w-[1500px]' : 'max-w-6xl'}`}>
             {!isDataReady ? (
               activeTab === 'tasks' ? <TasksSkeleton /> :
               activeTab === 'schedule' ? <ScheduleSkeleton /> :
