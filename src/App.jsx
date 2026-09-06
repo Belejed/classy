@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { authService, dbService } from './utils/db';
 import { moveFileToDriveTrash, moveFilesToDriveTrash } from './utils/driveUpload';
+import { unlockBodyScroll } from './components/ModalPortal';
 
 // Classy Components
 import Auth from './components/Auth';
@@ -44,6 +45,7 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Clean old cached keys and reset any dark mode flags
   useEffect(() => {
@@ -52,8 +54,14 @@ export default function App() {
       localStorage.removeItem('app_theme');
       localStorage.removeItem('classy_theme');
       document.documentElement.classList.remove('dark', 'theme-dark');
+      unlockBodyScroll(true);
     } catch {}
   }, []);
+
+  // Failsafe: Always ensure body scroll is unlocked when navigating between routes
+  useEffect(() => {
+    unlockBodyScroll(true);
+  }, [location.pathname]);
 
   // 1. Auth Listener & Minimum Splash Duration (2 detik)
   const [minSplashDone, setMinSplashDone] = useState(false);
@@ -873,8 +881,9 @@ function ClassWorkspace({
     }
   }, [classId, classes, classesLoading, currentClass, user]);
 
-  // Scroll to top cleanly when switching tabs
+  // Scroll to top cleanly and ensure body scroll is unlocked when switching tabs
   useEffect(() => {
+    unlockBodyScroll(true);
     window.scrollTo(0, 0);
   }, [activeTab]);
 
