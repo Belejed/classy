@@ -193,22 +193,43 @@ export default async function handler(req, res) {
       photoUrl
     });
 
-    // Determine target 'to' list
-    const toList = cleanRecipients.length > 0 ? cleanRecipients : [DEFAULT_CC];
+    // Determine target 'to', 'cc', and 'bcc' list
+    // Best Practice for mass/broadcast email:
+    // If multiple recipients (> 1), send with TO = DEFAULT_CC (coordinator/owner) and BCC = all members.
+    // This prevents revealing students' private emails to each other, avoids spam filters triggered by bulk 'To',
+    // and prevents Gmail greylisting/rate-limiting on custom domains.
+    let targetTo = [];
+    let targetBcc = [];
+    let targetCc = [];
 
-    // Remove DEFAULT_CC from CC if it's already the primary TO
-    const filteredCc = combinedCc.filter(cc => !toList.includes(cc));
+    if (cleanRecipients.length === 1) {
+      // Single recipient (e.g. personal test or direct individual notice)
+      targetTo = cleanRecipients;
+      targetCc = combinedCc.filter(cc => !targetTo.includes(cc));
+    } else if (cleanRecipients.length > 1) {
+      // Broadcast to multiple members -> Use BCC!
+      targetTo = [DEFAULT_CC];
+      targetBcc = cleanRecipients.filter(r => r !== DEFAULT_CC);
+      targetCc = combinedCc.filter(cc => cc !== DEFAULT_CC && !targetBcc.includes(cc));
+    } else {
+      // Fallback if no recipients provided
+      targetTo = [DEFAULT_CC];
+    }
 
     const payload = {
       from: process.env.RESEND_FROM_EMAIL || DEFAULT_FROM,
-      to: toList,
+      to: targetTo,
       reply_to: DEFAULT_CC,
       subject: subject,
       html: finalHtml
     };
 
-    if (filteredCc.length > 0) {
-      payload.cc = filteredCc;
+    if (targetCc.length > 0) {
+      payload.cc = targetCc;
+    }
+
+    if (targetBcc.length > 0) {
+      payload.bcc = targetBcc;
     }
 
     // Process attachments: attach base64 image cleanly if provided
@@ -299,8 +320,10 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       id: data.id,
-      recipients: toList,
-      cc: filteredCc
+      to: targetTo,
+      bcc: targetBcc,
+      cc: targetCc,
+      recipientsCount: cleanRecipients.length
     });
 
   } catch (err) {

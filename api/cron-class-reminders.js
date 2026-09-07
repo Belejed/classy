@@ -107,7 +107,8 @@ export default async function handler(req, res) {
         .filter(m => (m.status || 'approved') === 'approved' && m.email)
         .map(m => m.email);
 
-      const toList = recipients.length > 0 ? recipients : [DEFAULT_CC];
+      const targetTo = [DEFAULT_CC];
+      const targetBcc = recipients.filter(r => r !== DEFAULT_CC);
       const subject = `[Pengingat Kuliah - ${reminderLabel}] ${sch.subject} (${sch.startTime} WIB)`;
 
       const metaRows = [
@@ -122,11 +123,10 @@ export default async function handler(req, res) {
         metaRows.push(['Catatan Khusus', sch.notes]);
       }
 
-      // Send via send-email helper or direct Resend call
+      // Send via direct Resend call with BCC
       const emailPayload = {
         from: DEFAULT_FROM,
-        to: toList,
-        cc: [DEFAULT_CC],
+        to: targetTo,
         reply_to: DEFAULT_CC,
         subject: subject,
         html: `
@@ -168,6 +168,10 @@ export default async function handler(req, res) {
           </html>
         `
       };
+
+      if (targetBcc.length > 0) {
+        emailPayload.bcc = targetBcc;
+      }
 
       try {
         const emailRes = await fetch(RESEND_API_URL, {
