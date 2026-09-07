@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Megaphone, 
   Plus, 
@@ -8,7 +8,9 @@ import {
   Paperclip, 
   Trash2,
   Share2,
-  Mail
+  Mail,
+  Image as ImageIcon,
+  Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
@@ -33,10 +35,39 @@ export default function ClassAnnouncements({
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [type, setType] = useState('general'); // 'general' | 'assignment' | 'schedule' | 'important'
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [sendEmailNotification, setSendEmailNotification] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
+  const fileInputRef = useRef(null);
 
   const role = currentClass?.userRole;
   const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Hanya file foto/gambar yang diperbolehkan');
+      return;
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      toast.error('Ukuran foto maksimal 6 MB');
+      return;
+    }
+    setSelectedPhoto(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePhoto = () => {
+    setSelectedPhoto(null);
+    setPhotoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
@@ -47,17 +78,87 @@ export default function ClassAnnouncements({
 
     setIsPublishing(true);
     try {
-      await onCreateAnnouncement({
+      let attachment = null;
+      if (photoPreview) {
+        attachment = {
+          url: photoPreview,
+          name: selectedPhoto?.name || 'lampiran_foto.jpg',
+          type: selectedPhoto?.type || 'image/jpeg',
+          size: `${((selectedPhoto?.size || 0) / 1024).toFixed(1)} KB`
+        };
+
+        // Attempt to upload to Google Drive in background for permanent storage
+        try {
+          const driveRes = await fetch('/api/upload-drive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName: selectedPhoto?.name || 'announcement_photo.jpg',
+              mimeType: selectedPhoto?.type || 'image/jpeg',
+              fileData: photoPreview,
+              folderName: 'Lampiran Pengumuman'
+            })
+          });
+          if (driveRes.ok) {
+            const driveData = await driveRes.json();
+            if (driveData.storageUrl) {
+              attachment.driveUrl = driveData.storageUrl;
+              attachment.driveFileId = driveData.fileId;
+            }
+          }
+        } catch (driveErr) {
+          console.warn('Drive upload fallback to local image data:', driveErr);
+        }
+      }
+
+      const created = await onCreateAnnouncement({
         title: title.trim(),
         message: message.trim(),
         type,
-        author: currentUser?.displayName || 'Class Coordinator',
-        attachment: null
+        author: currentUser?.displayName || 'Koordinator Kelas',
+        attachment,
+        sendEmail: sendEmailNotification
       });
-      toast.success('Pengumuman berhasil dipublikasikan!');
+
+      // If sendEmailNotification is true, trigger email dispatch to members (+ CC exars.012@gmail.com)
+      if (sendEmailNotification) {
+        try {
+          const memberEmails = (currentClass?.members || [])
+            .filter(m => (m.status || 'approved') === 'approved' && m.email)
+            .map(m => m.email);
+
+          fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipients: memberEmails,
+              subject: `[PENGUMUMAN KELAS: ${currentClass?.name || 'Classy'}] ${title.trim()}`,
+              type: type === 'important' ? 'important' : 'announcement',
+              title: title.trim(),
+              subtitle: `Pengumuman Kelas ${currentClass?.name || 'Classy'}`,
+              message: message.trim(),
+              photoUrl: attachment?.url || null,
+              metaRows: [
+                ['Kategori', type.toUpperCase()],
+                ['Pengirim', currentUser?.displayName || 'Koordinator Kelas'],
+                ['Ruang Kelas', currentClass?.name || 'Classy']
+              ]
+            })
+          }).catch(emailErr => console.warn('Email broadcast error:', emailErr));
+          
+          toast.success('Pengumuman dipublikasikan & email notifikasi dikirim!');
+        } catch {}
+      } else {
+        toast.success('Pengumuman berhasil dipublikasikan!');
+      }
+
       setShowCreateModal(false);
       setTitle('');
       setMessage('');
+      setSelectedPhoto(null);
+      setPhotoPreview(null);
+      setSendEmailNotification(true);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       toast.error(err.message || 'Gagal membuat pengumuman');
     } finally {
@@ -160,6 +261,18 @@ export default function ClassAnnouncements({
                   <p className="text-xs text-[#475569] line-clamp-3 whitespace-pre-wrap leading-relaxed">
                     {ann.message}
                   </p>
+
+                  {/* Photo Thumbnail if attached */}
+                  {(ann.attachment?.url || ann.attachment?.previewUrl) && (
+                    <div className="rounded-xl overflow-hidden border border-slate-200/80 bg-slate-100 max-h-48 mt-2">
+                      <img 
+                        src={ann.attachment.url || ann.attachment.previewUrl} 
+                        alt={ann.title} 
+                        className="w-full h-full max-h-48 object-cover hover:scale-101 transition-transform"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[11px] text-[#64748B]">
@@ -175,7 +288,7 @@ export default function ClassAnnouncements({
       {/* MODAL 1: ANNOUNCEMENT DETAIL MODAL */}
       {selectedAnnouncement && (
         <ModalPortal onClose={() => setSelectedAnnouncement(null)}>
-          <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-4 shadow-2xl">
+          <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
               <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#475569]">
                 {selectedAnnouncement.type} Announcement
@@ -199,6 +312,30 @@ export default function ClassAnnouncements({
               <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#1E293B] whitespace-pre-wrap leading-relaxed">
                 {selectedAnnouncement.message}
               </div>
+
+              {/* Attached Photo in Modal */}
+              {(selectedAnnouncement.attachment?.url || selectedAnnouncement.attachment?.previewUrl) && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900/5 max-h-[380px] flex items-center justify-center p-1">
+                    <img
+                      src={selectedAnnouncement.attachment.url || selectedAnnouncement.attachment.previewUrl}
+                      alt={selectedAnnouncement.title}
+                      className="max-h-[360px] w-auto max-w-full object-contain rounded-xl"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
+                    <span>📷 {selectedAnnouncement.attachment.name || 'Foto Lampiran'}</span>
+                    <a
+                      href={selectedAnnouncement.attachment.url || selectedAnnouncement.attachment.previewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-600 hover:underline font-semibold"
+                    >
+                      Buka Ukuran Penuh ↗
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9] gap-2 flex-wrap">
@@ -313,6 +450,71 @@ export default function ClassAnnouncements({
                   required
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all leading-relaxed"
                 />
+              </div>
+
+              {/* Photo Upload Attachment Input */}
+              <div className="space-y-1.5">
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handlePhotoSelect}
+                  className="hidden"
+                />
+
+                {!photoPreview ? (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-2.5 px-3.5 rounded-xl border border-dashed border-[#CBD5E1] hover:border-[#0F172A] bg-slate-50 hover:bg-slate-100 text-[#475569] text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <ImageIcon size={15} className="text-indigo-600" />
+                    <span>Lampirkan Foto / Gambar (Opsional)</span>
+                  </button>
+                ) : (
+                  <div className="relative rounded-2xl border border-slate-200 p-2.5 bg-slate-50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img
+                        src={photoPreview}
+                        alt="Preview"
+                        className="w-12 h-12 object-cover rounded-xl border border-slate-200 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[#0F172A] truncate">
+                          {selectedPhoto?.name || 'Foto Lampiran'}
+                        </p>
+                        <p className="text-[10px] text-[#64748B]">
+                          {selectedPhoto?.size ? `${(selectedPhoto.size / 1024).toFixed(1)} KB` : 'Siap dilampirkan'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleRemovePhoto}
+                      className="p-1.5 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                      title="Hapus foto"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Automatic Email Notification Checkbox */}
+              <div className="pt-1">
+                <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs font-semibold text-indigo-950 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={sendEmailNotification}
+                    onChange={(e) => setSendEmailNotification(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-indigo-300 cursor-pointer"
+                  />
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Mail size={13} className="text-indigo-600 shrink-0" />
+                    <span className="truncate">Kirim notifikasi email otomatis ke seluruh anggota kelas</span>
+                  </div>
+                </label>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#F1F5F9]">

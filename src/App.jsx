@@ -182,16 +182,84 @@ export default function App() {
     }
   }, [currentClass?.id]);
 
+  // Helper to send class notifications via serverless Resend endpoint
+  const sendClassNotificationEmail = async ({ subject, type = 'announcement', title, subtitle, message, metaRows = [], photoUrl = null }) => {
+    try {
+      const recipients = (currentClass?.members || [])
+        .filter(m => (m.status || 'approved') === 'approved' && m.email)
+        .map(m => m.email);
+
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipients,
+          subject,
+          type,
+          title,
+          subtitle: subtitle || `Ruang Kelas ${currentClass?.name || 'Classy'}`,
+          message,
+          metaRows,
+          photoUrl
+        })
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('Could not send notification email:', err);
+      return null;
+    }
+  };
+
   // Handlers for Data Mutations
   const handleAddSchedule = async (item) => {
     const created = await dbService.schedules.create(currentClass.id, item);
     setSchedules(prev => [...prev, created]);
+
+    // Send email notification for new class schedule
+    sendClassNotificationEmail({
+      subject: `[Jadwal Baru] ${created.subject || created.title} - Ruang ${created.room || 'Kelas'}`,
+      type: 'schedule_update',
+      title: `Jadwal Kuliah Baru: ${created.subject || created.title}`,
+      subtitle: `Jadwal Kuliah ${currentClass?.name || 'Classy'}`,
+      message: `Jadwal perkuliahan baru telah ditambahkan untuk mata kuliah ${created.subject || created.title}.`,
+      metaRows: [
+        ['Mata Kuliah', created.subject || created.title || 'Mata Kuliah'],
+        ['Dosen Pengajar', created.lecturer || 'Dosen Pengajar'],
+        ['Hari & Jam', `${created.day}, ${created.startTime} - ${created.endTime || 'Selesai'} WIB`],
+        ['Ruang Kuliah', created.room || 'Ruang Kelas / Online'],
+        ['Kelas / Rombel', currentClass?.name || 'Classy'],
+        ...(created.notes ? [['Catatan', created.notes]] : [])
+      ]
+    });
+
     return created;
   };
 
   const handleUpdateSchedule = async (scheduleId, updates) => {
     const updated = await dbService.schedules.update(scheduleId, updates);
     setSchedules(prev => prev.map(s => s.id === scheduleId ? { ...s, ...updated } : s));
+
+    // Send email notification for schedule/room update
+    const sch = { ...schedules?.find(s => s.id === scheduleId), ...updated };
+    if (sch?.subject || sch?.title) {
+      const subjectName = sch.subject || sch.title;
+      sendClassNotificationEmail({
+        subject: `[Update Jadwal / Ruangan] ${subjectName} - Ruang ${sch.room || 'Kelas'}`,
+        type: 'schedule_update',
+        title: `Pembaruan Jadwal: ${subjectName}`,
+        subtitle: `Pembaruan Jadwal Kelas ${currentClass?.name || 'Classy'}`,
+        message: `Terdapat pembaruan informasi jadwal atau ruangan pada mata kuliah ${subjectName}. Mohon periksa jadwal terbaru sebelum perkuliahan dimulai.`,
+        metaRows: [
+          ['Mata Kuliah', subjectName],
+          ['Dosen Pengajar', sch.lecturer || 'Dosen Pengajar'],
+          ['Hari & Jam', `${sch.day}, ${sch.startTime} - ${sch.endTime || 'Selesai'} WIB`],
+          ['Ruangan Terkini', sch.room || 'Ruang Kelas / Online'],
+          ['Kelas / Rombel', currentClass?.name || 'Classy'],
+          ...(sch.notes ? [['Catatan Khusus', sch.notes]] : [])
+        ]
+      });
+    }
+
     return updated;
   };
 
