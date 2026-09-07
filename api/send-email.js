@@ -58,14 +58,17 @@ function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], 
       <td align="center">
         <!-- Main Card Container -->
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="max-width: 580px; width: 100%; background-color: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01); border: 1px solid #E2E8F0;">
-          <!-- Top Accent Banner -->
+          <!-- Top Accent Banner with Classy Logo -->
           <tr>
-            <td style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 24px 28px; text-align: left;">
+            <td style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 22px 26px; text-align: left;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
                 <tr>
-                  <td>
-                    <span style="font-size: 10px; font-weight: 800; color: #94A3B8; letter-spacing: 1.5px; text-transform: uppercase; display: block; margin-bottom: 4px;">Classy Academic Hub</span>
-                    <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px;">${subtitle || 'Notifikasi Ruang Kelas'}</h1>
+                  <td style="width: 48px; vertical-align: middle; padding-right: 14px;">
+                    <img src="${PORTAL_URL}/classy-logo.png" alt="Classy Logo" width="44" height="44" style="width: 44px; height: 44px; border-radius: 12px; display: block; background-color: #FFFFFF; padding: 2px;" />
+                  </td>
+                  <td style="vertical-align: middle;">
+                    <span style="font-size: 10px; font-weight: 800; color: #94A3B8; letter-spacing: 1.5px; text-transform: uppercase; display: block; margin-bottom: 2px;">Classy Academic Hub</span>
+                    <h1 style="margin: 0; font-size: 19px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px;">${subtitle || 'Notifikasi Ruang Kelas'}</h1>
                   </td>
                   <td align="right" style="vertical-align: middle;">
                     <span style="background-color: ${badgeColor}; color: #FFFFFF; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.5px; display: inline-block;">${badgeText}</span>
@@ -199,6 +202,7 @@ export default async function handler(req, res) {
     const payload = {
       from: process.env.RESEND_FROM_EMAIL || DEFAULT_FROM,
       to: toList,
+      reply_to: DEFAULT_CC,
       subject: subject,
       html: finalHtml
     };

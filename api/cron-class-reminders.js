@@ -127,6 +127,7 @@ export default async function handler(req, res) {
         from: DEFAULT_FROM,
         to: toList,
         cc: [DEFAULT_CC],
+        reply_to: DEFAULT_CC,
         subject: subject,
         html: `
           <!DOCTYPE html>
@@ -134,9 +135,18 @@ export default async function handler(req, res) {
           <body style="font-family: sans-serif; background: #F1F5F9; padding: 20px;">
             <div style="max-width: 560px; margin: 0 auto; background: #FFF; border-radius: 16px; overflow: hidden; border: 1px solid #E2E8F0;">
               <div style="background: #0F172A; padding: 20px; color: #FFF;">
-                <span style="font-size: 10px; font-weight: bold; background: #E11D48; color: #FFF; padding: 3px 8px; border-radius: 10px;">PENGINGAT KULIAH</span>
-                <h2 style="margin: 8px 0 0 0; font-size: 18px;">${sch.subject}</h2>
-                <p style="margin: 4px 0 0 0; font-size: 12px; color: #94A3B8;">Kelas akan dimulai dalam <strong>${reminderLabel}</strong> (${sch.startTime} WIB)</p>
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
+                  <tr>
+                    <td style="width: 44px; vertical-align: middle; padding-right: 12px;">
+                      <img src="${PORTAL_URL}/classy-logo.png" alt="Classy Logo" width="40" height="40" style="width: 40px; height: 40px; border-radius: 10px; display: block; background: #FFF; padding: 2px;" />
+                    </td>
+                    <td style="vertical-align: middle;">
+                      <span style="font-size: 10px; font-weight: bold; background: #E11D48; color: #FFF; padding: 3px 8px; border-radius: 10px;">PENGINGAT KULIAH</span>
+                      <h2 style="margin: 6px 0 0 0; font-size: 18px;">${sch.subject}</h2>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #94A3B8;">Kelas akan dimulai dalam <strong>${reminderLabel}</strong> (${sch.startTime} WIB)</p>
               </div>
               <div style="padding: 20px;">
                 <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
