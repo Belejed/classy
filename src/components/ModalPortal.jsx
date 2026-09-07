@@ -8,25 +8,50 @@ export const ModalContext = createContext({
 
 export const useModalClose = () => useContext(ModalContext);
 
+// Global modal stack reference counter to prevent race conditions & stuck scroll
+let openModalsCount = 0;
+
+export function lockBodyScroll() {
+  openModalsCount++;
+  if (openModalsCount === 1) {
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+export function unlockBodyScroll(force = false) {
+  if (force) {
+    openModalsCount = 0;
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    return;
+  }
+  openModalsCount = Math.max(0, openModalsCount - 1);
+  if (openModalsCount === 0) {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+  }
+}
+
 export default function ModalPortal({ children, onClose, maxWidth = 'max-w-lg' }) {
   const [isClosing, setIsClosing] = useState(false);
   const isClosingRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const handleClose = useCallback(() => {
     if (isClosingRef.current) return;
     isClosingRef.current = true;
     setIsClosing(true);
     setTimeout(() => {
-      onClose?.();
+      onCloseRef.current?.();
     }, 180);
-  }, [onClose]);
+  }, []);
 
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockBodyScroll();
 
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && onClose) {
+      if (e.key === 'Escape' && onCloseRef.current) {
         e.preventDefault();
         handleClose();
       }
@@ -34,10 +59,10 @@ export default function ModalPortal({ children, onClose, maxWidth = 'max-w-lg' }
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.body.style.overflow = prevOverflow;
+      unlockBodyScroll();
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleClose, onClose]);
+  }, [handleClose]);
 
   const handleCaptureClick = useCallback((e) => {
     if (isClosingRef.current) return;
@@ -79,7 +104,7 @@ export default function ModalPortal({ children, onClose, maxWidth = 'max-w-lg' }
     <ModalContext.Provider value={{ closeModal: handleClose, isClosing }}>
       <div 
         onClickCapture={handleCaptureClick}
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-2.5 sm:p-5 overflow-y-auto font-sans"
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] overflow-y-auto font-sans"
       >
         {/* Fullscreen Dark Dimming Backdrop with smooth fade in & fade out */}
         <div 

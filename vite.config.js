@@ -5,12 +5,18 @@ import handler from './api/upload-drive.js'
 import checkHandler from './api/check-drive-file.js'
 import trashHandler from './api/trash-drive-file.js'
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   Object.assign(process.env, env);
 
   return {
+    root: __dirname,
     plugins: [
       react(),
       {

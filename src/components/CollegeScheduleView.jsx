@@ -322,7 +322,7 @@ export default function CollegeScheduleView({
                         </h4>
 
                         <div className="flex items-center gap-3 text-xs opacity-90">
-                          <span>👤 {sch.lecturer || 'Dosen Pengampu'}</span>
+                          <span>👤 {sch.lecturer || 'Dosen Pengajar'}</span>
                           <span>📍 {sch.room || 'Ruang Kuliah'}</span>
                         </div>
                       </div>

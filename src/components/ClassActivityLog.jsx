@@ -20,6 +20,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import EmptyState from './EmptyState';
 
 export default function ClassActivityLog({
   currentClass,
@@ -211,7 +212,7 @@ export default function ClassActivityLog({
         <div>
           <h2 className="text-lg font-bold text-[#0F172A]">Akses Khusus Komti & Dosen</h2>
           <p className="text-xs text-[#64748B] mt-1.5 leading-relaxed">
-            Halaman log aktivitas dan audit riwayat kelas ini hanya dapat diakses oleh Komti (Koordinator Kelas) atau Dosen Pengampu demi privasi data akademik.
+            Halaman log aktivitas dan audit riwayat kelas ini hanya dapat diakses oleh Komti (Koordinator Kelas) atau Dosen Pengajar demi privasi data akademik.
           </p>
         </div>
       </div>
@@ -313,17 +314,15 @@ export default function ClassActivityLog({
             <p className="text-xs text-[#64748B] font-medium">Memuat riwayat log kelas...</p>
           </div>
         ) : filteredLogs.length === 0 ? (
-          <div className="py-16 text-center space-y-3 max-w-sm mx-auto">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-              <History size={24} />
-            </div>
-            <h3 className="font-bold text-sm text-[#0F172A]">Belum Ada Aktivitas Tercatat</h3>
-            <p className="text-xs text-[#64748B] leading-relaxed">
-              {searchQuery || activeFilter !== 'all' 
-                ? 'Tidak ada aktivitas yang sesuai dengan filter atau kata kunci pencarian Anda.' 
-                : 'Aktivitas seperti anggota bergabung, keluar, pengumpulan tugas, dan pembuatan tugas baru akan otomatis tercatat di sini.'}
-            </p>
-          </div>
+          <EmptyState
+            variant="announcements"
+            title="Belum Ada Aktivitas Tercatat"
+            description={
+              searchQuery || activeFilter !== 'all'
+                ? 'Tidak ada aktivitas yang sesuai dengan filter atau kata kunci pencarian Anda.'
+                : 'Aktivitas seperti anggota bergabung, keluar, pengumpulan tugas, dan pembuatan tugas baru akan otomatis tercatat di sini.'
+            }
+          />
         ) : (
           <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100">
             {filteredLogs.map((log) => {
@@ -338,7 +337,7 @@ export default function ClassActivityLog({
                   </div>
 
                   {/* Card Content */}
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0]/70 hover:border-[#CBD5E1] transition-all group-hover:bg-slate-50/80">
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0]/70 hover:border-[#CBD5E1] transition-all group-hover:bg-white group-hover:shadow-xs group-hover:-translate-y-0.5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border uppercase tracking-wider ${visuals.bgClass}`}>

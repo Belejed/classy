@@ -25,6 +25,7 @@ import {
 import toast from 'react-hot-toast';
 import { parseLecturerInfo } from '../utils/db';
 import { isTaskOverdue } from './ClassTasks';
+import EmptyState from './EmptyState';
 
 export default function ClassDashboard({
   currentClass,
@@ -86,6 +87,7 @@ export default function ClassDashboard({
     const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
     return !isSubmitted && isTaskOverdue(t.dueDate, t.dueTime);
   }).length;
+
 
   // Overview Counts
   const tasksDueCount = safeTasks.filter(t => {
@@ -348,93 +350,95 @@ export default function ClassDashboard({
       ) : (
         <div 
           onClick={() => onNavigateTab('announcements')}
-          className="bg-white border border-dashed border-[#CBD5E1] rounded-2xl p-6 text-center space-y-2 cursor-pointer hover:border-[#94A3B8] transition-colors"
+          className="bg-white dark:bg-[#151D2F] border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-4 sm:p-6 text-center cursor-pointer hover:border-slate-400 dark:hover:border-slate-600 transition-colors shadow-2xs"
         >
-          <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center mx-auto">
-            <Megaphone size={18} />
-          </div>
-          <h4 className="font-bold text-sm text-[#0F172A]">Belum Ada Pengumuman Kelas</h4>
-          <p className="text-xs text-[#64748B] max-w-md mx-auto">
-            Pengumuman penting perkuliahan dari Komti atau Dosen pengampu akan disematkan di bagian atas ini.
-          </p>
+          <EmptyState
+            variant="announcements"
+            title="Belum Ada Pengumuman Kelas"
+            description="Pengumuman penting perkuliahan dari Komti atau Dosen pengajar akan disematkan di sini."
+            actionLabel="Buka Tab Pengumuman"
+            onAction={() => onNavigateTab('announcements')}
+          />
         </div>
       )}
 
-      {/* 2. SUMMARY METRICS ROW (3 Cards) */}
+      {/* 3. SUMMARY METRICS ROW (3 Cards with Hover Elevation) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         
         {/* Card 1: Tasks Today */}
         <div 
           onClick={() => onNavigateTab('tasks')}
-          className="bg-white border border-[#E2E8F0] hover:border-[#CBD5E1] p-4 rounded-2xl shadow-2xs transition-all cursor-pointer flex items-center justify-between"
+          className="bg-gradient-to-br from-white via-white to-emerald-50/40 dark:from-[#151D2F] dark:via-[#151D2F] dark:to-emerald-950/20 border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex items-center justify-between group"
         >
           <div className="space-y-0.5">
-            <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider block">
-              Tasks Today
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+              Tugas Aktif
             </span>
-            <p className="text-xl font-bold text-[#0F172A] tracking-tight">
-              {pendingTasksCount === 0 ? 'Semua selesai ✨' : `${pendingTasksCount} ${pendingTasksCount === 1 ? 'assignment' : 'assignments'}`}
+            <p className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              {pendingTasksCount === 0 ? 'Semua selesai ✨' : `${pendingTasksCount} tugas pending`}
             </p>
           </div>
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-            pendingTasksCount === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 ${
+            pendingTasksCount === 0 
+              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' 
+              : 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
           }`}>
-            <CheckCircle2 size={18} />
+            <CheckCircle2 size={20} />
           </div>
         </div>
 
         {/* Card 2: Classes Today */}
         <div 
           onClick={() => onNavigateTab('schedule')}
-          className="bg-white border border-[#E2E8F0] hover:border-[#CBD5E1] p-4 rounded-2xl shadow-2xs transition-all cursor-pointer flex items-center justify-between"
+          className="bg-gradient-to-br from-white via-white to-blue-50/40 dark:from-[#151D2F] dark:via-[#151D2F] dark:to-blue-950/20 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex items-center justify-between group"
         >
           <div className="space-y-0.5">
-            <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider block">
-              Classes Today
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+              Kuliah Hari Ini ({todayDayName})
             </span>
-            <p className="text-xl font-bold text-[#0F172A] tracking-tight">
-              {classesTodayCount} {classesTodayCount === 1 ? 'class' : 'classes'}
+            <p className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              {classesTodayCount} {classesTodayCount === 1 ? 'mata kuliah' : 'mata kuliah'}
             </p>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-            <Calendar size={18} />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center transition-transform group-hover:scale-110">
+            <Calendar size={20} />
           </div>
         </div>
 
-        {/* Card 3: Dosen Pengampu & Kontak */}
+        {/* Card 3: Dosen Pengajar & Kontak */}
         <div 
           onClick={() => onNavigateTab('contacts')}
-          className="bg-white border border-[#E2E8F0] hover:border-[#CBD5E1] p-4 rounded-2xl shadow-2xs transition-all cursor-pointer flex items-center justify-between"
+          className="bg-gradient-to-br from-white via-white to-indigo-50/40 dark:from-[#151D2F] dark:via-[#151D2F] dark:to-indigo-950/20 border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex items-center justify-between group"
         >
           <div className="space-y-0.5">
-            <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider block">
-              Dosen Pengampu
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+              Dosen Pengajar
             </span>
-            <p className="text-xl font-bold text-[#0F172A] tracking-tight">
+            <p className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {courseLecturers.length} dosen pengajar
             </p>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-            <GraduationCap size={18} />
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center transition-transform group-hover:scale-110">
+            <GraduationCap size={20} />
           </div>
         </div>
 
       </div>
 
-      {/* 3. BALANCED 3-COLUMN CONTENT GRID (NO EMPTY HOLES AT THE BOTTOM) */}
+      {/* 4. BALANCED 3-COLUMN CONTENT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         
         {/* COLUMN 1: Today's Tasks & Deadlines */}
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs flex flex-col justify-between space-y-4">
+        <div className="bg-white dark:bg-[#151D2F] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-2xs flex flex-col justify-between space-y-4">
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <h3 className="font-bold text-sm text-[#0F172A]">Tasks & Deadlines</h3>
-                <p className="text-[11px] text-[#64748B]">Tugas aktif dan deadline yang perlu dikerjakan.</p>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Tasks & Deadlines</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Tugas aktif dan deadline yang perlu dikerjakan.</p>
               </div>
               <button 
                 onClick={() => onNavigateTab('tasks')}
-                className="text-xs font-semibold text-[#0F172A] hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-xs font-semibold text-slate-900 dark:text-white hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>View all</span>
                 <ChevronRight size={13} />
@@ -442,34 +446,21 @@ export default function ClassDashboard({
             </div>
 
             {pendingTasks.length === 0 ? (
-              <div className="py-10 text-center space-y-2.5">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto ring-8 ring-emerald-50/50 shadow-2xs">
-                  <CheckCircle2 size={24} className="text-emerald-600" />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-[#0F172A]">
-                    {hasCompletedTasks ? 'Semua Tugas Selesai! 🎉' : 'Belum Ada Tugas Aktif'}
-                  </h4>
-                  <p className="text-[11px] text-[#64748B] max-w-[240px] mx-auto leading-relaxed">
-                    {hasCompletedTasks 
-                      ? 'Kerja bagus! Seluruh tugas aktif kelas sudah berhasil kamu kumpulkan.'
-                      : 'Tidak ada tugas atau deadline yang perlu dikerjakan saat ini.'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab('tasks')}
-                  className="mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#0F172A] text-[11px] font-semibold transition-colors cursor-pointer"
-                >
-                  <Check size={12} className="text-emerald-600" />
-                  <span>Lihat Riwayat Pengumpulan</span>
-                </button>
-              </div>
+              <EmptyState
+                variant={hasCompletedTasks ? 'completed' : 'tasks'}
+                title={hasCompletedTasks ? 'Semua Tugas Selesai! 🎉' : 'Belum Ada Tugas Aktif'}
+                description={hasCompletedTasks 
+                  ? 'Kerja bagus! Seluruh tugas aktif kelas sudah berhasil kamu kumpulkan.' 
+                  : 'Tidak ada tugas atau deadline yang perlu dikerjakan saat ini.'}
+                actionLabel="Lihat Riwayat Pengumpulan"
+                onAction={() => onNavigateTab('tasks')}
+                actionIcon={Check}
+              />
             ) : (
               <div className="space-y-2.5">
                 {overdueTasksCount > 0 && (
-                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-                    <AlertCircle size={14} className="text-rose-600 shrink-0" />
+                  <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
+                    <AlertCircle size={14} className="text-rose-600 dark:text-rose-400 shrink-0" />
                     <span className="text-[11px] font-medium">
                       Ada <strong className="font-bold">{overdueTasksCount} tugas</strong> yang telah melewati batas tenggat!
                     </span>
@@ -484,27 +475,29 @@ export default function ClassDashboard({
                     <div
                       key={t.id}
                       onClick={() => onOpenTaskDetail(t)}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 hover:-translate-y-0.5 hover:shadow-xs ${
                         isOverdue 
-                          ? 'border-rose-200 bg-rose-50/30 hover:border-rose-300 hover:bg-rose-50/60' 
-                          : 'border-[#E2E8F0] hover:border-[#CBD5E1] hover:bg-[#F8FAFC]'
+                          ? 'border-l-4 border-l-rose-500 border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20' 
+                          : isDueToday
+                          ? 'border-l-4 border-l-amber-500 border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20'
+                          : 'border-l-4 border-l-indigo-400 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800'
                       }`}
                     >
                       <div className="space-y-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-[#0F172A] truncate">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                             {t.title}
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-[#64748B]">
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
                           {t.course && (
-                            <span className="text-[10px] font-semibold px-2 py-0.2 rounded bg-[#F1F5F9] text-[#475569] truncate max-w-[120px]">
+                            <span className="text-[10px] font-semibold px-2 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 truncate max-w-[120px]">
                               {t.course}
                             </span>
                           )}
-                          <span className={isOverdue ? 'font-bold text-rose-600 flex items-center gap-1' : isDueToday ? 'font-bold text-amber-600' : ''}>
-                            {isOverdue && <Clock size={11} className="text-rose-600 animate-pulse" />}
+                          <span className={isOverdue ? 'font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1' : isDueToday ? 'font-bold text-amber-600 dark:text-amber-400' : ''}>
+                            {isOverdue && <Clock size={11} className="text-rose-600 dark:text-rose-400 animate-pulse" />}
                             <span>Due {t.dueDate || 'No deadline'} {t.dueTime ? `· ${t.dueTime}` : ''}</span>
                           </span>
                         </div>
@@ -512,13 +505,13 @@ export default function ClassDashboard({
 
                       <div className="shrink-0">
                         {isOverdue ? (
-                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1 animate-pulse">
-                            <AlertCircle size={10} className="text-rose-600" />
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center gap-1 animate-pulse">
+                            <AlertCircle size={10} className="text-rose-600 dark:text-rose-400" />
                             <span>Terlewat</span>
                           </span>
                         ) : (
-                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-                            Belum Dikumpulkan
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                            Pending
                           </span>
                         )}
                       </div>
@@ -529,10 +522,10 @@ export default function ClassDashboard({
             )}
           </div>
 
-          <div className="pt-2 border-t border-[#F1F5F9]">
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               onClick={() => onNavigateTab('tasks')}
-              className="w-full py-1.5 text-center text-xs font-semibold text-[#475569] hover:text-[#0F172A] transition-colors cursor-pointer"
+              className="w-full py-1.5 text-center text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               Lihat Daftar Tugas Selengkapnya →
             </button>
@@ -540,16 +533,16 @@ export default function ClassDashboard({
         </div>
 
         {/* COLUMN 2: Today's Schedule */}
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs flex flex-col justify-between space-y-4">
+        <div className="bg-white dark:bg-[#151D2F] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-2xs flex flex-col justify-between space-y-4">
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <h3 className="font-bold text-sm text-[#0F172A]">Schedule ({todayDayName})</h3>
-                <p className="text-[11px] text-[#64748B]">Kuliah dan agenda perkuliahan hari ini.</p>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Schedule ({todayDayName})</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Kuliah dan agenda perkuliahan hari ini.</p>
               </div>
               <button 
                 onClick={() => onNavigateTab('schedule')}
-                className="text-xs font-semibold text-[#0F172A] hover:underline flex items-center gap-1"
+                className="text-xs font-semibold text-slate-900 dark:text-white hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>Timetable</span>
                 <ChevronRight size={13} />
@@ -557,50 +550,41 @@ export default function ClassDashboard({
             </div>
 
             {todaySchedules.length === 0 ? (
-              <div className="py-10 text-center space-y-2 text-[#64748B]">
-                <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
-                  <Calendar size={16} />
-                </div>
-                <p className="text-xs font-semibold text-[#0F172A]">Tidak Ada Kuliah Hari Ini</p>
-                <p className="text-[11px] text-[#64748B] max-w-[220px] mx-auto">
-                  Hari bebas perkuliahan atau waktu belajar mandiri.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab('schedule')}
-                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#0F172A] text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  <Calendar size={13} />
-                  <span>Buka Timetable Mingguan</span>
-                </button>
-              </div>
+              <EmptyState
+                variant="schedule"
+                title="Tidak Ada Kuliah Hari Ini"
+                description="Hari bebas perkuliahan atau waktu belajar mandiri ✨"
+                actionLabel="Buka Timetable Mingguan"
+                onAction={() => onNavigateTab('schedule')}
+                actionIcon={Calendar}
+              />
             ) : (
               <div className="space-y-3">
                 {todaySchedules.map((sch) => {
                   const info = parseLecturerInfo(sch.lecturerRaw || sch.lecturer, sch.description, sch.lecturerPhone);
 
                   return (
-                    <div key={sch.id} className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
+                    <div key={sch.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2 hover:-translate-y-0.5 hover:shadow-2xs transition-all">
                       <div className="flex items-center justify-between">
-                        <span className="font-mono font-bold text-xs text-[#0F172A]">
+                        <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">
                           {sch.startTime} - {sch.endTime} WIB
                         </span>
                         {sch.room && (
-                          <span className="text-[10px] font-medium text-[#64748B] flex items-center gap-1">
-                            <MapPin size={11} />
+                          <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1 bg-white dark:bg-slate-700 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-600">
+                            <MapPin size={11} className="text-rose-500" />
                             Ruang {sch.room}
                           </span>
                         )}
                       </div>
 
-                      <h4 className="font-bold text-xs text-[#0F172A] line-clamp-1">{sch.title}</h4>
+                      <h4 className="font-bold text-xs text-slate-900 dark:text-white line-clamp-1">{sch.title}</h4>
 
                       {/* Lecturer info & WhatsApp contact */}
                       {(info.name || sch.lecturer) && (
-                        <div className="pt-1.5 border-t border-[#E2E8F0]/70 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1 text-[11px] text-[#475569] truncate">
-                            <User size={11} className="text-[#64748B] shrink-0" />
-                            <span className="font-semibold text-[#0F172A] truncate">
+                        <div className="pt-1.5 border-t border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 truncate">
+                            <User size={11} className="text-slate-400 shrink-0" />
+                            <span className="font-semibold text-slate-900 dark:text-white truncate">
                               {(info.name || sch.lecturer).split(',')[0]}
                             </span>
                           </div>
@@ -625,10 +609,10 @@ export default function ClassDashboard({
             )}
           </div>
 
-          <div className="pt-2 border-t border-[#F1F5F9]">
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               onClick={() => onNavigateTab('schedule')}
-              className="w-full py-1.5 text-center text-xs font-semibold text-[#475569] hover:text-[#0F172A] transition-colors cursor-pointer"
+              className="w-full py-1.5 text-center text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               Buka Jadwal Mingguan Pas 1 Layar →
             </button>
@@ -636,22 +620,22 @@ export default function ClassDashboard({
         </div>
 
         {/* COLUMN 3: Contact Person & Info Kelas */}
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-2xs flex flex-col justify-between space-y-4">
+        <div className="bg-white dark:bg-[#151D2F] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-2xs flex flex-col justify-between space-y-4">
           <div className="space-y-3.5">
-            <div className="pb-1 border-b border-[#F1F5F9]">
-              <h3 className="font-bold text-sm text-[#0F172A]">Contact Person & Info</h3>
-              <p className="text-[11px] text-[#64748B]">Koordinator kelas dan informasi akademik.</p>
+            <div className="pb-1 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white">Contact Person & Info</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Koordinator kelas dan informasi akademik.</p>
             </div>
 
             {/* Class Coordinator Card */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-[#0F172A] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                   {coordinatorMember?.name ? coordinatorMember.name[0].toUpperCase() : 'K'}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-[#0F172A] truncate">{coordinatorMember?.name || 'Komti Kelas'}</p>
-                  <span className="text-[10px] text-[#64748B] block">Class Coordinator / Komti</span>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{coordinatorMember?.name || 'Komti Kelas'}</p>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Class Coordinator / Komti</span>
                 </div>
               </div>
 
@@ -660,7 +644,7 @@ export default function ClassDashboard({
                   href={`https://wa.me/${coordinatorMember.phoneNumber.replace(/\D/g, '')}?text=${encodeURIComponent(`Halo ${coordinatorMember.name}, saya mahasiswa kelas ${currentClass?.name || ''}...`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors shrink-0"
+                  className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 transition-colors shrink-0"
                   title="Chat WA Komti"
                 >
                   <MessageCircle size={15} />
@@ -690,24 +674,24 @@ export default function ClassDashboard({
               </a>
             )}
 
-            {/* Dosen Pengampu Directory Quick Card */}
-            <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-2">
-              <div className="flex items-center justify-between text-indigo-950">
+            {/* Dosen Pengajar Directory Quick Card */}
+            <div className="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 space-y-2">
+              <div className="flex items-center justify-between text-indigo-950 dark:text-indigo-200">
                 <div className="flex items-center gap-1.5 font-bold text-xs">
-                  <GraduationCap size={15} className="text-indigo-600" />
-                  <span>Dosen Pengampu</span>
+                  <GraduationCap size={15} className="text-indigo-600 dark:text-indigo-400" />
+                  <span>Dosen Pengajar</span>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-indigo-700 border border-indigo-200 shadow-2xs">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 shadow-2xs">
                   {courseLecturers.length} Dosen
                 </span>
               </div>
-              <p className="text-[11px] text-indigo-900/80 leading-relaxed">
+              <p className="text-[11px] text-indigo-900/80 dark:text-indigo-300/80 leading-relaxed">
                 Direktori kontak WhatsApp, telepon, dan ruangan seluruh dosen pengajar.
               </p>
               <button
                 type="button"
                 onClick={() => onNavigateTab('contacts')}
-                className="w-full mt-1 px-3 py-1.5 rounded-lg bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold flex items-center justify-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                className="w-full mt-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center gap-1 shadow-2xs transition-colors cursor-pointer"
               >
                 <span>Buka Tab Kontak Dosen</span>
                 <ChevronRight size={13} />
@@ -715,17 +699,17 @@ export default function ClassDashboard({
             </div>
 
             {/* Class Academic Metadata */}
-            <div className="p-3 rounded-xl bg-slate-50/70 border border-[#E2E8F0] text-[11px] text-[#64748B] space-y-1">
-              <p><strong className="text-[#334155]">Class ID:</strong> {currentClass?.classIdentifier || '-'}</p>
-              <p><strong className="text-[#334155]">Period:</strong> {currentClass?.academicPeriod || '-'}</p>
-              <p><strong className="text-[#334155]">Members:</strong> {currentClass?.memberCount || 0} terdaftar</p>
+            <div className="p-3 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+              <p><strong className="text-slate-700 dark:text-slate-200">Class ID:</strong> {currentClass?.classIdentifier || '-'}</p>
+              <p><strong className="text-slate-700 dark:text-slate-200">Period:</strong> {currentClass?.academicPeriod || '-'}</p>
+              <p><strong className="text-slate-700 dark:text-slate-200">Members:</strong> {currentClass?.memberCount || 0} terdaftar</p>
             </div>
           </div>
 
-          <div className="pt-2 border-t border-[#F1F5F9]">
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               onClick={() => onNavigateTab('contacts')}
-              className="w-full py-1.5 text-center text-xs font-semibold text-indigo-700 hover:text-indigo-900 transition-colors cursor-pointer"
+              className="w-full py-1.5 text-center text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors cursor-pointer"
             >
               Lihat Direktori Dosen & Kontak →
             </button>

@@ -39,6 +39,10 @@
 }
 
 @layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     background-color: #FDFBF7;
     color: #0F172A;
@@ -61,6 +65,17 @@
     color: #94A3B8 !important;
   }
 
+  /* Mobile Native Touch Behavior */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
   /* Prevent dark browser autofill colors */
   input:-webkit-autofill,
   input:-webkit-autofill:hover, 
@@ -74,6 +89,47 @@
   }
 }
 
+/* Shimmer Loading Animations */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+/* iOS Safe Area & Mobile Ergonomics */
+.safe-area-bottom {
+  padding-bottom: max(0.5rem, calc(0.35rem + env(safe-area-inset-bottom, 0px)));
+}
+
+.safe-area-sheet {
+  padding-bottom: max(1.25rem, calc(0.85rem + env(safe-area-inset-bottom, 0px)));
+}
+
+/* Horizontal scroll gradient fade hint */
+.mask-scroll-fade {
+  mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+}
+
+/* Hide scrollbar utility for touch scrollbars */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
 /* Smooth Modern Scrollbar */
 .custom-scrollbar::-webkit-scrollbar,
 ::-webkit-scrollbar {
@@ -83,6 +139,7 @@
 
 ::-webkit-scrollbar-track {
   background: transparent;
+  margin: 10px 0;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -317,17 +374,14 @@
 @keyframes classyPageEnter {
   0% {
     opacity: 0;
-    transform: translateY(6px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 .animate-page-enter {
-  animation: classyPageEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform, opacity;
+  animation: classyPageEnter 0.12s ease-out forwards;
 }
 
 @keyframes classyItemPop {

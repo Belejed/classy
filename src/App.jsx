@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { authService, dbService } from './utils/db';
 import { moveFileToDriveTrash, moveFilesToDriveTrash } from './utils/driveUpload';
+import { unlockBodyScroll } from './components/ModalPortal';
 
 // Classy Components
 import Auth from './components/Auth';
@@ -19,7 +20,8 @@ import ClassContacts from './components/ClassContacts';
 import ClassActivityLog from './components/ClassActivityLog';
 import UserProfileModal from './components/UserProfileModal';
 import ErrorBoundary from './components/ErrorBoundary';
-import PwaInstallPrompt from './components/PwaInstallPrompt';
+import ClassTopHeader from './components/ClassTopHeader';
+import { DashboardSkeleton, TasksSkeleton, ScheduleSkeleton } from './components/SkeletonLoader';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -43,14 +45,23 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Clean old cached keys from legacy app
+  // Clean old cached keys and reset any dark mode flags
   useEffect(() => {
     try {
       localStorage.removeItem('noted_files');
       localStorage.removeItem('app_theme');
+      localStorage.removeItem('classy_theme');
+      document.documentElement.classList.remove('dark', 'theme-dark');
+      unlockBodyScroll(true);
     } catch {}
   }, []);
+
+  // Failsafe: Always ensure body scroll is unlocked when navigating between routes
+  useEffect(() => {
+    unlockBodyScroll(true);
+  }, [location.pathname]);
 
   // 1. Auth Listener & Minimum Splash Duration (2 detik)
   const [minSplashDone, setMinSplashDone] = useState(false);
@@ -171,16 +182,85 @@ export default function App() {
     }
   }, [currentClass?.id]);
 
+  // Helper to send class notifications via serverless Resend endpoint
+  const sendClassNotificationEmail = async ({ subject, type = 'announcement', title, subtitle, message, metaRows = [], photoUrl = null, sendIndividual = true }) => {
+    try {
+      const recipients = (currentClass?.members || [])
+        .filter(m => (m.status || 'approved') === 'approved' && m.email)
+        .map(m => m.email);
+
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipients,
+          sendIndividual,
+          subject,
+          type,
+          title,
+          subtitle: subtitle || `Ruang Kelas ${currentClass?.name || 'Classy'}`,
+          message,
+          metaRows,
+          photoUrl
+        })
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('Could not send notification email:', err);
+      return null;
+    }
+  };
+
   // Handlers for Data Mutations
   const handleAddSchedule = async (item) => {
     const created = await dbService.schedules.create(currentClass.id, item);
     setSchedules(prev => [...prev, created]);
+
+    // Send email notification for new class schedule
+    sendClassNotificationEmail({
+      subject: `[Jadwal Baru] ${created.subject || created.title} - Ruang ${created.room || 'Kelas'}`,
+      type: 'schedule_update',
+      title: `Jadwal Kuliah Baru: ${created.subject || created.title}`,
+      subtitle: `Jadwal Kuliah ${currentClass?.name || 'Classy'}`,
+      message: `Jadwal perkuliahan baru telah ditambahkan untuk mata kuliah ${created.subject || created.title}.`,
+      metaRows: [
+        ['Mata Kuliah', created.subject || created.title || 'Mata Kuliah'],
+        ['Dosen Pengajar', created.lecturer || 'Dosen Pengajar'],
+        ['Hari & Jam', `${created.day}, ${created.startTime} - ${created.endTime || 'Selesai'} WIB`],
+        ['Ruang Kuliah', created.room || 'Ruang Kelas / Online'],
+        ['Kelas / Rombel', currentClass?.name || 'Classy'],
+        ...(created.notes ? [['Catatan', created.notes]] : [])
+      ]
+    });
+
     return created;
   };
 
   const handleUpdateSchedule = async (scheduleId, updates) => {
     const updated = await dbService.schedules.update(scheduleId, updates);
     setSchedules(prev => prev.map(s => s.id === scheduleId ? { ...s, ...updated } : s));
+
+    // Send email notification for schedule/room update
+    const sch = { ...schedules?.find(s => s.id === scheduleId), ...updated };
+    if (sch?.subject || sch?.title) {
+      const subjectName = sch.subject || sch.title;
+      sendClassNotificationEmail({
+        subject: `[Update Jadwal / Ruangan] ${subjectName} - Ruang ${sch.room || 'Kelas'}`,
+        type: 'schedule_update',
+        title: `Pembaruan Jadwal: ${subjectName}`,
+        subtitle: `Pembaruan Jadwal Kelas ${currentClass?.name || 'Classy'}`,
+        message: `Terdapat pembaruan informasi jadwal atau ruangan pada mata kuliah ${subjectName}. Mohon periksa jadwal terbaru sebelum perkuliahan dimulai.`,
+        metaRows: [
+          ['Mata Kuliah', subjectName],
+          ['Dosen Pengajar', sch.lecturer || 'Dosen Pengajar'],
+          ['Hari & Jam', `${sch.day}, ${sch.startTime} - ${sch.endTime || 'Selesai'} WIB`],
+          ['Ruangan Terkini', sch.room || 'Ruang Kelas / Online'],
+          ['Kelas / Rombel', currentClass?.name || 'Classy'],
+          ...(sch.notes ? [['Catatan Khusus', sch.notes]] : [])
+        ]
+      });
+    }
+
     return updated;
   };
 
@@ -204,6 +284,24 @@ export default function App() {
       });
       handleRefreshLogs();
     } catch {}
+
+    // Send email notification if enabled
+    if (item.sendEmailNotification !== false) {
+      sendClassNotificationEmail({
+        subject: `[TUGAS KULIAH BARU: ${item.course || currentClass?.name || 'Classy'}] ${item.title}`,
+        type: 'task_new',
+        title: item.title,
+        subtitle: `Tugas Kuliah Baru - ${item.course || currentClass?.name || 'Classy'}`,
+        message: item.description ? item.description : `Telah ditambahkan penugasan baru untuk mata kuliah ${item.course || '-'}. Harap periksa detail tugas dan instruksi pengumpulan.`,
+        metaRows: [
+          ['Mata Kuliah', item.course || 'Perkuliahan'],
+          ['Judul Tugas', item.title],
+          ['Batas Pengumpulan', `${item.dueDate} pukul ${item.dueTime || '23:59'} WIB`],
+          ['Dosen Pengajar', item.lecturer || '-'],
+          ['Ruang Kelas', currentClass?.name || 'Classy']
+        ]
+      }).catch(err => console.warn('Gagal mengirim notifikasi email tugas baru:', err));
+    }
 
     return created;
   };
@@ -270,7 +368,7 @@ export default function App() {
       await dbService.logs.create(currentClass.id, {
         actionType: 'task_unsubmit',
         title: `Pengumpulan tugas dibatalkan`,
-        details: `${user?.displayName || 'Mahasiswa'} membatalkan pengumpulan tugas "${currentTask?.title || taskId}". Berkas dipindahkan ke folder Trash di Drive.`,
+        details: `${user?.displayName || 'Mahasiswa'} membatalkan pengumpulan tugas "${currentTask?.title || taskId}". Berkas tugas telah dihapus.`,
         actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
         targetName: currentTask?.title || '',
         color: 'rose'
@@ -307,7 +405,7 @@ export default function App() {
       await dbService.logs.create(currentClass.id, {
         actionType: 'task_delete',
         title: `Tugas dihapus`,
-        details: `${user?.displayName || 'Komti'} menghapus tugas "${taskToDelete?.title || taskId}". Berkas di Google Drive dipindahkan ke folder Trash.`,
+        details: `${user?.displayName || 'Komti'} menghapus tugas "${taskToDelete?.title || taskId}".`,
         actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
         targetName: taskToDelete?.title || '',
         color: 'rose'
@@ -358,7 +456,7 @@ export default function App() {
       await dbService.logs.create(currentClass.id, {
         actionType: 'file_delete',
         title: `Berkas dihapus`,
-        details: `${user?.displayName || 'Komti'} menghapus berkas "${targetFile?.name || idToDelete}". Berkas di Google Drive dipindahkan ke folder Trash.`,
+        details: `${user?.displayName || 'Komti'} menghapus berkas "${targetFile?.name || idToDelete}".`,
         actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
         targetName: targetFile?.name || '',
         color: 'rose'
@@ -767,9 +865,6 @@ export default function App() {
           onUpdateUser={(updated) => setUser(updated)}
         />
       )}
-
-      {/* Global PWA Install Banner & Modal */}
-      <PwaInstallPrompt />
     </>
   );
 }
@@ -827,13 +922,15 @@ function ClassWorkspace({
   // Ensure currentClass matches the URL classId
   useEffect(() => {
     if (!classId) return;
-    if (classesLoading) return;
 
-    if (currentClass?.id === classId) return;
+    if (currentClass && currentClass.id === classId) {
+      return;
+    }
 
-    const matched = (classes || []).find(c => c.id === classId);
+    // Try finding from loaded classes
+    const matched = classes.find(c => c.id === classId);
     if (matched) {
-      if (matched.membershipStatus === 'pending') {
+      if (matched.membershipStatus && matched.membershipStatus !== 'approved') {
         toast.error('Keanggotaan Anda masih menunggu persetujuan Komti/Dosen.');
         navigate('/lobby');
         return;
@@ -871,9 +968,15 @@ function ClassWorkspace({
     }
   }, [classId, classes, classesLoading, currentClass, user]);
 
+  // Scroll to top cleanly and ensure body scroll is unlocked when switching tabs
+  useEffect(() => {
+    unlockBodyScroll(true);
+    window.scrollTo(0, 0);
+  }, [activeTab]);
+
   const isDataReady = !contentLoading && schedules !== null && tasks !== null && files !== null && announcements !== null;
 
-  if (!currentClass || !isDataReady) {
+  if (!currentClass) {
     return (
       <div className="h-screen w-screen bg-[#FDFBF7] flex items-center justify-center font-sans select-none">
         <div className="w-20 h-20 flex items-center justify-center animate-classy-breathing">
@@ -906,20 +1009,34 @@ function ClassWorkspace({
 
       {/* Main Workspace Content Column */}
       <div className="flex-1 min-w-0 min-h-screen flex flex-col bg-[#FDFBF7]">
+        {/* Sticky Top Workspace Header */}
+        <ClassTopHeader
+          currentClass={currentClass}
+          activeTab={activeTab}
+          currentUser={user}
+          onOpenProfile={onOpenProfile}
+        />
+
         <ErrorBoundary key={activeTab}>
-          <main className={`flex-1 min-w-0 w-full animate-page-enter pb-20 md:pb-8 ${activeTab === 'schedule' ? 'max-w-[1500px] mx-auto px-3 sm:px-6 py-2 sm:py-3' : 'max-w-6xl mx-auto px-3.5 sm:px-8 py-4 sm:py-8'}`}>
-            {activeTab === 'dashboard' && (
-              <ClassDashboard
-                currentClass={currentClass}
-                currentUser={user}
-                schedules={schedules}
-                tasks={tasks}
-                announcements={announcements}
-                onNavigateTab={(targetTab) => navigate(`/class/${currentClass.id}/${targetTab}`)}
-                onOpenTaskDetail={() => navigate(`/class/${currentClass.id}/tasks`)}
-                onOpenAnnouncementDetail={() => navigate(`/class/${currentClass.id}/announcements`)}
-              />
-            )}
+          <main className={`flex-1 min-w-0 w-full animate-page-enter pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 px-3.5 sm:px-8 py-4 sm:py-6 mx-auto ${activeTab === 'schedule' ? 'max-w-[1500px]' : 'max-w-6xl'}`}>
+            {!isDataReady ? (
+              activeTab === 'tasks' ? <TasksSkeleton /> :
+              activeTab === 'schedule' ? <ScheduleSkeleton /> :
+              <DashboardSkeleton />
+            ) : (
+              <>
+                {activeTab === 'dashboard' && (
+                  <ClassDashboard
+                    currentClass={currentClass}
+                    currentUser={user}
+                    schedules={schedules}
+                    tasks={tasks}
+                    announcements={announcements}
+                    onNavigateTab={(targetTab) => navigate(`/class/${currentClass.id}/${targetTab}`)}
+                    onOpenTaskDetail={() => navigate(`/class/${currentClass.id}/tasks`)}
+                    onOpenAnnouncementDetail={() => navigate(`/class/${currentClass.id}/announcements`)}
+                  />
+                )}
 
             {activeTab === 'schedule' && (
               <ClassSchedule
@@ -1009,6 +1126,8 @@ function ClassWorkspace({
                 loading={contentLoading}
                 onRefresh={onRefreshLogs}
               />
+            )}
+              </>
             )}
           </main>
         </ErrorBoundary>

@@ -25,6 +25,7 @@ import toast from 'react-hot-toast';
 import { uploadToGoogleDrive } from '../utils/driveUpload';
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
+import EmptyState from './EmptyState';
 
 const CATEGORIES = ['All', 'Submission', 'Material', 'Assignments', 'Groups', 'Other'];
 
@@ -288,12 +289,12 @@ export default function ClassFiles({
   const handleConfirmDelete = async () => {
     if (!fileToDelete) return;
     setIsDeleting(true);
-    toast.loading('Memindahkan berkas ke folder Trash...', { id: 'delete-file' });
+    toast.loading('Menghapus berkas...', { id: 'delete-file' });
     try {
       await onDeleteFile(fileToDelete.id, fileToDelete);
       setSelectedFile(null);
       setFileToDelete(null);
-      toast.success('Berkas berhasil dipindahkan ke folder Trash di Drive', { id: 'delete-file' });
+      toast.success('Berkas berhasil dihapus', { id: 'delete-file' });
     } catch {
       toast.error('Gagal menghapus berkas', { id: 'delete-file' });
     } finally {
@@ -445,7 +446,7 @@ export default function ClassFiles({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           {/* View Mode Toggle: Folders vs All Files */}
           <div className="flex items-center p-1 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold shadow-2xs">
             <button
@@ -453,7 +454,7 @@ export default function ClassFiles({
                 setViewMode('folders');
                 setActiveFolder(null);
               }}
-              className={`flex items-center gap-1 px-3 py-1 rounded-lg transition-colors ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 px-3 py-1.5 sm:py-1 rounded-lg transition-colors ${
                 viewMode === 'folders' && !activeFolder ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
             >
@@ -465,7 +466,7 @@ export default function ClassFiles({
                 setViewMode('all');
                 setActiveFolder(null);
               }}
-              className={`flex items-center gap-1 px-3 py-1 rounded-lg transition-colors ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 px-3 py-1.5 sm:py-1 rounded-lg transition-colors ${
                 viewMode === 'all' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
             >
@@ -474,15 +475,13 @@ export default function ClassFiles({
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer"
-            >
-              <Upload size={13} />
-              <span>Upload Berkas</span>
-            </button>
-          </div>
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[38px]"
+          >
+            <Upload size={13} />
+            <span>Upload Berkas</span>
+          </button>
         </div>
       </div>
 
@@ -563,10 +562,14 @@ export default function ClassFiles({
           </div>
 
           {folderStats.length === 0 ? (
-            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-12 text-center space-y-2 shadow-2xs">
-              <Folder size={36} className="mx-auto text-[#94A3B8] opacity-60" />
-              <h3 className="font-bold text-sm text-[#0F172A]">Belum ada folder atau berkas</h3>
-              <p className="text-xs text-[#64748B]">Berkas materi atau submission tugas yang dikumpulkan akan otomatis muncul di sini.</p>
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 text-center shadow-2xs">
+              <EmptyState
+                variant="files"
+                title="Belum Ada Folder atau Berkas"
+                description="Berkas materi perkuliahan atau submission tugas yang dikumpulkan akan otomatis tersusun rapi di sini."
+                actionLabel="Upload Berkas Sekarang"
+                onAction={() => setShowUploadModal(true)}
+              />
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -577,7 +580,7 @@ export default function ClassFiles({
                   <div
                     key={folder.name}
                     onClick={() => setActiveFolder(folder.name)}
-                    className="bg-white border border-[#E2E8F0] hover:border-[#0F172A] p-4 rounded-2xl shadow-2xs hover:shadow-xs transition-all cursor-pointer flex items-center justify-between group"
+                    className="bg-white border border-slate-200 hover:border-slate-900 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex items-center justify-between group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
@@ -611,10 +614,14 @@ export default function ClassFiles({
       {(viewMode === 'all' || activeFolder) && (
         <div className="space-y-3">
           {filteredFiles.length === 0 ? (
-            <div className="bg-white border border-[#E2E8F0] rounded-2xl p-12 text-center space-y-2 shadow-2xs">
-              <Folder size={32} className="mx-auto text-[#94A3B8] opacity-60" />
-              <h3 className="font-bold text-sm text-[#0F172A]">Tidak ada berkas yang cocok</h3>
-              <p className="text-xs text-[#64748B]">Coba ubah kata kunci pencarian atau kategori.</p>
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 text-center shadow-2xs">
+              <EmptyState
+                variant="files"
+                title="Tidak Ada Berkas yang Cocok"
+                description="Coba ubah kata kunci pencarian atau kategori berkas."
+                actionLabel={searchQuery || selectedCategory !== 'All' ? 'Reset Filter' : undefined}
+                onAction={searchQuery || selectedCategory !== 'All' ? () => { setSearchQuery(''); setSelectedCategory('All'); } : undefined}
+              />
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -625,7 +632,7 @@ export default function ClassFiles({
                   <div
                     key={file.id}
                     onClick={() => setSelectedFile(file)}
-                    className="bg-white border border-[#E2E8F0] hover:border-[#CBD5E1] p-4 rounded-2xl shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-3 group"
+                    className="bg-white border border-slate-200 hover:border-slate-300 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between space-y-3 group"
                   >
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-center shrink-0 group-hover:bg-slate-100 transition-colors">
@@ -709,10 +716,10 @@ export default function ClassFiles({
                   type="button"
                   onClick={() => setFileToDelete(selectedFile)}
                   className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3.5 py-2.5 rounded-xl flex items-center justify-center sm:justify-start gap-1.5 transition-colors cursor-pointer border border-rose-200/60 sm:border-transparent"
-                  title="Hapus dari web & pindahkan ke folder Trash di Google Drive"
+                  title="Hapus berkas dari kelas"
                 >
                   <Trash2 size={14} />
-                  <span>Hapus Berkas (Pindah ke Trash)</span>
+                  <span>Hapus Berkas</span>
                 </button>
               ) : <div />}
 
@@ -856,8 +863,8 @@ export default function ClassFiles({
         onClose={() => !isDeleting && setFileToDelete(null)}
         onConfirm={handleConfirmDelete}
         title="Hapus Berkas dari Repositori?"
-        message={`Berkas "${fileToDelete?.name || ''}" akan dihapus dari web kelas dan dipindahkan ke folder "Trash" di Google Drive (tidak dihapus permanen).`}
-        confirmText="Ya, Pindahkan ke Trash"
+        message={`Apakah Anda yakin ingin menghapus berkas "${fileToDelete?.name || ''}" dari repositori kelas?`}
+        confirmText="Ya, Hapus Berkas"
         cancelText="Batal"
         type="danger"
         isLoading={isDeleting}

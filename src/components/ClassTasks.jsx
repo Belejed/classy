@@ -32,6 +32,7 @@ import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
+import EmptyState from './EmptyState';
 
 // Helper to check if a task deadline has passed
 export const isTaskOverdue = (dueDate, dueTime = '23:59') => {
@@ -106,6 +107,58 @@ export default function ClassTasks({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [autoRenameEnabled, setAutoRenameEnabled] = useState(true);
   const [managerTab, setManagerTab] = useState('unsubmitted'); // 'unsubmitted' | 'submitted'
+  const [sendEmailNotification, setSendEmailNotification] = useState(true);
+  const [isSendingDeadlineEmail, setIsSendingDeadlineEmail] = useState(false);
+
+  // Send 1-on-1 task deadline reminder email to all unsubmitted students
+  const handleSendTaskDeadlineEmail = async (task, unsubmittedList = []) => {
+    if (!task) return;
+    setIsSendingDeadlineEmail(true);
+    const toastId = toast.loading('Mengirim email pengingat tugas ke mahasiswa...');
+    try {
+      const recipientEmails = unsubmittedList
+        .map(({ member }) => member?.email)
+        .filter(Boolean)
+        .map(e => String(e).trim().toLowerCase());
+
+      if (recipientEmails.length === 0) {
+        toast.info('Semua mahasiswa sudah mengumpulkan tugas ini! 🎉', { id: toastId });
+        return;
+      }
+
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipients: recipientEmails,
+          sendIndividual: true,
+          subject: `[PENGINGAT DEADLINE TUGAS] ${task.course || 'Tugas Kuliah'} - ${task.title}`,
+          type: 'task_deadline',
+          title: task.title,
+          subtitle: `Mata Kuliah: ${task.course || currentClass?.name || 'Classy'}`,
+          message: `Halo! Mengingatkan bahwa batas waktu pengumpulan tugas "${task.title}" adalah ${task.dueDate} pukul ${task.dueTime || '23:59'} WIB. Mohon segera selesaikan dan submit tugas Anda di portal perkuliahan.`,
+          metaRows: [
+            ['Mata Kuliah', task.course || 'Perkuliahan'],
+            ['Judul Tugas', task.title],
+            ['Batas Pengumpulan', `${task.dueDate} pukul ${task.dueTime || '23:59'} WIB`],
+            ['Dosen Pengajar', task.lecturer || '-'],
+            ['Ruang Kelas', currentClass?.name || 'Classy']
+          ]
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok && !data.success) {
+        throw new Error(data.error || 'Gagal mengirim email pengingat');
+      }
+
+      toast.success(`Berhasil mengirim pengingat ke ${recipientEmails.length} mahasiswa!`, { id: toastId });
+    } catch (err) {
+      toast.error(err.message || 'Gagal mengirim email pengingat', { id: toastId });
+    } finally {
+      setIsSendingDeadlineEmail(false);
+    }
+  };
 
   // In-app Delete Confirmation Modal
   const [taskToDelete, setTaskToDelete] = useState(null);
@@ -380,9 +433,14 @@ export default function ClassTasks({
         description: taskDesc.trim(),
         instructions: taskInstructions.trim(),
         submissionRequired: true,
-        attachments: []
+        attachments: [],
+        sendEmailNotification
       });
-      toast.success('Tugas baru berhasil dipublikasikan!');
+      toast.success(
+        sendEmailNotification 
+          ? 'Tugas baru berhasil dipublikasikan & notifikasi email dikirim!' 
+          : 'Tugas baru berhasil dipublikasikan!'
+      );
       setShowCreateModal(false);
       setTaskTitle('');
       setTaskDesc('');
@@ -601,107 +659,115 @@ export default function ClassTasks({
             )}
 
             {/* Status Filter Chips (Horizontally scrollable with smooth touch on mobile) */}
-            <div className="flex items-center gap-1 text-xs overflow-x-auto pb-1 sm:pb-0 no-scrollbar -mx-0.5 px-0.5">
-              <button
-                onClick={() => setStatusFilter('all')}
-                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs ${
-                  statusFilter === 'all' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:bg-[#F1F5F9]'
-                }`}
-              >
-                Semua
-              </button>
-              <button
-                onClick={() => setStatusFilter('not_submitted')}
-                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs ${
-                  statusFilter === 'not_submitted' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:bg-[#F1F5F9]'
-                }`}
-              >
-                Belum Dikumpulkan
-              </button>
-              <button
-                onClick={() => setStatusFilter('overdue')}
-                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap text-xs ${
-                  statusFilter === 'overdue' 
-                    ? 'bg-rose-700 text-white shadow-2xs' 
-                    : overdueTasksCount > 0
-                      ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
-                      : 'text-[#64748B] hover:bg-[#F1F5F9]'
-                }`}
-              >
-                <Clock size={12} className={overdueTasksCount > 0 && statusFilter !== 'overdue' ? 'text-rose-600' : ''} />
-                <span>Terlewat</span>
-                {overdueTasksCount > 0 && (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                    statusFilter === 'overdue' ? 'bg-white/20 text-white' : 'bg-rose-200 text-rose-800'
-                  }`}>
-                    {overdueTasksCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setStatusFilter('submitted')}
-                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs ${
-                  statusFilter === 'submitted' ? 'bg-[#0F172A] text-white' : 'text-[#64748B] hover:bg-[#F1F5F9]'
-                }`}
-              >
-                Sudah Dikumpulkan
-              </button>
-              <button
-                onClick={() => setStatusFilter('missing')}
-                className={`px-3 py-2 sm:py-1.5 rounded-xl font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap text-xs ${
-                  statusFilter === 'missing' ? 'bg-rose-600 text-white' : 'text-rose-600 hover:bg-rose-50'
-                }`}
-              >
-                <AlertTriangle size={12} />
-                <span>File Hilang</span>
-              </button>
+            <div className="relative -mx-1 px-1">
+              <div className="flex items-center gap-1 text-xs overflow-x-auto pb-1 sm:pb-0 no-scrollbar mask-scroll-fade sm:mask-none -mx-0.5 px-0.5">
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className={`px-3.5 py-2 min-h-[38px] rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs flex items-center justify-center ${
+                    statusFilter === 'all' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:bg-[#F1F5F9]'
+                  }`}
+                >
+                  Semua
+                </button>
+                <button
+                  onClick={() => setStatusFilter('not_submitted')}
+                  className={`px-3.5 py-2 min-h-[38px] rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs flex items-center justify-center ${
+                    statusFilter === 'not_submitted' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:bg-[#F1F5F9]'
+                  }`}
+                >
+                  Belum Dikumpulkan
+                </button>
+                <button
+                  onClick={() => setStatusFilter('overdue')}
+                  className={`px-3.5 py-2 min-h-[38px] rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap text-xs ${
+                    statusFilter === 'overdue' 
+                      ? 'bg-rose-700 text-white shadow-2xs' 
+                      : overdueTasksCount > 0
+                        ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                        : 'text-[#64748B] hover:bg-[#F1F5F9]'
+                  }`}
+                >
+                  <Clock size={12} className={overdueTasksCount > 0 && statusFilter !== 'overdue' ? 'text-rose-600' : ''} />
+                  <span>Terlewat</span>
+                  {overdueTasksCount > 0 && (
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      statusFilter === 'overdue' ? 'bg-white/20 text-white' : 'bg-rose-200 text-rose-800'
+                    }`}>
+                      {overdueTasksCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setStatusFilter('submitted')}
+                  className={`px-3.5 py-2 min-h-[38px] rounded-xl font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap text-xs flex items-center justify-center ${
+                    statusFilter === 'submitted' ? 'bg-[#0F172A] text-white shadow-2xs' : 'text-[#64748B] hover:bg-[#F1F5F9]'
+                  }`}
+                >
+                  Sudah Dikumpulkan
+                </button>
+                <button
+                  onClick={() => setStatusFilter('missing')}
+                  className={`px-3.5 py-2 min-h-[38px] rounded-xl font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer shrink-0 whitespace-nowrap text-xs ${
+                    statusFilter === 'missing' ? 'bg-rose-600 text-white shadow-2xs' : 'text-rose-600 hover:bg-rose-50'
+                  }`}
+                >
+                  <AlertTriangle size={12} />
+                  <span>File Hilang</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Course Quick Category Pills */}
         {availableCourses.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 text-xs no-scrollbar">
-            <span className="text-[11px] font-semibold text-[#64748B] shrink-0 flex items-center gap-1 mr-1">
-              <BookOpen size={12} className="text-[#94A3B8]" />
-              <span>Mata Kuliah:</span>
-            </span>
-            <button
-              onClick={() => setCourseFilter('all')}
-              className={`px-3 py-1.5 sm:py-1 rounded-lg text-xs font-semibold shrink-0 transition-colors cursor-pointer whitespace-nowrap ${
-                courseFilter === 'all' 
-                  ? 'bg-[#0F172A] text-white shadow-2xs' 
-                  : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
-              }`}
-            >
-              Semua ({tasks.length})
-            </button>
-            {availableCourses.map(c => {
-              const count = tasks.filter(t => (t.course || '').toLowerCase() === c.toLowerCase()).length;
-              return (
-                <button
-                  key={c}
-                  onClick={() => setCourseFilter(c)}
-                  className={`px-3 py-1.5 sm:py-1 rounded-lg text-xs font-semibold shrink-0 transition-colors cursor-pointer whitespace-nowrap ${
-                    courseFilter === c 
-                      ? 'bg-[#0F172A] text-white shadow-2xs' 
-                      : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
-                  }`}
-                >
-                  {c} ({count})
-                </button>
-              );
-            })}
+          <div className="relative -mx-1 px-1">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 text-xs no-scrollbar mask-scroll-fade sm:mask-none -mx-0.5 px-0.5">
+              <span className="text-[11px] font-semibold text-[#64748B] shrink-0 flex items-center gap-1 mr-1">
+                <BookOpen size={12} className="text-[#94A3B8]" />
+                <span>Mata Kuliah:</span>
+              </span>
+              <button
+                onClick={() => setCourseFilter('all')}
+                className={`px-3.5 py-2 sm:py-1 min-h-[36px] rounded-xl text-xs font-semibold shrink-0 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center ${
+                  courseFilter === 'all' 
+                    ? 'bg-[#0F172A] text-white shadow-2xs' 
+                    : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
+                }`}
+              >
+                Semua ({tasks.length})
+              </button>
+              {availableCourses.map(c => {
+                const count = tasks.filter(t => (t.course || '').toLowerCase() === c.toLowerCase()).length;
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setCourseFilter(c)}
+                    className={`px-3.5 py-2 sm:py-1 min-h-[36px] rounded-xl text-xs font-semibold shrink-0 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center ${
+                      courseFilter === c 
+                        ? 'bg-[#0F172A] text-white shadow-2xs' 
+                        : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC]'
+                    }`}
+                  >
+                    {c} ({count})
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
 
       {/* Tasks List */}
       {filteredTasks.length === 0 ? (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl p-12 text-center space-y-2 shadow-2xs">
-          <CheckSquare size={32} className="mx-auto text-[#94A3B8] opacity-60" />
-          <h3 className="font-bold text-sm text-[#0F172A]">Tidak ada tugas yang cocok</h3>
-          <p className="text-xs text-[#64748B]">Semua tugas sudah dikumpulkan atau tidak ada tugas yang cocok dengan filter mata kuliah / status.</p>
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-10 text-center shadow-2xs">
+          <EmptyState
+            variant={statusFilter === 'submitted' ? 'completed' : 'tasks'}
+            title="Tidak Ada Tugas yang Cocok"
+            description="Semua tugas sudah dikumpulkan atau tidak ada tugas yang cocok dengan filter pencarian dan status saat ini."
+            actionLabel={statusFilter !== 'all' ? 'Reset Semua Filter' : undefined}
+            onAction={statusFilter !== 'all' ? () => { setStatusFilter('all'); setCourseFilter('all'); setSearchQuery(''); } : undefined}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -716,12 +782,14 @@ export default function ClassTasks({
               <div
                 key={task.id}
                 onClick={() => setSelectedTask(task)}
-                className={`bg-white border p-4 sm:p-5 rounded-2xl shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                className={`bg-white border p-4 sm:p-5 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
                   isFileMissing 
-                    ? 'border-rose-300 bg-rose-50/15' 
+                    ? 'border-l-4 border-l-rose-600 border-rose-300 bg-rose-50/20' 
                     : isOverdue && !isSubmitted
-                      ? 'border-rose-300 bg-rose-50/10 hover:border-rose-400 ring-1 ring-rose-200/40'
-                      : 'border-[#E2E8F0] hover:border-[#CBD5E1]'
+                      ? 'border-l-4 border-l-rose-500 border-rose-200 bg-rose-50/15 ring-1 ring-rose-200/40'
+                      : isSubmitted
+                        ? 'border-l-4 border-l-emerald-500 border-slate-200 hover:border-emerald-300'
+                        : 'border-l-4 border-l-indigo-400 border-slate-200 hover:border-slate-300'
                 }`}
               >
                 <div className="space-y-1.5">
@@ -827,10 +895,10 @@ export default function ClassTasks({
       {/* MODAL 1: TASK DETAIL & ASSIGNMENT SUBMISSION */}
       {selectedTask && (
         <ModalPortal onClose={() => setSelectedTask(null)} maxWidth="max-w-xl">
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[88vh] sm:max-h-[85vh] overflow-y-auto">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full shadow-2xl max-h-[88vh] sm:max-h-[85vh] flex flex-col overflow-hidden">
             
             {/* Modal Header */}
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#F1F5F9]">
+            <div className="flex items-start justify-between gap-3 p-4 sm:p-6 pb-3 border-b border-[#F1F5F9] shrink-0">
               <div className="min-w-0 flex-1">
                 <div className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full w-fit mb-1.5 max-w-full">
                   <BookOpen size={11} className="shrink-0" />
@@ -842,14 +910,17 @@ export default function ClassTasks({
               </div>
               <button 
                 onClick={() => setSelectedTask(null)} 
-                className="p-1.5 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+                title="Tutup Modal"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Task Info Chips */}
-            {(() => {
+            {/* Scrollable Modal Body */}
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 custom-scrollbar">
+              {/* Task Info Chips */}
+              {(() => {
               const userSub = selectedTask.submissions?.find(s => s.userId === currentUser?.uid);
               const isFileMissing = userSub && isSubmissionFileMissing(userSub);
               const isSubmitted = !!userSub && !isFileMissing;
@@ -910,7 +981,7 @@ export default function ClassTasks({
                     <span className="font-bold text-[#0F172A] text-xs sm:text-sm leading-snug break-words block">{selectedTask.course || 'Umum'}</span>
                   </div>
                   <div className="p-2.5 sm:p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] col-span-2 sm:col-span-1 flex flex-col justify-start">
-                    <span className="text-[10px] font-semibold text-[#64748B] block mb-0.5">Dosen Pengampu</span>
+                    <span className="text-[10px] font-semibold text-[#64748B] block mb-0.5">Dosen Pengajar</span>
                     <span className="font-bold text-[#0F172A] text-xs sm:text-sm leading-snug break-words block">{selectedTask.lecturer || '-'}</span>
                   </div>
                 </div>
@@ -1035,7 +1106,7 @@ export default function ClassTasks({
                         </span>
                       </div>
                       <p className="text-[11px] text-rose-700 leading-relaxed">
-                        Berkas tugas ini terhapus atau berada di Sampah Google Drive. Status tugas tidak lagi dianggap "Submitted". Harap unggah ulang berkas tugas agar dapat dinilai dosen/komti.
+                        Berkas tugas ini tidak ditemukan atau telah terhapus. Status tugas tidak lagi dianggap "Submitted". Harap unggah ulang berkas tugas agar dapat dinilai dosen/komti.
                       </p>
                       <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-rose-200/60">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1249,17 +1320,29 @@ export default function ClassTasks({
                       </button>
                     </div>
 
-                    {/* Copy List WhatsApp Button */}
+                    {/* Send Email Reminder & Copy List WhatsApp Buttons */}
                     {hasUnsubmitted && (
-                      <button
-                        type="button"
-                        onClick={() => handleCopyUnsubmittedList(selectedTask, status.unsubmittedList)}
-                        className="w-full sm:w-auto text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px]"
-                        title="Salin rekap nama yang belum kirim untuk dibagikan ke WhatsApp grup"
-                      >
-                        <Copy size={13} className="text-slate-500" />
-                        <span>Salin List WA</span>
-                      </button>
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleSendTaskDeadlineEmail(selectedTask, status.unsubmittedList)}
+                          disabled={isSendingDeadlineEmail}
+                          className="flex-1 sm:flex-initial text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px] disabled:opacity-50"
+                          title="Kirim email pengingat tenggat tugas otomatis ke mahasiswa yang belum mengumpulkan"
+                        >
+                          <Mail size={13} className="text-rose-600" />
+                          <span>{isSendingDeadlineEmail ? 'Mengirim...' : 'Kirim Pengingat Email'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyUnsubmittedList(selectedTask, status.unsubmittedList)}
+                          className="flex-1 sm:flex-initial text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px]"
+                          title="Salin rekap nama yang belum kirim untuk dibagikan ke WhatsApp grup"
+                        >
+                          <Copy size={13} className="text-slate-500" />
+                          <span>Salin List WA</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -1422,9 +1505,10 @@ export default function ClassTasks({
                 </div>
               );
             })()}
+            </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between gap-2 pt-3 border-t border-[#F1F5F9]">
+            <div className="flex items-center justify-between gap-2 p-4 sm:p-6 pt-3 border-t border-[#F1F5F9] shrink-0 bg-white">
               {isManager ? (
                 <button
                   type="button"
@@ -1450,18 +1534,19 @@ export default function ClassTasks({
       {/* MODAL 2: CREATE TASK MODAL (Coordinator) */}
       {showCreateModal && (
         <ModalPortal onClose={() => setShowCreateModal(false)} maxWidth="max-w-md">
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-6 pb-3 border-b border-[#F1F5F9] shrink-0">
               <h3 className="font-bold text-base text-[#0F172A]">Tambah Penugasan Baru</h3>
               <button 
                 onClick={() => setShowCreateModal(false)} 
-                className="p-1.5 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Tutup Modal"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="space-y-3.5">
+            <form onSubmit={handleCreateSubmit} className="p-4 sm:p-6 pt-3 space-y-3.5 overflow-y-auto flex-1 custom-scrollbar">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[#334155]">Judul Penugasan</label>
                 <input
@@ -1580,6 +1665,27 @@ export default function ClassTasks({
                 />
               </div>
 
+              {/* Email Broadcast Toggle */}
+              <div className="pt-1 pb-1">
+                <label className="flex items-start gap-2.5 p-3 rounded-xl bg-sky-50 border border-sky-100 cursor-pointer hover:bg-sky-100/60 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={sendEmailNotification}
+                    onChange={(e) => setSendEmailNotification(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded text-sky-600 focus:ring-sky-500 border-gray-300"
+                  />
+                  <div className="flex-1">
+                    <span className="text-xs font-bold text-sky-950 flex items-center gap-1.5">
+                      <Mail size={13} className="text-sky-600" />
+                      Kirim notifikasi email tugas baru ke seluruh anggota kelas
+                    </span>
+                    <span className="text-[11px] text-sky-700 block mt-0.5">
+                      Mahasiswa akan menerima email rincian tugas & tautan langsung untuk mengumpulkan berkas.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#F1F5F9]">
                 <button
                   type="button"
@@ -1620,7 +1726,7 @@ export default function ClassTasks({
         onClose={() => !isCancelingSubmission && setShowCancelSubmissionConfirm(false)}
         onConfirm={handleCancelSubmission}
         title="Hapus & Batalkan Pengumpulan?"
-        message="Berkas pengumpulan kamu akan dipindahkan ke folder Sampah di Google Drive dan status pengumpulan akan dibatalkan. Kamu dapat mengunggah ulang file kapan saja."
+        message="Berkas pengumpulan kamu akan dihapus dan status pengumpulan akan dibatalkan. Kamu dapat mengunggah ulang file kapan saja."
         confirmText="Ya, Hapus & Batalkan"
         cancelText="Batal"
         type="danger"

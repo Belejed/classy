@@ -11,7 +11,6 @@
 [![Vite](https://img.shields.io/badge/Vite_8-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_v3-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
-[![PWA](https://img.shields.io/badge/PWA-Ready-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 
 </div>
 
@@ -21,7 +20,7 @@
 
 **Classy** adalah platform *all-in-one* ruang kolaborasi kelas yang dirancang untuk mempermudah koordinasi perkuliahan sehari-hari antara Komti (Ketua Kelas), Pengajar (Dosen), dan Mahasiswa. 
 
-Dilengkapi dengan sistem keamanan **Waiting Room** untuk verifikasi calon anggota, **Integrasi Google Drive** untuk penyimpanan tugas otomatis, **Notifikasi & Broadcast WhatsApp Grup**, hingga pengalaman **Mobile Native** beranimasi halus serta dukungan penuh **Progressive Web App (PWA)**.
+Dilengkapi dengan sistem keamanan **Waiting Room** untuk verifikasi calon anggota, **Integrasi Google Drive** untuk penyimpanan tugas otomatis, **Notifikasi & Broadcast WhatsApp Grup**, hingga pengalaman **Mobile Native** beranimasi halus.
 
 ---
 
@@ -55,12 +54,7 @@ Dilengkapi dengan sistem keamanan **Waiting Room** untuk verifikasi calon anggot
 - **Tactile Tap Feedback**: Respon sentuhan membal (*spring active bounce*) pada setiap tombol dan kartu menu.
 - **Transisi Antar Tab**: Efek melayang lembut (*smooth page enter transition*) saat berpindah halaman.
 
-### 7. ⚡ Progressive Web App (PWA) & One-Click Install
-- **Instalasi Satu Klik**: Menangkap event native browser untuk memunculkan dialog instalasi Classy di Android, Windows, Mac, dan Linux (Chrome, Edge, Samsung Internet).
-- **Panduan Visual iOS Safari**: Petunjuk langkah demi langkah interaktif bagi pengguna iPhone / iPad untuk *"Tambahkan ke Layar Utama"* (Add to Home Screen).
-- **Pengalaman Native Standalone**: Berjalan dalam mode layar penuh tanpa address bar browser, lengkap dengan caching service worker (`sw.js`) untuk performa instan.
-
-### 8. 📝 Audit Trail & Log Transparansi Kelas
+### 7. 📝 Audit Trail & Log Transparansi Kelas
 - Mencatat setiap aktivitas penting di kelas (pembuatan tugas, pengumuman baru, persetujuan/penolakan anggota, perubahan jadwal) yang dapat dipantau oleh Komti dan Dosen.
 
 ---
@@ -77,7 +71,6 @@ Dilengkapi dengan sistem keamanan **Waiting Room** untuk verifikasi calon anggot
 | **Cloud Storage** | [Google Drive API](https://developers.google.com/drive) | Penyimpanan berkas tugas dan materi kuliah |
 | **Icons** | [Lucide React](https://lucide.dev/) | Kumpulan ikon SVG konsisten dan ringan |
 | **Notifications** | [React Hot Toast](https://react-hot-toast.com/) | Komponen toast notifikasi interaktif |
-| **PWA** | Web App Manifest & Service Worker | Standard Web APIs untuk offline cache & instalasi |
 | **Deployment** | [Vercel](https://vercel.com/) | Edge hosting dengan CI/CD otomatis |
 
 ---
@@ -88,11 +81,8 @@ Dilengkapi dengan sistem keamanan **Waiting Room** untuk verifikasi calon anggot
 journaling/
 ├── public/
 │   ├── favicon.ico
-│   ├── icon-192.png          # Ikon PWA standar & maskable
-│   ├── icon-512.png          # Ikon PWA resolusi tinggi
-│   ├── logo.png              # Logo identitas Classy
-│   ├── manifest.json         # Web App Manifest PWA standar W3C
-│   └── sw.js                 # Service Worker (Cache Strategy & Offline)
+│   ├── favicon.png
+│   └── logo.png              # Logo identitas Classy
 ├── src/
 │   ├── components/
 │   │   ├── Auth.jsx                  # Autentikasi (Login, Register, Reset Sandi)
@@ -107,7 +97,6 @@ journaling/
 │   │   ├── ClassSchedule.jsx         # Jadwal kuliah & update ruangan
 │   │   ├── ClassSidebar.jsx          # Sidebar desktop & Mobile Bottom Sheet
 │   │   ├── ClassTasks.jsx            # Manajemen & pengumpulan tugas
-│   │   ├── PwaInstallPrompt.jsx      # Banner & panduan instalasi PWA
 │   │   └── UserProfileModal.jsx      # Pengaturan profil pengguna
 │   ├── utils/
 │   │   ├── db.js                     # Layanan API database Supabase

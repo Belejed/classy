@@ -62,34 +62,38 @@ export default function UserProfileModal({
 
   return (
     <ModalPortal onClose={onClose} maxWidth="max-w-md">
-      <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white border border-slate-200 text-slate-900 rounded-3xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
         
         {/* Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
-          <h3 className="font-bold text-base text-[#0F172A]">Profile</h3>
-          <button onClick={onClose} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A]">
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <h3 className="font-bold text-base text-slate-900">Profil Pengguna</h3>
+          <button 
+            onClick={onClose} 
+            className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+            title="Tutup"
+          >
             <X size={18} />
           </button>
         </div>
 
         {/* Profile Header Box */}
-        <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0]">
-          <div className="w-14 h-14 rounded-2xl bg-[#0F172A] text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-2xs">
+        <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+          <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-2xs">
             {userInitial}
           </div>
           <div className="min-w-0 flex-1">
-            <h4 className="font-bold text-base text-[#0F172A] truncate">
+            <h4 className="font-bold text-base text-slate-900 truncate">
               {currentUser?.displayName || 'Student'}
             </h4>
-            <p className="text-xs text-[#64748B] truncate">{currentUser?.email}</p>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E2E8F0] text-[#334155] inline-block mt-1">
+            <p className="text-xs text-slate-500 truncate">{currentUser?.email}</p>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 inline-block mt-1">
               {currentClass?.userRole === 'coordinator' ? 'Class Coordinator' : 'Student'}
             </span>
           </div>
         </div>
 
         {/* Contact Information (WhatsApp Number) */}
-        <div className="p-4 rounded-2xl border border-[#E2E8F0] space-y-2.5">
+        <div className="p-4 rounded-2xl border border-slate-200 space-y-2.5">
           <div className="flex items-center justify-between">
             <h4 className="font-bold text-xs uppercase tracking-wider text-[#475569]">
               Contact Information
@@ -241,15 +245,15 @@ export default function UserProfileModal({
         </div>
 
         {/* Account Section: Password & Logout */}
-        <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between">
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
           <button
             onClick={() => {
               onClose();
               navigate('/reset-password');
             }}
-            className="text-xs font-semibold text-[#64748B] hover:text-[#0F172A] cursor-pointer"
+            className="text-xs font-semibold text-slate-500 hover:text-slate-900 cursor-pointer"
           >
-            Change Password
+            Ganti Kata Sandi
           </button>
 
           <button
@@ -257,7 +261,7 @@ export default function UserProfileModal({
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
           >
             <LogOut size={13} />
-            <span>Log out</span>
+            <span>Keluar</span>
           </button>
         </div>
 

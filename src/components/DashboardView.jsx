@@ -113,7 +113,7 @@ export default function DashboardView({
     const newCls = {
       id: 'sch_' + Math.random().toString(36).substr(2, 9),
       subject: newClassSubject.trim(),
-      lecturer: newClassLecturer.trim() || 'Dosen Pengampu',
+      lecturer: newClassLecturer.trim() || 'Dosen Pengajar',
       day: newClassDay,
       startTime: newClassStart,
       endTime: newClassEnd,
@@ -495,7 +495,7 @@ export default function DashboardView({
 
                             {/* Details */}
                             <div className="text-[10px] text-[#6F6A63] space-y-0.5">
-                              <p className="truncate">👤 {cls.lecturer || 'Dosen Pengampu'}</p>
+                              <p className="truncate">👤 {cls.lecturer || 'Dosen Pengajar'}</p>
                               <p className="truncate">📍 {cls.room || 'Lab Kampus'}</p>
                             </div>
 

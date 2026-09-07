@@ -19,8 +19,7 @@ import {
   Shield,
   BookOpen,
   Phone,
-  History,
-  Download
+  History
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -41,6 +40,13 @@ export default function ClassSidebar({
   const [copiedCode, setCopiedCode] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isClosingMobileMenu, setIsClosingMobileMenu] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const touchStartYRef = useRef(0);
+  const touchCurrentYRef = useRef(0);
+  const touchStartTimeRef = useRef(0);
+  const scrollableContentRef = useRef(null);
+  const isDragFromContentRef = useRef(false);
   const switcherRef = useRef(null);
 
   const handleCloseMobileMenu = () => {
@@ -49,7 +55,64 @@ export default function ClassSidebar({
     setTimeout(() => {
       setMobileMenuOpen(false);
       setIsClosingMobileMenu(false);
-    }, 180);
+      setDragOffset(0);
+      setIsDragging(false);
+    }, 200);
+  };
+
+  const handleTouchStart = (e, fromContent = false) => {
+    const touch = e.touches ? e.touches[0] : e;
+    touchStartYRef.current = touch.clientY;
+    touchCurrentYRef.current = touch.clientY;
+    touchStartTimeRef.current = Date.now();
+    isDragFromContentRef.current = fromContent;
+
+    if (fromContent) {
+      if (scrollableContentRef.current && scrollableContentRef.current.scrollTop > 0) {
+        return;
+      }
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (isClosingMobileMenu) return;
+    const touch = e.touches ? e.touches[0] : e;
+    touchCurrentYRef.current = touch.clientY;
+    const deltaY = touch.clientY - touchStartYRef.current;
+
+    if (isDragFromContentRef.current) {
+      if (scrollableContentRef.current && scrollableContentRef.current.scrollTop > 0) {
+        return;
+      }
+      if (deltaY <= 0) {
+        return;
+      }
+    }
+
+    if (deltaY > 0) {
+      setIsDragging(true);
+      setDragOffset(deltaY);
+    } else if (!isDragFromContentRef.current) {
+      setIsDragging(true);
+      setDragOffset(Math.max(-15, deltaY * 0.15));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging && dragOffset === 0) return;
+
+    const deltaY = touchCurrentYRef.current - touchStartYRef.current;
+    const duration = Date.now() - touchStartTimeRef.current;
+    const velocity = deltaY / Math.max(duration, 1);
+
+    setIsDragging(false);
+
+    // Threshold: dragged down > 80px or fling velocity > 0.4px/ms
+    if (deltaY > 80 || (deltaY > 30 && velocity > 0.4)) {
+      handleCloseMobileMenu();
+    } else {
+      setDragOffset(0);
+    }
   };
 
   // Close dropdown on outside click
@@ -118,10 +181,10 @@ export default function ClassSidebar({
               className="w-9 h-9 object-contain shrink-0 transition-transform group-hover:scale-105" 
             />
             <div>
-              <span className="font-bold text-base text-[#0F172A] tracking-tight block leading-none">
+              <span className="font-extrabold text-base text-[#0F172A] dark:text-white tracking-tight block leading-none">
                 Classy
               </span>
-              <span className="text-[10px] text-[#64748B] hover:underline flex items-center gap-1 mt-0.5">
+              <span className="text-[10px] text-[#64748B] dark:text-slate-400 hover:underline flex items-center gap-1 mt-0.5">
                 <Home size={10} /> Lobby Kelas
               </span>
             </div>
@@ -130,7 +193,7 @@ export default function ClassSidebar({
           {/* Close button on mobile */}
           <button 
             onClick={handleCloseMobileMenu}
-            className="md:hidden p-1.5 rounded-xl hover:bg-slate-100 text-slate-500"
+            className="md:hidden p-2 rounded-xl min-w-[40px] min-h-[40px] flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -138,9 +201,9 @@ export default function ClassSidebar({
 
         {/* Current Class Pill / Switcher */}
         <div className="relative" ref={switcherRef}>
-          <div className="p-3 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
+          <div className="p-3 rounded-2xl bg-[#F8FAFC] dark:bg-slate-800/60 border border-[#E2E8F0] dark:border-slate-700/80 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400">
                 Kelas Aktif
               </span>
               <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getRoleBadgeStyle()}`}>
@@ -150,29 +213,29 @@ export default function ClassSidebar({
 
             <button
               onClick={() => setShowSwitcher(!showSwitcher)}
-              className="w-full flex items-center justify-between gap-2 p-1.5 -mx-1.5 rounded-xl hover:bg-white transition-colors text-left"
+              className="w-full flex items-center justify-between gap-2 p-1.5 -mx-1.5 rounded-xl hover:bg-white dark:hover:bg-slate-700 transition-colors text-left"
             >
               <div className="min-w-0">
-                <h3 className="font-bold text-xs text-[#0F172A] truncate">
+                <h3 className="font-bold text-xs text-[#0F172A] dark:text-white truncate">
                   {currentClass?.name || 'Pilih Kelas'}
                 </h3>
-                <p className="text-[10px] text-[#64748B] truncate">
+                <p className="text-[10px] text-[#64748B] dark:text-slate-400 truncate">
                   {currentClass?.classIdentifier || 'TI-3A'} · {currentClass?.lecturer || 'Dosen'}
                 </p>
               </div>
-              <ChevronDown size={14} className={`text-[#64748B] shrink-0 transition-transform ${showSwitcher ? 'rotate-180' : ''}`} />
+              <ChevronDown size={14} className={`text-[#64748B] dark:text-slate-400 shrink-0 transition-transform ${showSwitcher ? 'rotate-180' : ''}`} />
             </button>
 
             {/* Join Code Capsule */}
             {currentClass?.joinCode && (
-              <div className="pt-2 border-t border-[#EDF2F7] flex items-center justify-between text-xs">
-                <span className="text-[10px] font-mono text-[#64748B]">Kode: <strong className="text-[#0F172A] tracking-wider">{currentClass.joinCode}</strong></span>
+              <div className="pt-2 border-t border-[#EDF2F7] dark:border-slate-700 flex items-center justify-between text-xs">
+                <span className="text-[10px] font-mono text-[#64748B] dark:text-slate-400">Kode: <strong className="text-[#0F172A] dark:text-white tracking-wider">{currentClass.joinCode}</strong></span>
                 <button
                   onClick={handleCopyJoinCode}
-                  className="px-2 py-0.5 rounded-lg bg-white border border-[#CBD5E1] text-[10px] font-semibold text-[#475569] hover:text-[#0F172A] hover:bg-slate-50 flex items-center gap-1 transition-colors"
+                  className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-700 border border-[#CBD5E1] dark:border-slate-600 text-[10px] font-semibold text-[#475569] dark:text-slate-200 hover:text-[#0F172A] hover:bg-slate-50 flex items-center gap-1 transition-colors"
                   title="Salin Kode Kelas"
                 >
-                  {copiedCode ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                  {copiedCode ? <Check size={11} className="text-emerald-600 dark:text-emerald-400" /> : <Copy size={11} />}
                   <span>{copiedCode ? 'Disalin' : 'Salin'}</span>
                 </button>
               </div>
@@ -181,9 +244,9 @@ export default function ClassSidebar({
 
           {/* Switcher Dropdown */}
           {showSwitcher && (
-            <div className="absolute left-0 top-full mt-1.5 w-full rounded-2xl bg-white border border-[#E2E8F0] shadow-xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-              <div className="px-2.5 py-1.5 border-b border-[#F1F5F9]">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
+            <div className="absolute left-0 top-full mt-1.5 w-full rounded-2xl bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 shadow-xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+              <div className="px-2.5 py-1.5 border-b border-[#F1F5F9] dark:border-slate-700">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400">
                   Semua Kelas Anda
                 </span>
               </div>
@@ -199,26 +262,26 @@ export default function ClassSidebar({
                         setShowSwitcher(false);
                       }}
                       className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs text-left transition-colors ${
-                        isSelected ? 'bg-[#F1F5F9] text-[#0F172A] font-bold' : 'text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A]'
+                        isSelected ? 'bg-[#F1F5F9] dark:bg-slate-700 text-[#0F172A] dark:text-white font-bold' : 'text-[#475569] dark:text-slate-300 hover:bg-[#F8FAFC] dark:hover:bg-slate-700/60 hover:text-[#0F172A]'
                       }`}
                     >
                       <div className="min-w-0 pr-2">
                         <p className="truncate">{cls.name}</p>
-                        <p className="text-[10px] text-[#94A3B8] font-normal">{cls.classIdentifier}</p>
+                        <p className="text-[10px] text-[#94A3B8] dark:text-slate-400 font-normal">{cls.classIdentifier}</p>
                       </div>
-                      {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#0F172A] shrink-0" />}
+                      {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#0F172A] dark:bg-white shrink-0" />}
                     </button>
                   );
                 })}
               </div>
 
-              <div className="pt-1.5 mt-1 border-t border-[#F1F5F9] space-y-0.5">
+              <div className="pt-1.5 mt-1 border-t border-[#F1F5F9] dark:border-slate-700 space-y-0.5">
                 <button
                   onClick={() => {
                     setShowSwitcher(false);
                     onBackToLobby();
                   }}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#475569] hover:bg-[#F8FAFC] transition-colors"
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#475569] dark:text-slate-300 hover:bg-[#F8FAFC] dark:hover:bg-slate-700 transition-colors"
                 >
                   <Home size={14} className="text-[#94A3B8]" />
                   <span>Class Lobby</span>
@@ -231,7 +294,7 @@ export default function ClassSidebar({
         {/* Vertical Navigation Links */}
         <nav className="space-y-1">
           <div className="px-2 pb-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8] dark:text-slate-400">
               Menu Utama
             </span>
           </div>
@@ -248,31 +311,31 @@ export default function ClassSidebar({
                 }}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   isActive
-                    ? 'bg-[#0F172A] text-white shadow-2xs font-bold'
-                    : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F1F5F9]'
+                    ? 'bg-[#0F172A] dark:bg-indigo-600 text-white shadow-2xs font-bold'
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#F1F5F9] dark:hover:bg-slate-800/60'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon size={16} className={isActive ? 'text-white' : 'text-[#64748B]'} />
+                  <Icon size={16} className={isActive ? 'text-white' : 'text-[#64748B] dark:text-slate-400'} />
                   <span>{tab.label}</span>
                 </div>
                 {tab.id === 'members' && isManager && (
                   <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-bold tracking-wider ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                    isActive ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
                   }`}>
                     Manage
                   </span>
                 )}
                 {tab.id === 'logs' && (
                   <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-bold tracking-wider ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-800'
+                    isActive ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300'
                   }`}>
                     Audit
                   </span>
                 )}
                 {tab.id === 'forum' && (
                   <span className={`text-[9px] px-1.5 py-0.2 rounded-md font-bold uppercase tracking-wider ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800 border border-amber-200'
+                    isActive ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
                   }`}>
                     Maintenance
                   </span>
@@ -284,35 +347,19 @@ export default function ClassSidebar({
       </div>
 
       {/* Bottom Profile & Actions */}
-      <div className="pt-4 border-t border-[#E2E8F0] space-y-2">
-        <button
-          onClick={() => window.dispatchEvent(new CustomEvent('classy:open-pwa-install'))}
-          className="w-full flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-slate-50 to-indigo-50/60 hover:from-slate-100 hover:to-indigo-100/60 transition-colors text-left border border-slate-200 cursor-pointer group"
-          title="Download Classy PWA"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-[#0F172A] text-white flex items-center justify-center text-xs group-hover:scale-105 transition-transform">
-              <Download size={12} />
-            </div>
-            <span className="text-xs font-bold text-[#0F172A]">Download App</span>
-          </div>
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
-            PWA
-          </span>
-        </button>
-
+      <div className="pt-4 border-t border-[#E2E8F0] dark:border-slate-800 space-y-2">
         <button
           onClick={onOpenProfile}
-          className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-[#F8FAFC] transition-colors text-left border border-transparent hover:border-[#E2E8F0]"
+          className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-[#F8FAFC] dark:hover:bg-slate-800/60 transition-colors text-left border border-transparent hover:border-[#E2E8F0] dark:hover:border-slate-700 cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-full bg-[#0F172A] text-white flex items-center justify-center text-xs font-bold shrink-0">
+          <div className="w-8 h-8 rounded-full bg-[#0F172A] dark:bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
             {currentUser?.displayName ? currentUser.displayName[0].toUpperCase() : 'U'}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-[#0F172A] truncate">
+            <p className="text-xs font-bold text-[#0F172A] dark:text-white truncate">
               {currentUser?.displayName || 'User Profile'}
             </p>
-            <p className="text-[10px] text-[#64748B] truncate">
+            <p className="text-[10px] text-[#64748B] dark:text-slate-400 truncate">
               {currentUser?.email}
             </p>
           </div>
@@ -320,7 +367,7 @@ export default function ClassSidebar({
 
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
         >
           <LogOut size={14} />
           <span>Keluar Akun</span>
@@ -332,7 +379,7 @@ export default function ClassSidebar({
   return (
     <>
       {/* Mobile Bottom Navigation Bar (Single Unified Navigation on Mobile) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] shadow-lg px-2 py-1 flex items-center justify-around">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0D111C]/95 backdrop-blur-md border-t border-[#E2E8F0] dark:border-slate-800 shadow-lg px-2 pt-1 pb-[calc(0.45rem+env(safe-area-inset-bottom,0px))] flex items-center justify-around select-none transition-colors">
         {[
           { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
           { id: 'schedule', label: 'Jadwal', icon: Calendar },
@@ -345,17 +392,17 @@ export default function ClassSidebar({
             <button
               key={item.id}
               onClick={() => onSelectTab(item.id)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out ${
-                isActive ? 'text-[#0F172A]' : 'text-[#64748B] hover:text-[#0F172A]'
+              className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out cursor-pointer ${
+                isActive ? 'text-[#0F172A] dark:text-white' : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A]'
               }`}
             >
               <div className={`p-1.5 rounded-xl transition-all duration-200 ${
-                isActive ? 'bg-[#0F172A] text-white shadow-2xs scale-105' : 'bg-transparent'
+                isActive ? 'bg-[#0F172A] dark:bg-indigo-600 text-white shadow-2xs scale-105' : 'bg-transparent'
               }`}>
                 <Icon size={17} />
               </div>
               <span className={`text-[10px] tracking-tight mt-0.5 transition-all ${
-                isActive ? 'font-bold text-[#0F172A]' : 'font-medium text-[#64748B]'
+                isActive ? 'font-bold text-[#0F172A] dark:text-white' : 'font-medium text-[#64748B] dark:text-slate-400'
               }`}>
                 {item.label}
               </span>
@@ -369,7 +416,7 @@ export default function ClassSidebar({
           return (
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out ${
+              className={`flex flex-col items-center justify-center flex-1 min-h-[44px] py-1 rounded-xl transition-all active:scale-90 duration-150 ease-out cursor-pointer ${
                 isOtherTabActive ? 'text-[#0F172A]' : 'text-[#64748B] hover:text-[#0F172A]'
               }`}
             >
@@ -396,45 +443,85 @@ export default function ClassSidebar({
             className={`fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity ${
               isClosingMobileMenu ? 'animate-classy-backdrop-out' : 'animate-classy-backdrop'
             }`} 
+            style={isDragging && dragOffset > 0 ? { opacity: Math.max(0.1, 0.6 * (1 - dragOffset / 350)) } : undefined}
             onClick={handleCloseMobileMenu} 
           />
 
           {/* Bottom Sheet Container */}
-          <div className={`relative w-full bg-white rounded-t-[28px] shadow-2xl z-10 max-h-[85vh] flex flex-col overflow-hidden ${
-            isClosingMobileMenu ? 'animate-bottom-sheet-out' : 'animate-bottom-sheet-in'
-          }`}>
-            {/* Grab Handle */}
-            <div className="pt-3 pb-1 flex justify-center shrink-0">
-              <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
+          <div 
+            className={`relative w-full bg-white dark:bg-[#151D2F] border-t border-slate-200 dark:border-slate-800 rounded-t-[28px] shadow-2xl z-10 max-h-[85vh] flex flex-col overflow-hidden pb-[calc(0.85rem+env(safe-area-inset-bottom,0px))] transition-colors ${
+              isClosingMobileMenu && dragOffset === 0 ? 'animate-bottom-sheet-out' : !isDragging && dragOffset === 0 && !isClosingMobileMenu ? 'animate-bottom-sheet-in' : ''
+            }`}
+            style={{
+              transform: isClosingMobileMenu
+                ? 'translateY(100%)'
+                : dragOffset !== 0
+                ? `translateY(${Math.max(0, dragOffset)}px)`
+                : undefined,
+              transition: isClosingMobileMenu
+                ? 'transform 0.2s cubic-bezier(0.32, 0, 0.67, 0)'
+                : isDragging
+                ? 'none'
+                : dragOffset === 0
+                ? undefined
+                : 'transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)'
+            }}
+          >
+            {/* Grab Handle Header Bar - Touch Drag Target */}
+            <div 
+              className="pt-3 pb-2 flex flex-col items-center justify-center shrink-0 cursor-grab active:cursor-grabbing touch-none select-none"
+              onTouchStart={(e) => handleTouchStart(e, false)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onMouseDown={(e) => handleTouchStart(e, false)}
+              onMouseMove={handleTouchMove}
+              onMouseUp={handleTouchEnd}
+            >
+              <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600 transition-colors" />
             </div>
 
             {/* Sheet Header */}
-            <div className="px-5 py-2.5 flex items-center justify-between border-b border-slate-100 shrink-0">
+            <div 
+              className="px-5 py-2 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 shrink-0 select-none cursor-grab active:cursor-grabbing touch-none"
+              onTouchStart={(e) => handleTouchStart(e, false)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onMouseDown={(e) => handleTouchStart(e, false)}
+              onMouseMove={handleTouchMove}
+              onMouseUp={handleTouchEnd}
+            >
               <div>
-                <h3 className="font-bold text-sm text-[#0F172A]">Menu & Fitur Kelas</h3>
-                <p className="text-[11px] text-[#64748B]">Fitur lainnya di luar taskbar utama</p>
+                <h3 className="font-bold text-sm text-[#0F172A] dark:text-white">Menu & Fitur Kelas</h3>
+                <p className="text-[11px] text-[#64748B] dark:text-slate-400">Fitur lainnya di luar taskbar utama</p>
               </div>
               <button 
                 onClick={handleCloseMobileMenu}
-                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer transition-colors pointer-events-auto"
+                title="Tutup Menu"
               >
                 <X size={18} />
               </button>
             </div>
 
             {/* Scrollable Content */}
-            <div className="p-4 space-y-4 overflow-y-auto">
+            <div 
+              ref={scrollableContentRef}
+              onTouchStart={(e) => handleTouchStart(e, true)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              className="p-4 space-y-4 overflow-y-auto overscroll-contain"
+            >
               {/* Active Class Card */}
-              <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5">
+              <div className="p-3.5 rounded-2xl bg-[#F8FAFC] dark:bg-slate-800/60 border border-[#E2E8F0] dark:border-slate-700 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 pr-2">
                     <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">
                       Kelas Aktif
                     </span>
-                    <h4 className="font-bold text-xs text-[#0F172A] truncate">
+                    <h4 className="font-bold text-xs text-[#0F172A] dark:text-white truncate">
                       {currentClass?.name || 'Classy'}
                     </h4>
-                    <p className="text-[10px] text-[#64748B]">
+                    <p className="text-[10px] text-[#64748B] dark:text-slate-400">
                       {currentClass?.classIdentifier || 'TI-3A'} · {currentClass?.lecturer || 'Dosen'}
                     </p>
                   </div>
@@ -557,7 +644,7 @@ export default function ClassSidebar({
                       <div className="min-w-0">
                         <p className="font-bold text-xs truncate">Kontak Dosen</p>
                         <p className={`text-[10px] truncate ${activeTab === 'contacts' ? 'text-white/80' : 'text-[#64748B]'}`}>
-                          WhatsApp & dosen pengampu
+                          WhatsApp & dosen pengajar
                         </p>
                       </div>
                     </div>
@@ -628,30 +715,6 @@ export default function ClassSidebar({
                       </span>
                     </button>
                   )}
-
-                  {/* 6. Download Aplikasi (PWA) */}
-                  <button
-                    onClick={() => {
-                      handleCloseMobileMenu();
-                      window.dispatchEvent(new CustomEvent('classy:open-pwa-install'));
-                    }}
-                    className="flex items-center justify-between p-3 rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50/80 via-blue-50/60 to-purple-50/40 hover:from-indigo-100 hover:to-blue-100 transition-all text-left cursor-pointer animate-sheet-item-5 active:scale-[0.98]"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                        <Download size={18} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-xs text-[#0F172A] truncate">Download Aplikasi (PWA)</p>
-                        <p className="text-[10px] text-indigo-700/80 truncate">
-                          Pasang di layar HP tanpa browser
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white shrink-0 ml-1 shadow-2xs">
-                      Install
-                    </span>
-                  </button>
                 </div>
               </div>
 
@@ -694,7 +757,7 @@ export default function ClassSidebar({
       )}
 
       {/* Desktop Fixed Left Sidebar (Does not scroll with the main content) */}
-      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-white border-r border-[#E2E8F0] fixed top-0 left-0 bottom-0 z-30 h-screen overflow-y-auto">
+      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-white dark:bg-[#0D111C] border-r border-[#E2E8F0] dark:border-slate-800 fixed top-0 left-0 bottom-0 z-30 h-screen overflow-y-auto transition-colors">
         <NavContent />
       </aside>
       {/* Spacer to keep flex layout width intact on desktop */}
