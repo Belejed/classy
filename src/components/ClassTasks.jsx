@@ -107,6 +107,58 @@ export default function ClassTasks({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [autoRenameEnabled, setAutoRenameEnabled] = useState(true);
   const [managerTab, setManagerTab] = useState('unsubmitted'); // 'unsubmitted' | 'submitted'
+  const [sendEmailNotification, setSendEmailNotification] = useState(true);
+  const [isSendingDeadlineEmail, setIsSendingDeadlineEmail] = useState(false);
+
+  // Send 1-on-1 task deadline reminder email to all unsubmitted students
+  const handleSendTaskDeadlineEmail = async (task, unsubmittedList = []) => {
+    if (!task) return;
+    setIsSendingDeadlineEmail(true);
+    const toastId = toast.loading('Mengirim email pengingat tugas ke mahasiswa...');
+    try {
+      const recipientEmails = unsubmittedList
+        .map(({ member }) => member?.email)
+        .filter(Boolean)
+        .map(e => String(e).trim().toLowerCase());
+
+      if (recipientEmails.length === 0) {
+        toast.info('Semua mahasiswa sudah mengumpulkan tugas ini! 🎉', { id: toastId });
+        return;
+      }
+
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipients: recipientEmails,
+          sendIndividual: true,
+          subject: `[PENGINGAT DEADLINE TUGAS] ${task.course || 'Tugas Kuliah'} - ${task.title}`,
+          type: 'task_deadline',
+          title: task.title,
+          subtitle: `Mata Kuliah: ${task.course || currentClass?.name || 'Classy'}`,
+          message: `Halo! Mengingatkan bahwa batas waktu pengumpulan tugas "${task.title}" adalah ${task.dueDate} pukul ${task.dueTime || '23:59'} WIB. Mohon segera selesaikan dan submit tugas Anda di portal perkuliahan.`,
+          metaRows: [
+            ['Mata Kuliah', task.course || 'Perkuliahan'],
+            ['Judul Tugas', task.title],
+            ['Batas Pengumpulan', `${task.dueDate} pukul ${task.dueTime || '23:59'} WIB`],
+            ['Dosen Pengajar', task.lecturer || '-'],
+            ['Ruang Kelas', currentClass?.name || 'Classy']
+          ]
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok && !data.success) {
+        throw new Error(data.error || 'Gagal mengirim email pengingat');
+      }
+
+      toast.success(`Berhasil mengirim pengingat ke ${recipientEmails.length} mahasiswa!`, { id: toastId });
+    } catch (err) {
+      toast.error(err.message || 'Gagal mengirim email pengingat', { id: toastId });
+    } finally {
+      setIsSendingDeadlineEmail(false);
+    }
+  };
 
   // In-app Delete Confirmation Modal
   const [taskToDelete, setTaskToDelete] = useState(null);
@@ -381,9 +433,14 @@ export default function ClassTasks({
         description: taskDesc.trim(),
         instructions: taskInstructions.trim(),
         submissionRequired: true,
-        attachments: []
+        attachments: [],
+        sendEmailNotification
       });
-      toast.success('Tugas baru berhasil dipublikasikan!');
+      toast.success(
+        sendEmailNotification 
+          ? 'Tugas baru berhasil dipublikasikan & notifikasi email dikirim!' 
+          : 'Tugas baru berhasil dipublikasikan!'
+      );
       setShowCreateModal(false);
       setTaskTitle('');
       setTaskDesc('');
@@ -1263,17 +1320,29 @@ export default function ClassTasks({
                       </button>
                     </div>
 
-                    {/* Copy List WhatsApp Button */}
+                    {/* Send Email Reminder & Copy List WhatsApp Buttons */}
                     {hasUnsubmitted && (
-                      <button
-                        type="button"
-                        onClick={() => handleCopyUnsubmittedList(selectedTask, status.unsubmittedList)}
-                        className="w-full sm:w-auto text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px]"
-                        title="Salin rekap nama yang belum kirim untuk dibagikan ke WhatsApp grup"
-                      >
-                        <Copy size={13} className="text-slate-500" />
-                        <span>Salin List WA</span>
-                      </button>
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleSendTaskDeadlineEmail(selectedTask, status.unsubmittedList)}
+                          disabled={isSendingDeadlineEmail}
+                          className="flex-1 sm:flex-initial text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px] disabled:opacity-50"
+                          title="Kirim email pengingat tenggat tugas otomatis ke mahasiswa yang belum mengumpulkan"
+                        >
+                          <Mail size={13} className="text-rose-600" />
+                          <span>{isSendingDeadlineEmail ? 'Mengirim...' : 'Kirim Pengingat Email'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyUnsubmittedList(selectedTask, status.unsubmittedList)}
+                          className="flex-1 sm:flex-initial text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px]"
+                          title="Salin rekap nama yang belum kirim untuk dibagikan ke WhatsApp grup"
+                        >
+                          <Copy size={13} className="text-slate-500" />
+                          <span>Salin List WA</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -1594,6 +1663,27 @@ export default function ClassTasks({
                   onChange={(e) => setTaskInstructions(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
                 />
+              </div>
+
+              {/* Email Broadcast Toggle */}
+              <div className="pt-1 pb-1">
+                <label className="flex items-start gap-2.5 p-3 rounded-xl bg-sky-50 border border-sky-100 cursor-pointer hover:bg-sky-100/60 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={sendEmailNotification}
+                    onChange={(e) => setSendEmailNotification(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded text-sky-600 focus:ring-sky-500 border-gray-300"
+                  />
+                  <div className="flex-1">
+                    <span className="text-xs font-bold text-sky-950 flex items-center gap-1.5">
+                      <Mail size={13} className="text-sky-600" />
+                      Kirim notifikasi email tugas baru ke seluruh anggota kelas
+                    </span>
+                    <span className="text-[11px] text-sky-700 block mt-0.5">
+                      Mahasiswa akan menerima email rincian tugas & tautan langsung untuk mengumpulkan berkas.
+                    </span>
+                  </div>
+                </label>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#F1F5F9]">

@@ -183,7 +183,7 @@ export default function App() {
   }, [currentClass?.id]);
 
   // Helper to send class notifications via serverless Resend endpoint
-  const sendClassNotificationEmail = async ({ subject, type = 'announcement', title, subtitle, message, metaRows = [], photoUrl = null }) => {
+  const sendClassNotificationEmail = async ({ subject, type = 'announcement', title, subtitle, message, metaRows = [], photoUrl = null, sendIndividual = false }) => {
     try {
       const recipients = (currentClass?.members || [])
         .filter(m => (m.status || 'approved') === 'approved' && m.email)
@@ -194,6 +194,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipients,
+          sendIndividual,
           subject,
           type,
           title,
@@ -283,6 +284,24 @@ export default function App() {
       });
       handleRefreshLogs();
     } catch {}
+
+    // Send email notification if enabled
+    if (item.sendEmailNotification !== false) {
+      sendClassNotificationEmail({
+        subject: `[TUGAS KULIAH BARU: ${item.course || currentClass?.name || 'Classy'}] ${item.title}`,
+        type: 'task_new',
+        title: item.title,
+        subtitle: `Tugas Kuliah Baru - ${item.course || currentClass?.name || 'Classy'}`,
+        message: item.description ? item.description : `Telah ditambahkan penugasan baru untuk mata kuliah ${item.course || '-'}. Harap periksa detail tugas dan instruksi pengumpulan.`,
+        metaRows: [
+          ['Mata Kuliah', item.course || 'Perkuliahan'],
+          ['Judul Tugas', item.title],
+          ['Batas Pengumpulan', `${item.dueDate} pukul ${item.dueTime || '23:59'} WIB`],
+          ['Dosen Pengajar', item.lecturer || '-'],
+          ['Ruang Kelas', currentClass?.name || 'Classy']
+        ]
+      }).catch(err => console.warn('Gagal mengirim notifikasi email tugas baru:', err));
+    }
 
     return created;
   };

@@ -1,4 +1,5 @@
 const RESEND_API_URL = 'https://api.resend.com/emails';
+const RESEND_BATCH_URL = 'https://api.resend.com/emails/batch';
 const DEFAULT_RESEND_KEY = process.env.RESEND_API_KEY || 're_49d3iMFv_QCsHWiJpaJ8GnGtcQ5y2c8NN';
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Classy Academic Hub <notifikasi@classy.exars.my.id>';
 const DEFAULT_CC = process.env.RESEND_CC_EMAIL || 'exars.012@gmail.com';
@@ -8,13 +9,18 @@ const PORTAL_URL = 'https://classy.exars.my.id';
  * Generate standard responsive HTML email template for Classy notifications
  */
 function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], ctaLabel = 'Buka Portal Kelas', ctaUrl = PORTAL_URL, photoUrl = null }) {
-  const badgeColor = type === 'important' || type === 'reminder_1h' ? '#E11D48' : '#4F46E5';
+  const badgeColor = 
+    type === 'important' || type === 'reminder_1h' || type === 'task_deadline' ? '#E11D48' :
+    type === 'task_new' ? '#0284C7' :
+    type === 'reminder_2h' ? '#D97706' : '#4F46E5';
   const badgeText = 
     type === 'announcement' ? 'PENGUMUMAN KELAS' :
     type === 'important' ? 'PENGUMUMAN PENTING' :
     type === 'reminder_2h' ? 'PENGINGAT KELAS (2 JAM LAGI)' :
     type === 'reminder_1h' ? 'PENGINGAT KELAS (1 JAM LAGI)' :
-    type === 'schedule_update' ? 'PERUBAHAN JADWAL KULIAH' : 'NOTIFIKASI AKADEMIK';
+    type === 'schedule_update' ? 'PERUBAHAN JADWAL KULIAH' :
+    type === 'task_new' ? 'TUGAS KULIAH BARU' :
+    type === 'task_deadline' ? 'PENGINGAT DEADLINE TUGAS' : 'NOTIFIKASI AKADEMIK';
 
   const metaHtml = metaRows.length > 0 ? `
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; margin: 20px 0; border-collapse: separate; border-spacing: 0; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
@@ -159,7 +165,8 @@ export default async function handler(req, res) {
       photoUrl,
       attachmentName,
       attachments = [],
-      ccEmails = []
+      ccEmails = [],
+      sendIndividual = false
     } = req.body || {};
 
     if (!subject) {
@@ -193,7 +200,81 @@ export default async function handler(req, res) {
       photoUrl
     });
 
-    // Determine target 'to', 'cc', and 'bcc' list
+    // Process attachments: attach base64 image cleanly if provided
+    const payloadAttachments = Array.isArray(attachments) ? [...attachments] : [];
+    if (photoUrl && photoUrl.startsWith('data:')) {
+      const parts = photoUrl.split(',');
+      if (parts.length > 1) {
+        const mimeMatch = photoUrl.match(/^data:([^;]+);/);
+        const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+        let ext = 'jpg';
+        if (mimeType.includes('png')) ext = 'png';
+        else if (mimeType.includes('pdf')) ext = 'pdf';
+        else if (mimeType.includes('webp')) ext = 'webp';
+
+        payloadAttachments.push({
+          filename: attachmentName || `lampiran_pengumuman.${ext}`,
+          content: parts[1]
+        });
+      }
+    }
+
+    // 1-ON-1 INDIVIDUAL BATCH DISPATCH (If sendIndividual is true)
+    if (sendIndividual && cleanRecipients.length > 0) {
+      const batchPayload = cleanRecipients.map(rEmail => {
+        const item = {
+          from: process.env.RESEND_FROM_EMAIL || DEFAULT_FROM,
+          to: [rEmail],
+          reply_to: DEFAULT_CC,
+          subject: subject,
+          html: finalHtml
+        };
+        if (payloadAttachments.length > 0) item.attachments = payloadAttachments;
+        return item;
+      });
+
+      // Always include coordinator DEFAULT_CC copy if not already in recipients
+      if (!cleanRecipients.includes(DEFAULT_CC)) {
+        const coordItem = {
+          from: process.env.RESEND_FROM_EMAIL || DEFAULT_FROM,
+          to: [DEFAULT_CC],
+          reply_to: DEFAULT_CC,
+          subject: subject,
+          html: finalHtml
+        };
+        if (payloadAttachments.length > 0) coordItem.attachments = payloadAttachments;
+        batchPayload.push(coordItem);
+      }
+
+      const batchResponse = await fetch(RESEND_BATCH_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(batchPayload)
+      });
+
+      const batchData = await batchResponse.json();
+
+      if (!batchResponse.ok) {
+        console.error('Resend Batch API error:', batchData);
+        return res.status(batchResponse.status).json({
+          error: batchData.message || 'Gagal mengirim batch email via Resend',
+          details: batchData
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        mode: 'individual_batch',
+        data: batchData,
+        count: batchPayload.length,
+        recipients: cleanRecipients
+      });
+    }
+
+    // BROADCAST VIA BCC (Default mass broadcast)
     // Best Practice for mass/broadcast email:
     // If multiple recipients (> 1), send with TO = DEFAULT_CC (coordinator/owner) and BCC = all members.
     // This prevents revealing students' private emails to each other, avoids spam filters triggered by bulk 'To',
@@ -230,25 +311,6 @@ export default async function handler(req, res) {
 
     if (targetBcc.length > 0) {
       payload.bcc = targetBcc;
-    }
-
-    // Process attachments: attach base64 image cleanly if provided
-    const payloadAttachments = Array.isArray(attachments) ? [...attachments] : [];
-    if (photoUrl && photoUrl.startsWith('data:')) {
-      const parts = photoUrl.split(',');
-      if (parts.length > 1) {
-        const mimeMatch = photoUrl.match(/^data:([^;]+);/);
-        const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-        let ext = 'jpg';
-        if (mimeType.includes('png')) ext = 'png';
-        else if (mimeType.includes('pdf')) ext = 'pdf';
-        else if (mimeType.includes('webp')) ext = 'webp';
-
-        payloadAttachments.push({
-          filename: attachmentName || `lampiran_pengumuman.${ext}`,
-          content: parts[1]
-        });
-      }
     }
 
     if (payloadAttachments.length > 0) {

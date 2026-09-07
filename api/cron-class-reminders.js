@@ -3,7 +3,117 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://klnemjadmcuetdpulzkf.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_OhvNh6I3jjbj4vLvFNmEWQ_t0GwP5O1';
 const RESEND_API_URL = 'https://api.resend.com/emails';
+const RESEND_BATCH_URL = 'https://api.resend.com/emails/batch';
 const DEFAULT_RESEND_KEY = process.env.RESEND_API_KEY || 're_49d3iMFv_QCsHWiJpaJ8GnGtcQ5y2c8NN';
+
+/**
+ * HTML template for Lecture Reminders (1-on-1 individual email)
+ */
+function buildLectureReminderHtml({ subject, reminderLabel, startTime, endTime, metaRows = [] }) {
+  return `
+    <!DOCTYPE html>
+    <html lang="id">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #F1F5F9; margin: 0; padding: 24px;">
+      <div style="max-width: 560px; margin: 0 auto; background: #FFF; border-radius: 16px; overflow: hidden; border: 1px solid #E2E8F0; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
+        <div style="background: #0F172A; padding: 24px; color: #FFF;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
+            <tr>
+              <td style="width: 48px; vertical-align: middle; padding-right: 14px;">
+                <img src="https://classy.exars.my.id/classy-logo.png" alt="Classy Logo" width="44" height="44" style="width: 44px; height: 44px; border-radius: 12px; display: block; background: #FFF; padding: 2px;" />
+              </td>
+              <td style="vertical-align: middle;">
+                <span style="font-size: 10px; font-weight: bold; background: #E11D48; color: #FFF; padding: 3px 8px; border-radius: 10px; text-transform: uppercase;">PENGINGAT KULIAH (${reminderLabel})</span>
+                <h2 style="margin: 6px 0 0 0; font-size: 18px; font-weight: 700; color: #FFFFFF;">${subject}</h2>
+              </td>
+            </tr>
+          </table>
+          <p style="margin: 10px 0 0 0; font-size: 13px; color: #94A3B8;">Perkuliahan akan dimulai dalam <strong>${reminderLabel}</strong> (${startTime} WIB). Harap segera bersiap!</p>
+        </div>
+        <div style="padding: 24px;">
+          <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+            ${metaRows.map(([k, v]) => `
+              <tr style="border-bottom: 1px solid #F1F5F9;">
+                <td style="padding: 10px 0; color: #64748B; font-weight: bold; width: 35%;">${k}</td>
+                <td style="padding: 10px 0; color: #0F172A; font-weight: 600;">${v}</td>
+              </tr>
+            `).join('')}
+          </table>
+          <div style="text-align: center; margin-top: 24px;">
+            <a href="https://classy.exars.my.id" style="background: #0F172A; color: #FFF; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 13px; display: inline-block;">
+              Buka Portal Kelas →
+            </a>
+          </div>
+        </div>
+        <div style="background-color: #F8FAFC; padding: 14px 24px; border-top: 1px solid #E2E8F0; text-align: center;">
+          <p style="margin: 0; font-size: 11px; color: #64748B;">
+            Email ini dikirimkan secara otomatis oleh sistem <strong>Classy Academic Hub</strong>.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * HTML template for Task Deadline Reminders (1-on-1 individual email)
+ */
+function buildTaskDeadlineHtml({ course, title, deadlineLabel, dueDate, dueTime, instructions, metaRows = [] }) {
+  return `
+    <!DOCTYPE html>
+    <html lang="id">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #F1F5F9; margin: 0; padding: 24px;">
+      <div style="max-width: 560px; margin: 0 auto; background: #FFF; border-radius: 16px; overflow: hidden; border: 1px solid #E2E8F0; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
+        <div style="background: #0F172A; padding: 24px; color: #FFF;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
+            <tr>
+              <td style="width: 48px; vertical-align: middle; padding-right: 14px;">
+                <img src="https://classy.exars.my.id/classy-logo.png" alt="Classy Logo" width="44" height="44" style="width: 44px; height: 44px; border-radius: 12px; display: block; background: #FFF; padding: 2px;" />
+              </td>
+              <td style="vertical-align: middle;">
+                <span style="font-size: 10px; font-weight: bold; background: #E11D48; color: #FFF; padding: 3px 8px; border-radius: 10px; text-transform: uppercase;">DEADLINE TUGAS: ${deadlineLabel}</span>
+                <h2 style="margin: 6px 0 0 0; font-size: 18px; font-weight: 700; color: #FFFFFF;">${title}</h2>
+              </td>
+            </tr>
+          </table>
+          <p style="margin: 10px 0 0 0; font-size: 13px; color: #FCA5A5;">Mata Kuliah: <strong>${course}</strong> · Tenggat: <strong>${dueDate} (${dueTime} WIB)</strong></p>
+        </div>
+        <div style="padding: 24px;">
+          <p style="margin: 0 0 16px 0; font-size: 13px; color: #334155; line-height: 1.6;">
+            Halo! Ini adalah pengingat bahwa batas pengumpulan tugas kuliah di bawah ini segera berakhir. Mohon segera selesaikan dan submit tugas Anda tepat waktu sebelum portal ditutup.
+          </p>
+          <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+            ${metaRows.map(([k, v]) => `
+              <tr style="border-bottom: 1px solid #F1F5F9;">
+                <td style="padding: 10px 0; color: #64748B; font-weight: bold; width: 35%;">${k}</td>
+                <td style="padding: 10px 0; color: #0F172A; font-weight: 600;">${v}</td>
+              </tr>
+            `).join('')}
+          </table>
+          ${instructions ? `
+            <div style="margin: 20px 0; padding: 14px 16px; background-color: #F8FAFC; border-left: 4px solid #E11D48; border-radius: 8px; font-size: 12px; color: #475569; line-height: 1.5;">
+              <strong style="color: #0F172A; display: block; margin-bottom: 4px;">Instruksi Pengerjaan:</strong>
+              ${instructions}
+            </div>
+          ` : ''}
+          <div style="text-align: center; margin-top: 24px;">
+            <a href="https://classy.exars.my.id" style="background: #E11D48; color: #FFF; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 13px; display: inline-block;">
+              Buka & Kumpulkan Tugas Sekarang →
+            </a>
+          </div>
+        </div>
+        <div style="background-color: #F8FAFC; padding: 14px 24px; border-top: 1px solid #E2E8F0; text-align: center;">
+          <p style="margin: 0; font-size: 11px; color: #64748B;">
+            Email pengingat otomatis dari <strong>Classy Academic Hub</strong>
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Classy Academic Hub <notifikasi@classy.exars.my.id>';
 const DEFAULT_CC = process.env.RESEND_CC_EMAIL || 'exars.012@gmail.com';
 const PORTAL_URL = 'https://classy.exars.my.id';
@@ -105,12 +215,9 @@ export default async function handler(req, res) {
       const members = parentClass?.members || [];
       const recipients = members
         .filter(m => (m.status || 'approved') === 'approved' && m.email)
-        .map(m => m.email);
+        .map(m => m.email.trim().toLowerCase());
 
-      const targetTo = [DEFAULT_CC];
-      const targetBcc = recipients.filter(r => r !== DEFAULT_CC);
       const subject = `[Pengingat Kuliah - ${reminderLabel}] ${sch.subject} (${sch.startTime} WIB)`;
-
       const metaRows = [
         ['Mata Kuliah', sch.subject || 'Perkuliahan'],
         ['Dosen Pengajar', sch.lecturer || 'Dosen Pengajar'],
@@ -118,124 +225,225 @@ export default async function handler(req, res) {
         ['Ruang Kuliah', sch.room || 'Ruang Kelas / Online'],
         ['Kelas / Rombel', parentClass?.name || 'Classy']
       ];
+      if (sch.notes) metaRows.push(['Catatan Khusus', sch.notes]);
 
-      if (sch.notes) {
-        metaRows.push(['Catatan Khusus', sch.notes]);
-      }
+      const htmlContent = buildLectureReminderHtml({
+        subject: sch.subject,
+        reminderLabel,
+        startTime: sch.startTime,
+        endTime: sch.endTime,
+        metaRows
+      });
 
-      // Send via direct Resend call with BCC
-      const emailPayload = {
+      // 1-on-1 individual emails for each student
+      const batchItems = recipients.map(studentEmail => ({
         from: DEFAULT_FROM,
-        to: targetTo,
+        to: [studentEmail],
         reply_to: DEFAULT_CC,
         subject: subject,
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <body style="font-family: sans-serif; background: #F1F5F9; padding: 20px;">
-            <div style="max-width: 560px; margin: 0 auto; background: #FFF; border-radius: 16px; overflow: hidden; border: 1px solid #E2E8F0;">
-              <div style="background: #0F172A; padding: 20px; color: #FFF;">
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
-                  <tr>
-                    <td style="width: 44px; vertical-align: middle; padding-right: 12px;">
-                      <img src="${PORTAL_URL}/classy-logo.png" alt="Classy Logo" width="40" height="40" style="width: 40px; height: 40px; border-radius: 10px; display: block; background: #FFF; padding: 2px;" />
-                    </td>
-                    <td style="vertical-align: middle;">
-                      <span style="font-size: 10px; font-weight: bold; background: #E11D48; color: #FFF; padding: 3px 8px; border-radius: 10px;">PENGINGAT KULIAH</span>
-                      <h2 style="margin: 6px 0 0 0; font-size: 18px;">${sch.subject}</h2>
-                    </td>
-                  </tr>
-                </table>
-                <p style="margin: 8px 0 0 0; font-size: 12px; color: #94A3B8;">Kelas akan dimulai dalam <strong>${reminderLabel}</strong> (${sch.startTime} WIB)</p>
-              </div>
-              <div style="padding: 20px;">
-                <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
-                  ${metaRows.map(([k, v]) => `
-                    <tr style="border-bottom: 1px solid #F1F5F9;">
-                      <td style="padding: 8px 0; color: #64748B; font-weight: bold; width: 35%;">${k}</td>
-                      <td style="padding: 8px 0; color: #0F172A; font-weight: 600;">${v}</td>
-                    </tr>
-                  `).join('')}
-                </table>
-                <div style="text-align: center; margin-top: 24px;">
-                  <a href="${PORTAL_URL}" style="background: #0F172A; color: #FFF; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 13px; display: inline-block;">
-                    Buka Portal Kelas →
-                  </a>
-                </div>
-              </div>
-            </div>
-          </body>
-          </html>
-        `
-      };
+        html: htmlContent
+      }));
 
-      if (targetBcc.length > 0) {
-        emailPayload.bcc = targetBcc;
+      // Copy to coordinator
+      if (!recipients.includes(DEFAULT_CC.toLowerCase())) {
+        batchItems.push({
+          from: DEFAULT_FROM,
+          to: [DEFAULT_CC],
+          reply_to: DEFAULT_CC,
+          subject: `[SALINAN KOORDINATOR] ${subject}`,
+          html: htmlContent
+        });
       }
 
-      try {
-        const emailRes = await fetch(RESEND_API_URL, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${DEFAULT_RESEND_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(emailPayload)
+      if (batchItems.length > 0) {
+        try {
+          const emailRes = await fetch(RESEND_BATCH_URL, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${DEFAULT_RESEND_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(batchItems)
+          });
+
+          if (emailRes.ok) {
+            await supabase.from('notes').insert({
+              id: 'cron_' + Math.random().toString(36).substr(2, 9),
+              workspace_id: sch.workspace_id,
+              title: dedupKey,
+              subject: sch.subject,
+              category: 'cron_reminder_log',
+              content: JSON.stringify({
+                scheduleId: sch.id,
+                reminderType,
+                date: dateStr,
+                sentAt: new Date().toISOString(),
+                recipientsCount: batchItems.length
+              }),
+              color: 'slate',
+              pinned: false,
+              favorite: false,
+              updated_at: new Date().toISOString()
+            });
+
+            remindersSent.push({
+              schedule: sch.subject,
+              type: reminderType,
+              time: sch.startTime,
+              recipientsCount: batchItems.length
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to send reminder for ${sch.subject}:`, err);
+        }
+      }
+    }
+
+    // =========================================================================
+    // SECTION B: TASK DEADLINE REMINDERS (1-ON-1 INDIVIDUAL BATCH EMAILS)
+    // =========================================================================
+    const taskRemindersSent = [];
+    const { data: allTasks, error: taskErr } = await supabase.from('tasks').select('*');
+    if (!taskErr && Array.isArray(allTasks)) {
+      const todayDate = new Date(dateStr);
+
+      for (const task of allTasks) {
+        if (!task.due_date) continue;
+
+        // Calculate difference in days (0 = today, 1 = tomorrow)
+        const taskDueDate = new Date(task.due_date);
+        const timeDiff = taskDueDate.getTime() - todayDate.getTime();
+        const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
+
+        let taskReminderLabel = null;
+        let taskReminderType = null;
+
+        if (daysDiff === 0) {
+          taskReminderLabel = 'HARI INI';
+          taskReminderType = 'task_deadline_today';
+        } else if (daysDiff === 1) {
+          taskReminderLabel = 'BESOK (H-1)';
+          taskReminderType = 'task_deadline_1d';
+        }
+
+        if (!taskReminderType) continue;
+
+        const taskDedupKey = `cron_task_rem_${task.id}_${dateStr}_${taskReminderType}`;
+        const { data: existingTaskLog } = await supabase
+          .from('notes')
+          .select('id')
+          .eq('category', 'cron_reminder_log')
+          .eq('title', taskDedupKey)
+          .maybeSingle();
+
+        if (existingTaskLog) continue; // Already sent today
+
+        const parentClass = (workspaces || []).find(w => w.id === task.workspace_id);
+        const members = parentClass?.members || [];
+
+        // Parse meta to find students who already submitted
+        let meta = {};
+        try {
+          if (typeof task.description === 'string' && task.description.trim().startsWith('{')) {
+            meta = JSON.parse(task.description);
+          }
+        } catch {}
+
+        const submissions = Array.isArray(meta.submissions) ? meta.submissions : [];
+        const submittedUserIds = new Set(submissions.map(s => s.userId).filter(Boolean));
+        const submittedEmails = new Set(submissions.map(s => String(s.userEmail || '').trim().toLowerCase()).filter(Boolean));
+
+        // Filter unsubmitted approved students
+        const unsubmittedMembers = members.filter(m => {
+          if ((m.status || 'approved') !== 'approved' || !m.email) return false;
+          const email = m.email.trim().toLowerCase();
+          if (submittedUserIds.has(m.id) || submittedUserIds.has(m.userId)) return false;
+          if (submittedEmails.has(email)) return false;
+          return true;
         });
 
-        let sentOk = emailRes.ok;
-        if (!emailRes.ok) {
-          const errData = await emailRes.json().catch(() => ({}));
-          if (errData.name === 'validation_error' && errData.message?.includes('testing email')) {
-            const match = errData.message.match(/\(([^)]+@.+)\)/);
-            const ownerEmail = match ? match[1] : 'blajed27@gmail.com';
-            const fbRes = await fetch(RESEND_API_URL, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${DEFAULT_RESEND_KEY}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                ...emailPayload,
-                to: [ownerEmail],
-                cc: undefined,
-                subject: `[UJI COBA CLASSY] ${emailPayload.subject}`
-              })
+        const targetEmails = unsubmittedMembers.map(m => m.email.trim().toLowerCase());
+        if (targetEmails.length === 0) continue; // All members already submitted
+
+        const taskSubject = `[PENGINGAT DEADLINE: ${taskReminderLabel}] ${task.subject || 'Tugas'} - ${task.title}`;
+        const taskMetaRows = [
+          ['Mata Kuliah', task.subject || 'Perkuliahan'],
+          ['Judul Tugas', task.title],
+          ['Batas Pengumpulan', `${task.due_date} pukul ${task.due_time || '23:59'} WIB (${taskReminderLabel})`],
+          ['Dosen Pengajar', meta.lecturer || '-'],
+          ['Ruang Kelas', parentClass?.name || 'Classy']
+        ];
+
+        const taskHtml = buildTaskDeadlineHtml({
+          course: task.subject || 'Perkuliahan',
+          title: task.title,
+          deadlineLabel: taskReminderLabel,
+          dueDate: task.due_date,
+          dueTime: task.due_time || '23:59',
+          instructions: meta.instructions || meta.text || '',
+          metaRows: taskMetaRows
+        });
+
+        // 1-on-1 batch items for unsubmitted students
+        const taskBatchItems = targetEmails.map(email => ({
+          from: DEFAULT_FROM,
+          to: [email],
+          reply_to: DEFAULT_CC,
+          subject: taskSubject,
+          html: taskHtml
+        }));
+
+        // Copy to coordinator
+        if (!targetEmails.includes(DEFAULT_CC.toLowerCase())) {
+          taskBatchItems.push({
+            from: DEFAULT_FROM,
+            to: [DEFAULT_CC],
+            reply_to: DEFAULT_CC,
+            subject: `[SALINAN KOORDINATOR] ${taskSubject}`,
+            html: taskHtml
+          });
+        }
+
+        try {
+          const taskBatchRes = await fetch(RESEND_BATCH_URL, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${DEFAULT_RESEND_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(taskBatchItems)
+          });
+
+          if (taskBatchRes.ok) {
+            await supabase.from('notes').insert({
+              id: 'cron_' + Math.random().toString(36).substr(2, 9),
+              workspace_id: task.workspace_id,
+              title: taskDedupKey,
+              subject: task.title,
+              category: 'cron_reminder_log',
+              content: JSON.stringify({
+                taskId: task.id,
+                reminderType: taskReminderType,
+                date: dateStr,
+                sentAt: new Date().toISOString(),
+                unsubmittedCount: targetEmails.length
+              }),
+              color: 'rose',
+              pinned: false,
+              favorite: false,
+              updated_at: new Date().toISOString()
             });
-            sentOk = fbRes.ok;
+
+            taskRemindersSent.push({
+              task: task.title,
+              type: taskReminderType,
+              deadline: `${task.due_date} ${task.due_time || '23:59'}`,
+              unsubmittedCount: targetEmails.length
+            });
           }
+        } catch (err) {
+          console.error(`Failed to send task deadline reminder for ${task.title}:`, err);
         }
-
-        if (sentOk) {
-          // Record deduplication log so it won't send again today
-          await supabase.from('notes').insert({
-            id: 'cron_' + Math.random().toString(36).substr(2, 9),
-            workspace_id: sch.workspace_id,
-            title: dedupKey,
-            subject: sch.subject,
-            category: 'cron_reminder_log',
-            content: JSON.stringify({
-              scheduleId: sch.id,
-              reminderType,
-              date: dateStr,
-              sentAt: new Date().toISOString(),
-              recipientsCount: toList.length
-            }),
-            color: 'slate',
-            pinned: false,
-            favorite: false,
-            updated_at: new Date().toISOString()
-          });
-
-          remindersSent.push({
-            schedule: sch.subject,
-            type: reminderType,
-            time: sch.startTime,
-            recipientsCount: toList.length
-          });
-        }
-      } catch (err) {
-        console.error(`Failed to send reminder for ${sch.subject}:`, err);
       }
     }
 
@@ -243,7 +451,8 @@ export default async function handler(req, res) {
       success: true,
       timestamp: new Date().toISOString(),
       wib: `${dateStr} ${dayName}`,
-      remindersSent
+      remindersSent,
+      taskRemindersSent
     });
 
   } catch (err) {
