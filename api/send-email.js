@@ -215,14 +215,20 @@ export default async function handler(req, res) {
       // If Resend free tier error (e.g. "can only send to your own email address")
       // Retry sending directly to the verified CC email so that the admin/organizer still receives it!
       if (data.name === 'validation_error' && data.message?.includes('testing email')) {
+        const match = data.message.match(/\(([^)]+@.+)\)/);
+        const ownerEmail = match ? match[1] : 'blajed27@gmail.com';
         const fallbackPayload = {
           from: process.env.RESEND_FROM_EMAIL || DEFAULT_FROM,
-          to: [DEFAULT_CC],
-          subject: `[FORWARD TO ALL] ${subject}`,
+          to: [ownerEmail],
+          subject: `[UJI COBA CLASSY] ${subject}`,
           html: `
-            <div style="padding: 10px 15px; margin-bottom: 15px; background-color: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; font-size: 12px; color: #92400E;">
-              <strong>Info Pengiriman Resend (Dev Mode):</strong> Email ini ditujukan untuk ${cleanRecipients.length} anggota kelas: <em>${cleanRecipients.join(', ')}</em>.<br/>
-              Untuk mengirim langsung ke seluruh domain siswa tanpa batasan testing, verifikasikan domain Anda di <a href="https://resend.com/domains">resend.com/domains</a>.
+            <div style="padding: 14px 18px; margin-bottom: 20px; background-color: #FEF3C7; border: 1px solid #F59E0B; border-radius: 12px; font-size: 13px; color: #92400E; line-height: 1.6;">
+              <strong style="font-size: 14px;">⚠️ Info Mode Sandbox Resend:</strong><br/>
+              Email notifikasi ini berhasil dikirim oleh sistem Classy, namun karena akun Resend Anda masih menggunakan domain bawaan pengujian (<code>onboarding@resend.dev</code>), Resend membatasi penerima hanya ke email pemilik akun terdaftar (<strong>${ownerEmail}</strong>).<br/><br/>
+              <strong>Daftar Tujuan Asli:</strong> ${cleanRecipients.length > 0 ? cleanRecipients.join(', ') : '(Tidak ada penerima)'}<br/>
+              <strong>Target CC Asli:</strong> <code>${DEFAULT_CC}</code><br/><br/>
+              💡 <strong>Agar email terkirim langsung ke SEMUA siswa & CC ke ${DEFAULT_CC}:</strong><br/>
+              Verifikasikan domain Anda di <a href="https://resend.com/domains" style="color: #B45309; font-weight: bold; text-decoration: underline;">resend.com/domains</a> (misalnya domain <code>exars.my.id</code>), lalu atur pengirim menggunakan domain tersebut.
             </div>
             ${finalHtml}
           `
@@ -240,10 +246,11 @@ export default async function handler(req, res) {
         const fallbackData = await fallbackRes.json();
         return res.status(200).json({
           success: true,
-          mode: 'resend_sandbox_delivered_to_cc',
-          message: 'Terkirim ke email pengembang/koordinator via sandbox Resend',
+          mode: 'resend_sandbox_delivered_to_owner',
+          message: `Berhasil dikirim ke email pemilik akun (${ownerEmail}) melalui sandbox testing Resend.`,
           data: fallbackData,
-          recipientsCount: cleanRecipients.length
+          recipientsCount: cleanRecipients.length,
+          sandboxNotice: `Untuk dapat mengirim ke semua email siswa dan CC ke ${DEFAULT_CC}, verifikasikan domain Anda di resend.com/domains.`
         });
       }
 

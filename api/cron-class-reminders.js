@@ -169,7 +169,30 @@ export default async function handler(req, res) {
           body: JSON.stringify(emailPayload)
         });
 
-        if (emailRes.ok) {
+        let sentOk = emailRes.ok;
+        if (!emailRes.ok) {
+          const errData = await emailRes.json().catch(() => ({}));
+          if (errData.name === 'validation_error' && errData.message?.includes('testing email')) {
+            const match = errData.message.match(/\(([^)]+@.+)\)/);
+            const ownerEmail = match ? match[1] : 'blajed27@gmail.com';
+            const fbRes = await fetch(RESEND_API_URL, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${DEFAULT_RESEND_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                ...emailPayload,
+                to: [ownerEmail],
+                cc: undefined,
+                subject: `[UJI COBA CLASSY] ${emailPayload.subject}`
+              })
+            });
+            sentOk = fbRes.ok;
+          }
+        }
+
+        if (sentOk) {
           // Record deduplication log so it won't send again today
           await supabase.from('notes').insert({
             id: 'cron_' + Math.random().toString(36).substr(2, 9),
