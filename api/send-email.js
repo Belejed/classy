@@ -36,16 +36,16 @@ function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], 
   const isBase64 = photoUrl && photoUrl.startsWith('data:');
   const photoHtml = photoUrl ? (
     !isBase64 ? `
-      <div style="margin: 20px 0; text-align: center;">
+      <div style="margin: 24px 0; text-align: center;">
         <a href="${photoUrl}" target="_blank" style="text-decoration: none;">
-          <img src="${photoUrl}" alt="Lampiran Pengumuman" style="max-width: 100%; height: auto; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 4px 12px rgba(0,0,0,0.06); display: block; margin: 0 auto;" />
+          <img src="${photoUrl}" alt="Foto Pengumuman" style="max-width: 100%; height: auto; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 4px 16px rgba(0,0,0,0.08); display: block; margin: 0 auto;" />
         </a>
-        <p style="font-size: 11px; color: #94A3B8; margin-top: 6px;">Klik gambar untuk melihat dalam ukuran penuh</p>
+        <p style="font-size: 11px; color: #94A3B8; margin-top: 8px;">Klik gambar untuk memperbesar</p>
       </div>
     ` : `
-      <div style="margin: 20px 0; padding: 14px 18px; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px;">
-        <span style="font-size: 13px; font-weight: bold; color: #0F172A; display: block; margin-bottom: 4px;">📎 Lampiran Dokumen / Foto Terlampir</span>
-        <span style="font-size: 12px; color: #64748B; line-height: 1.5; display: block;">File lampiran telah disertakan langsung sebagai lampiran pada email ini (dapat diunduh di bagian bawah email) atau diakses via portal perkuliahan Classy.</span>
+      <div style="margin: 24px 0; text-align: center;">
+        <img src="cid:announcement-photo" alt="Foto Pengumuman" style="max-width: 100%; height: auto; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 4px 16px rgba(0,0,0,0.08); display: block; margin: 0 auto;" />
+        <p style="font-size: 11px; color: #94A3B8; margin-top: 8px;">Foto lampiran pengumuman</p>
       </div>
     `
   ) : '';
@@ -214,7 +214,8 @@ export default async function handler(req, res) {
 
         payloadAttachments.push({
           filename: attachmentName || `lampiran_pengumuman.${ext}`,
-          content: parts[1]
+          content: parts[1],
+          content_id: 'announcement-photo'
         });
       }
     }
