@@ -10,49 +10,99 @@ const DEFAULT_RESEND_KEY = process.env.RESEND_API_KEY || 're_49d3iMFv_QCsHWiJpaJ
  * HTML template for Lecture Reminders (1-on-1 individual email)
  */
 function buildLectureReminderHtml({ subject, reminderLabel, startTime, endTime, metaRows = [] }) {
+  const isUrgent = reminderLabel && reminderLabel.includes('1');
+  const badgeBg = isUrgent ? '#FFF1F2' : '#FFFBEB';
+  const badgeColor = isUrgent ? '#E11D48' : '#D97706';
+  const badgeBorder = isUrgent ? '#FECDD3' : '#FDE68A';
+
   return `
-    <!DOCTYPE html>
-    <html lang="id">
-    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #F1F5F9; margin: 0; padding: 24px;">
-      <div style="max-width: 560px; margin: 0 auto; background: #FFF; border-radius: 16px; overflow: hidden; border: 1px solid #E2E8F0; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
-        <div style="background: #0F172A; padding: 24px; color: #FFF;">
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
-            <tr>
-              <td style="width: 48px; vertical-align: middle; padding-right: 14px;">
-                <img src="https://classy.exars.my.id/classy-logo.png" alt="Classy Logo" width="44" height="44" style="width: 44px; height: 44px; border-radius: 12px; display: block; background: #FFF; padding: 2px;" />
-              </td>
-              <td style="vertical-align: middle;">
-                <span style="font-size: 10px; font-weight: bold; background: #E11D48; color: #FFF; padding: 3px 8px; border-radius: 10px; text-transform: uppercase;">PENGINGAT KULIAH (${reminderLabel})</span>
-                <h2 style="margin: 6px 0 0 0; font-size: 18px; font-weight: 700; color: #FFFFFF;">${subject}</h2>
-              </td>
-            </tr>
-          </table>
-          <p style="margin: 10px 0 0 0; font-size: 13px; color: #94A3B8;">Perkuliahan akan dimulai dalam <strong>${reminderLabel}</strong> (${startTime} WIB). Harap segera bersiap!</p>
-        </div>
-        <div style="padding: 24px;">
-          <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
-            ${metaRows.map(([k, v]) => `
-              <tr style="border-bottom: 1px solid #F1F5F9;">
-                <td style="padding: 10px 0; color: #64748B; font-weight: bold; width: 35%;">${k}</td>
-                <td style="padding: 10px 0; color: #0F172A; font-weight: 600;">${v}</td>
-              </tr>
-            `).join('')}
-          </table>
-          <div style="text-align: center; margin-top: 24px;">
-            <a href="https://classy.exars.my.id" style="background: #0F172A; color: #FFF; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 13px; display: inline-block;">
-              Buka Portal Kelas →
-            </a>
-          </div>
-        </div>
-        <div style="background-color: #F8FAFC; padding: 14px 24px; border-top: 1px solid #E2E8F0; text-align: center;">
-          <p style="margin: 0; font-size: 11px; color: #64748B;">
-            Email ini dikirimkan secara otomatis oleh sistem <strong>Classy Academic Hub</strong>.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pengingat Kuliah: ${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FDFBF7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0F172A;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; background-color: #FDFBF7; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <!-- Main Card Container -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="max-width: 580px; width: 100%; background-color: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); border: 1px solid #E2E8F0;">
+          
+          <!-- Top Light Header (Matches Classy Web Navbar) -->
+          <tr>
+            <td style="background-color: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 20px 26px;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
+                <tr>
+                  <td style="width: 44px; vertical-align: middle; padding-right: 12px;">
+                    <img src="https://classy.exars.my.id/classy-logo.png" alt="Classy Logo" width="40" height="40" style="width: 40px; height: 40px; border-radius: 10px; display: block; border: 1px solid #E2E8F0;" />
+                  </td>
+                  <td style="vertical-align: middle;">
+                    <div style="font-size: 17px; font-weight: 800; color: #0F172A; letter-spacing: -0.4px; line-height: 1.2;">
+                      Classy
+                      <span style="font-size: 10px; font-weight: 700; color: #64748B; background-color: #F1F5F9; border: 1px solid #E2E8F0; padding: 2px 7px; border-radius: 8px; vertical-align: middle; margin-left: 6px; letter-spacing: 0.5px; text-transform: uppercase;">Portal Kelas</span>
+                    </div>
+                    <div style="font-size: 12px; color: #64748B; font-weight: 600; margin-top: 3px;">
+                      Pengingat Jadwal Kuliah
+                    </div>
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    <span style="background-color: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 5px 11px; border-radius: 20px; letter-spacing: 0.5px; display: inline-block;">
+                      ${reminderLabel ? reminderLabel.toUpperCase() + ' LAGI' : 'JADWAL HARI INI'}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Email Content Body -->
+          <tr>
+            <td style="padding: 28px 28px 24px 28px;">
+              <h2 style="margin: 0 0 10px 0; font-size: 19px; font-weight: 800; color: #0F172A; letter-spacing: -0.3px; line-height: 1.35;">${subject}</h2>
+              
+              <p style="margin: 0 0 18px 0; font-size: 14px; line-height: 1.65; color: #334155;">
+                Halo Rekan Mahasiswa! Perkuliahan mata kuliah di atas dijadwalkan akan dimulai dalam <strong>${reminderLabel}</strong> (${startTime} WIB). Harap segera bersiap dan memasuki ruang kelas / tautan online.
+              </p>
+
+              <!-- Meta Info Box -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; margin: 18px 0; border-collapse: separate; border-spacing: 0; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
+                ${metaRows.map(([k, v], i) => `
+                  <tr style="border-bottom: ${i === metaRows.length - 1 ? 'none' : '1px solid #E2E8F0'};">
+                    <td style="padding: 11px 16px; font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; width: 35%; border-bottom: ${i === metaRows.length - 1 ? 'none' : '1px solid #E2E8F0'}; letter-spacing: 0.5px;">${k}</td>
+                    <td style="padding: 11px 16px; font-size: 13px; font-weight: 600; color: #0F172A; border-bottom: ${i === metaRows.length - 1 ? 'none' : '1px solid #E2E8F0'};">${v}</td>
+                  </tr>
+                `).join('')}
+              </table>
+
+              <!-- Action CTA Button -->
+              <div style="text-align: center; margin: 28px 0 12px 0;">
+                <a href="https://classy.exars.my.id" target="_blank" style="background-color: #0F172A; color: #FFFFFF; font-size: 13px; font-weight: 700; text-decoration: none; padding: 12px 26px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);">
+                  Buka Portal Kelas →
+                </a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #FDFBF7; padding: 18px 28px; border-top: 1px solid #E2E8F0; text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #64748B; line-height: 1.5;">
+                Email pengingat otomatis terjadwal oleh <strong>Classy Academic Hub</strong>.<br/>
+                Salinan otomatis dikirim ke koordinator kelas.
+              </p>
+              <p style="margin: 6px 0 0 0; font-size: 10px; color: #94A3B8;">
+                © ${new Date().getFullYear()} Classy Academic Hub · <a href="https://classy.exars.my.id" style="color: #0F172A; font-weight: 700; text-decoration: underline;">classy.exars.my.id</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
   `;
 }
 
@@ -61,57 +111,100 @@ function buildLectureReminderHtml({ subject, reminderLabel, startTime, endTime, 
  */
 function buildTaskDeadlineHtml({ course, title, deadlineLabel, dueDate, dueTime, instructions, metaRows = [] }) {
   return `
-    <!DOCTYPE html>
-    <html lang="id">
-    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #F1F5F9; margin: 0; padding: 24px;">
-      <div style="max-width: 560px; margin: 0 auto; background: #FFF; border-radius: 16px; overflow: hidden; border: 1px solid #E2E8F0; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
-        <div style="background: #0F172A; padding: 24px; color: #FFF;">
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
-            <tr>
-              <td style="width: 48px; vertical-align: middle; padding-right: 14px;">
-                <img src="https://classy.exars.my.id/classy-logo.png" alt="Classy Logo" width="44" height="44" style="width: 44px; height: 44px; border-radius: 12px; display: block; background: #FFF; padding: 2px;" />
-              </td>
-              <td style="vertical-align: middle;">
-                <span style="font-size: 10px; font-weight: bold; background: #E11D48; color: #FFF; padding: 3px 8px; border-radius: 10px; text-transform: uppercase;">DEADLINE TUGAS: ${deadlineLabel}</span>
-                <h2 style="margin: 6px 0 0 0; font-size: 18px; font-weight: 700; color: #FFFFFF;">${title}</h2>
-              </td>
-            </tr>
-          </table>
-          <p style="margin: 10px 0 0 0; font-size: 13px; color: #FCA5A5;">Mata Kuliah: <strong>${course}</strong> · Tenggat: <strong>${dueDate} (${dueTime} WIB)</strong></p>
-        </div>
-        <div style="padding: 24px;">
-          <p style="margin: 0 0 16px 0; font-size: 13px; color: #334155; line-height: 1.6;">
-            Halo! Ini adalah pengingat bahwa batas pengumpulan tugas kuliah di bawah ini segera berakhir. Mohon segera selesaikan dan submit tugas Anda tepat waktu sebelum portal ditutup.
-          </p>
-          <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
-            ${metaRows.map(([k, v]) => `
-              <tr style="border-bottom: 1px solid #F1F5F9;">
-                <td style="padding: 10px 0; color: #64748B; font-weight: bold; width: 35%;">${k}</td>
-                <td style="padding: 10px 0; color: #0F172A; font-weight: 600;">${v}</td>
-              </tr>
-            `).join('')}
-          </table>
-          ${instructions ? `
-            <div style="margin: 20px 0; padding: 14px 16px; background-color: #F8FAFC; border-left: 4px solid #E11D48; border-radius: 8px; font-size: 12px; color: #475569; line-height: 1.5;">
-              <strong style="color: #0F172A; display: block; margin-bottom: 4px;">Instruksi Pengerjaan:</strong>
-              ${instructions}
-            </div>
-          ` : ''}
-          <div style="text-align: center; margin-top: 24px;">
-            <a href="https://classy.exars.my.id" style="background: #E11D48; color: #FFF; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 13px; display: inline-block;">
-              Buka & Kumpulkan Tugas Sekarang →
-            </a>
-          </div>
-        </div>
-        <div style="background-color: #F8FAFC; padding: 14px 24px; border-top: 1px solid #E2E8F0; text-align: center;">
-          <p style="margin: 0; font-size: 11px; color: #64748B;">
-            Email pengingat otomatis dari <strong>Classy Academic Hub</strong>
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pengingat Deadline: ${title}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FDFBF7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0F172A;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; background-color: #FDFBF7; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <!-- Main Card Container -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="max-width: 580px; width: 100%; background-color: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); border: 1px solid #E2E8F0;">
+          
+          <!-- Top Light Header (Matches Classy Web Navbar) -->
+          <tr>
+            <td style="background-color: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 20px 26px;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
+                <tr>
+                  <td style="width: 44px; vertical-align: middle; padding-right: 12px;">
+                    <img src="https://classy.exars.my.id/classy-logo.png" alt="Classy Logo" width="40" height="40" style="width: 40px; height: 40px; border-radius: 10px; display: block; border: 1px solid #E2E8F0;" />
+                  </td>
+                  <td style="vertical-align: middle;">
+                    <div style="font-size: 17px; font-weight: 800; color: #0F172A; letter-spacing: -0.4px; line-height: 1.2;">
+                      Classy
+                      <span style="font-size: 10px; font-weight: 700; color: #64748B; background-color: #F1F5F9; border: 1px solid #E2E8F0; padding: 2px 7px; border-radius: 8px; vertical-align: middle; margin-left: 6px; letter-spacing: 0.5px; text-transform: uppercase;">Portal Kelas</span>
+                    </div>
+                    <div style="font-size: 12px; color: #64748B; font-weight: 600; margin-top: 3px;">
+                      Pengingat Deadline Tugas
+                    </div>
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    <span style="background-color: #FFF1F2; color: #E11D48; border: 1px solid #FECDD3; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 5px 11px; border-radius: 20px; letter-spacing: 0.5px; display: inline-block;">
+                      ${deadlineLabel ? deadlineLabel.toUpperCase() : 'DEADLINE DEKAT'}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Email Content Body -->
+          <tr>
+            <td style="padding: 28px 28px 24px 28px;">
+              <h2 style="margin: 0 0 10px 0; font-size: 19px; font-weight: 800; color: #0F172A; letter-spacing: -0.3px; line-height: 1.35;">${title}</h2>
+              
+              <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.65; color: #334155;">
+                Halo! Ini adalah pengingat bahwa batas pengumpulan tugas untuk mata kuliah <strong>${course}</strong> segera berakhir (${dueDate}, pukul ${dueTime} WIB). Harap segera selesaikan dan submit sebelum waktu berakhir.
+              </p>
+
+              <!-- Meta Info Box -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; margin: 18px 0; border-collapse: separate; border-spacing: 0; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
+                ${metaRows.map(([k, v], i) => `
+                  <tr style="border-bottom: ${i === metaRows.length - 1 ? 'none' : '1px solid #E2E8F0'};">
+                    <td style="padding: 11px 16px; font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; width: 35%; border-bottom: ${i === metaRows.length - 1 ? 'none' : '1px solid #E2E8F0'}; letter-spacing: 0.5px;">${k}</td>
+                    <td style="padding: 11px 16px; font-size: 13px; font-weight: 600; color: #0F172A; border-bottom: ${i === metaRows.length - 1 ? 'none' : '1px solid #E2E8F0'};">${v}</td>
+                  </tr>
+                `).join('')}
+              </table>
+
+              ${instructions ? `
+                <div style="margin: 20px 0; padding: 14px 16px; background-color: #FFF1F2; border-left: 4px solid #E11D48; border-radius: 8px; font-size: 13px; color: #475569; line-height: 1.6;">
+                  <strong style="color: #9F1239; display: block; margin-bottom: 4px;">Instruksi Pengerjaan:</strong>
+                  ${instructions}
+                </div>
+              ` : ''}
+
+              <!-- Action CTA Button -->
+              <div style="text-align: center; margin: 28px 0 12px 0;">
+                <a href="https://classy.exars.my.id" target="_blank" style="background-color: #E11D48; color: #FFFFFF; font-size: 13px; font-weight: 700; text-decoration: none; padding: 12px 26px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);">
+                  Buka & Kumpulkan Tugas Sekarang →
+                </a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #FDFBF7; padding: 18px 28px; border-top: 1px solid #E2E8F0; text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #64748B; line-height: 1.5;">
+                Email pengingat tugas otomatis dari <strong>Classy Academic Hub</strong>.<br/>
+                Salinan otomatis dikirim ke koordinator kelas.
+              </p>
+              <p style="margin: 6px 0 0 0; font-size: 10px; color: #94A3B8;">
+                © ${new Date().getFullYear()} Classy Academic Hub · <a href="https://classy.exars.my.id" style="color: #0F172A; font-weight: 700; text-decoration: underline;">classy.exars.my.id</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
   `;
 }
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Classy Academic Hub <notifikasi@classy.exars.my.id>';

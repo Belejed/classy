@@ -9,10 +9,15 @@ const PORTAL_URL = 'https://classy.exars.my.id';
  * Generate standard responsive HTML email template for Classy notifications
  */
 function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], ctaLabel = 'Buka Portal Kelas', ctaUrl = PORTAL_URL, photoUrl = null }) {
-  const badgeColor = 
-    type === 'important' || type === 'reminder_1h' || type === 'task_deadline' ? '#E11D48' :
-    type === 'task_new' ? '#0284C7' :
-    type === 'reminder_2h' ? '#D97706' : '#4F46E5';
+  const badgeStyle = 
+    type === 'important' || type === 'reminder_1h' || type === 'task_deadline' 
+      ? { bg: '#FFF1F2', color: '#E11D48', border: '#FECDD3' } :
+    type === 'task_new' 
+      ? { bg: '#F0F9FF', color: '#0284C7', border: '#BAE6FD' } :
+    type === 'reminder_2h' 
+      ? { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' } :
+      { bg: '#F8FAFC', color: '#334155', border: '#CBD5E1' };
+
   const badgeText = 
     type === 'announcement' ? 'PENGUMUMAN KELAS' :
     type === 'important' ? 'PENGUMUMAN PENTING' :
@@ -26,8 +31,8 @@ function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], 
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; margin: 20px 0; border-collapse: separate; border-spacing: 0; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
       ${metaRows.map(([k, v], i) => `
         <tr style="border-bottom: ${i === metaRows.length - 1 ? 'none' : '1px solid #E2E8F0'};">
-          <td style="padding: 10px 14px; font-size: 11px; font-weight: bold; color: #64748B; text-transform: uppercase; width: 35%; border-bottom: ${i === metaRows.length - 1 ? 'none' : '1px solid #E2E8F0'};">${k}</td>
-          <td style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #0F172A; border-bottom: ${i === metaRows.length - 1 ? 'none' : '1px solid #E2E8F0'};">${v}</td>
+          <td style="padding: 11px 16px; font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; width: 35%; border-bottom: ${i === metaRows.length - 1 ? 'none' : '1px solid #E2E8F0'}; letter-spacing: 0.5px;">${k}</td>
+          <td style="padding: 11px 16px; font-size: 13px; font-weight: 600; color: #0F172A; border-bottom: ${i === metaRows.length - 1 ? 'none' : '1px solid #E2E8F0'};">${v}</td>
         </tr>
       `).join('')}
     </table>
@@ -36,15 +41,15 @@ function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], 
   const isBase64 = photoUrl && photoUrl.startsWith('data:');
   const photoHtml = photoUrl ? (
     !isBase64 ? `
-      <div style="margin: 24px 0; text-align: center;">
+      <div style="margin: 22px 0; text-align: center;">
         <a href="${photoUrl}" target="_blank" style="text-decoration: none;">
-          <img src="${photoUrl}" alt="Foto Pengumuman" style="max-width: 100%; height: auto; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 4px 16px rgba(0,0,0,0.08); display: block; margin: 0 auto;" />
+          <img src="${photoUrl}" alt="Foto Pengumuman" style="max-width: 100%; height: auto; border-radius: 14px; border: 1px solid #E2E8F0; box-shadow: 0 4px 16px rgba(0,0,0,0.06); display: block; margin: 0 auto;" />
         </a>
         <p style="font-size: 11px; color: #94A3B8; margin-top: 8px;">Klik gambar untuk memperbesar</p>
       </div>
     ` : `
-      <div style="margin: 24px 0; text-align: center;">
-        <img src="cid:announcement-photo" alt="Foto Pengumuman" style="max-width: 100%; height: auto; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 4px 16px rgba(0,0,0,0.08); display: block; margin: 0 auto;" />
+      <div style="margin: 22px 0; text-align: center;">
+        <img src="cid:announcement-photo" alt="Foto Pengumuman" style="max-width: 100%; height: auto; border-radius: 14px; border: 1px solid #E2E8F0; box-shadow: 0 4px 16px rgba(0,0,0,0.06); display: block; margin: 0 auto;" />
         <p style="font-size: 11px; color: #94A3B8; margin-top: 8px;">Foto lampiran pengumuman</p>
       </div>
     `
@@ -58,26 +63,34 @@ function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #F1F5F9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0F172A;">
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; background-color: #F1F5F9; padding: 30px 15px;">
+<body style="margin: 0; padding: 0; background-color: #FDFBF7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0F172A;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; background-color: #FDFBF7; padding: 32px 16px;">
     <tr>
       <td align="center">
-        <!-- Main Card Container -->
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="max-width: 580px; width: 100%; background-color: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01); border: 1px solid #E2E8F0;">
-          <!-- Top Accent Banner with Classy Logo -->
+        <!-- Main Card Container (Classy Light Theme) -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="max-width: 580px; width: 100%; background-color: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); border: 1px solid #E2E8F0;">
+          
+          <!-- Top Light Header (Matches Classy Web Navbar) -->
           <tr>
-            <td style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 22px 26px; text-align: left;">
+            <td style="background-color: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 20px 26px;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
                 <tr>
-                  <td style="width: 48px; vertical-align: middle; padding-right: 14px;">
-                    <img src="${PORTAL_URL}/classy-logo.png" alt="Classy Logo" width="44" height="44" style="width: 44px; height: 44px; border-radius: 12px; display: block; background-color: #FFFFFF; padding: 2px;" />
+                  <td style="width: 44px; vertical-align: middle; padding-right: 12px;">
+                    <img src="${PORTAL_URL}/classy-logo.png" alt="Classy Logo" width="40" height="40" style="width: 40px; height: 40px; border-radius: 10px; display: block; border: 1px solid #E2E8F0;" />
                   </td>
                   <td style="vertical-align: middle;">
-                    <span style="font-size: 10px; font-weight: 800; color: #94A3B8; letter-spacing: 1.5px; text-transform: uppercase; display: block; margin-bottom: 2px;">Classy Academic Hub</span>
-                    <h1 style="margin: 0; font-size: 19px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px;">${subtitle || 'Notifikasi Ruang Kelas'}</h1>
+                    <div style="font-size: 17px; font-weight: 800; color: #0F172A; letter-spacing: -0.4px; line-height: 1.2;">
+                      Classy
+                      <span style="font-size: 10px; font-weight: 700; color: #64748B; background-color: #F1F5F9; border: 1px solid #E2E8F0; padding: 2px 7px; border-radius: 8px; vertical-align: middle; margin-left: 6px; letter-spacing: 0.5px; text-transform: uppercase;">Portal Kelas</span>
+                    </div>
+                    <div style="font-size: 12px; color: #64748B; font-weight: 600; margin-top: 3px;">
+                      ${subtitle || 'Notifikasi Akademik'}
+                    </div>
                   </td>
                   <td align="right" style="vertical-align: middle;">
-                    <span style="background-color: ${badgeColor}; color: #FFFFFF; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.5px; display: inline-block;">${badgeText}</span>
+                    <span style="background-color: ${badgeStyle.bg}; color: ${badgeStyle.color}; border: 1px solid ${badgeStyle.border}; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 5px 11px; border-radius: 20px; letter-spacing: 0.5px; display: inline-block;">
+                      ${badgeText}
+                    </span>
                   </td>
                 </tr>
               </table>
@@ -87,33 +100,33 @@ function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], 
           <!-- Email Content Body -->
           <tr>
             <td style="padding: 28px 28px 24px 28px;">
-              <h2 style="margin: 0 0 14px 0; font-size: 18px; font-weight: 700; color: #0F172A; line-height: 1.35;">${title}</h2>
+              <h2 style="margin: 0 0 14px 0; font-size: 19px; font-weight: 800; color: #0F172A; letter-spacing: -0.3px; line-height: 1.35;">${title}</h2>
               
-              <div style="font-size: 14px; line-height: 1.65; color: #334155; margin-bottom: 18px;">
+              <div style="font-size: 14px; line-height: 1.65; color: #334155; margin-bottom: 20px;">
                 ${contentHtml}
               </div>
 
               ${photoHtml}
               ${metaHtml}
 
-              <!-- Action CTA Button -->
+              <!-- Action CTA Button (Web Primary Button Style) -->
               <div style="text-align: center; margin: 28px 0 12px 0;">
-                <a href="${ctaUrl}" target="_blank" style="background-color: #0F172A; color: #FFFFFF; font-size: 13px; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2);">
+                <a href="${ctaUrl}" target="_blank" style="background-color: #0F172A; color: #FFFFFF; font-size: 13px; font-weight: 700; text-decoration: none; padding: 12px 26px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);">
                   ${ctaLabel} →
                 </a>
               </div>
             </td>
           </tr>
 
-          <!-- Footer -->
+          <!-- Footer (Warm Cream Accent) -->
           <tr>
-            <td style="background-color: #F8FAFC; padding: 18px 28px; border-top: 1px solid #E2E8F0; text-align: center;">
+            <td style="background-color: #FDFBF7; padding: 18px 28px; border-top: 1px solid #E2E8F0; text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #64748B; line-height: 1.5;">
                 Email otomatis dikirimkan oleh sistem portal perkuliahan <strong>Classy</strong>.<br/>
                 Salinan terkirim ke koordinator: <code>${DEFAULT_CC}</code>
               </p>
               <p style="margin: 6px 0 0 0; font-size: 10px; color: #94A3B8;">
-                © ${new Date().getFullYear()} Classy Academic Hub · <a href="${PORTAL_URL}" style="color: #64748B; text-decoration: underline;">classy.exars.my.id</a>
+                © ${new Date().getFullYear()} Classy Academic Hub · <a href="${PORTAL_URL}" style="color: #0F172A; font-weight: 700; text-decoration: underline;">classy.exars.my.id</a>
               </p>
             </td>
           </tr>
