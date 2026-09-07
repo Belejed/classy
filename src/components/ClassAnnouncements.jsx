@@ -47,6 +47,7 @@ export default function ClassAnnouncements({
   const [photoPreview, setPhotoPreview] = useState(null);
   const [sendEmailNotification, setSendEmailNotification] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const fileInputRef = useRef(null);
 
   // Escape listener for fullscreen photo lightbox
@@ -119,6 +120,55 @@ export default function ClassAnnouncements({
       }
     } catch {
       window.open(photoUrl, '_blank');
+    }
+  };
+
+  const handleSendEmailBroadcast = async (announcement) => {
+    if (!announcement) return;
+    setIsSendingEmail(true);
+    const toastId = toast.loading('Mengirim email notifikasi via Resend...');
+    try {
+      const recipients = (currentClass?.members || [])
+        .filter(m => (m.status || 'approved') === 'approved' && m.email)
+        .map(m => m.email);
+
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipients,
+          subject: `[${announcement.type.toUpperCase()}] ${announcement.title} - ${currentClass?.name || 'Classy'}`,
+          type: announcement.type,
+          title: announcement.title,
+          subtitle: `Pengumuman Kelas ${currentClass?.name || 'Classy'}`,
+          message: announcement.message,
+          photoUrl: announcement.attachment?.url || announcement.attachment?.previewUrl || null,
+          metaRows: [
+            ['Kategori', announcement.type.toUpperCase()],
+            ['Pengirim', announcement.author || 'Koordinator Kelas'],
+            ['Ruang Kelas', currentClass?.name || 'Classy'],
+            ['Waktu', new Date(announcement.createdAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WIB']
+          ]
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok && !data.success) {
+        throw new Error(data.error || 'Gagal mengirim email');
+      }
+
+      if (data.mode === 'resend_sandbox_delivered_to_owner') {
+        toast.success(
+          'Email uji coba berhasil dikirim ke blajed27@gmail.com! Silakan cek inbox Gmail Anda.',
+          { id: toastId, duration: 6000 }
+        );
+      } else {
+        toast.success('Email notifikasi berhasil disiarkan ke seluruh anggota kelas!', { id: toastId });
+      }
+    } catch (err) {
+      toast.error(err.message || 'Gagal mengirim email notifikasi', { id: toastId });
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -491,26 +541,17 @@ export default function ClassAnnouncements({
                   <span>Kirim ke WA</span>
                 </a>
 
-                {/* Email broadcast button */}
-                {(() => {
-                  const emails = (currentClass?.members || [])
-                    .filter(m => m && (m.status || 'approved') === 'approved' && m.email)
-                    .map(m => m.email)
-                    .join(',');
-                  if (!emails) return null;
-                  const mailSub = `[PENGUMUMAN KELAS: ${currentClass?.name || 'Classy'}] ${selectedAnnouncement.title}`;
-                  const mailBody = `${selectedAnnouncement.message}\n\nDipublikasikan oleh: ${selectedAnnouncement.author}\nPortal Kelas: ${typeof window !== 'undefined' ? window.location.origin : ''}`;
-                  return (
-                    <a
-                      href={`mailto:?bcc=${encodeURIComponent(emails)}&subject=${encodeURIComponent(mailSub)}&body=${encodeURIComponent(mailBody)}`}
-                      className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                      title="Kirim email ke seluruh anggota kelas (BCC)"
-                    >
-                      <Mail size={13} />
-                      <span>Email Anggota</span>
-                    </a>
-                  );
-                })()}
+                {/* Direct Server Email Broadcast Button */}
+                <button
+                  type="button"
+                  onClick={() => handleSendEmailBroadcast(selectedAnnouncement)}
+                  disabled={isSendingEmail}
+                  className="px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100 text-indigo-900 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+                  title="Kirim / Tes notifikasi email otomatis via Resend"
+                >
+                  <Mail size={13} className="text-indigo-600" />
+                  <span>{isSendingEmail ? 'Mengirim...' : 'Tes / Kirim Email'}</span>
+                </button>
 
                 {isManager && (
                   <button
