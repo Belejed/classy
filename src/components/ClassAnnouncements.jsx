@@ -143,6 +143,7 @@ export default function ClassAnnouncements({
           subtitle: `Pengumuman Kelas ${currentClass?.name || 'Classy'}`,
           message: announcement.message,
           photoUrl: announcement.attachment?.url || announcement.attachment?.previewUrl || null,
+          attachmentName: announcement.attachment?.name || 'lampiran_pengumuman.jpg',
           metaRows: [
             ['Kategori', announcement.type.toUpperCase()],
             ['Pengirim', announcement.author || 'Koordinator Kelas'],
@@ -241,6 +242,7 @@ export default function ClassAnnouncements({
               subtitle: `Pengumuman Kelas ${currentClass?.name || 'Classy'}`,
               message: message.trim(),
               photoUrl: attachment?.url || null,
+              attachmentName: attachment?.name || 'lampiran_pengumuman.jpg',
               metaRows: [
                 ['Kategori', type.toUpperCase()],
                 ['Pengirim', currentUser?.displayName || 'Koordinator Kelas'],

@@ -27,14 +27,22 @@ function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], 
     </table>
   ` : '';
 
-  const photoHtml = photoUrl ? `
-    <div style="margin: 20px 0; text-align: center;">
-      <a href="${photoUrl}" target="_blank" style="text-decoration: none;">
-        <img src="${photoUrl}" alt="Lampiran Pengumuman" style="max-width: 100%; height: auto; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 4px 12px rgba(0,0,0,0.06); display: block; margin: 0 auto;" />
-      </a>
-      <p style="font-size: 11px; color: #94A3B8; margin-top: 6px;">Klik gambar untuk melihat dalam ukuran penuh</p>
-    </div>
-  ` : '';
+  const isBase64 = photoUrl && photoUrl.startsWith('data:');
+  const photoHtml = photoUrl ? (
+    !isBase64 ? `
+      <div style="margin: 20px 0; text-align: center;">
+        <a href="${photoUrl}" target="_blank" style="text-decoration: none;">
+          <img src="${photoUrl}" alt="Lampiran Pengumuman" style="max-width: 100%; height: auto; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 4px 12px rgba(0,0,0,0.06); display: block; margin: 0 auto;" />
+        </a>
+        <p style="font-size: 11px; color: #94A3B8; margin-top: 6px;">Klik gambar untuk melihat dalam ukuran penuh</p>
+      </div>
+    ` : `
+      <div style="margin: 20px 0; padding: 14px 18px; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px;">
+        <span style="font-size: 13px; font-weight: bold; color: #0F172A; display: block; margin-bottom: 4px;">📎 Lampiran Dokumen / Foto Terlampir</span>
+        <span style="font-size: 12px; color: #64748B; line-height: 1.5; display: block;">File lampiran telah disertakan langsung sebagai lampiran pada email ini (dapat diunduh di bagian bawah email) atau diakses via portal perkuliahan Classy.</span>
+      </div>
+    `
+  ) : '';
 
   return `
 <!DOCTYPE html>
@@ -146,6 +154,8 @@ export default async function handler(req, res) {
       ctaLabel,
       ctaUrl,
       photoUrl,
+      attachmentName,
+      attachments = [],
       ccEmails = []
     } = req.body || {};
 
@@ -181,8 +191,6 @@ export default async function handler(req, res) {
     });
 
     // Determine target 'to' list
-    // In Resend free tier on onboarding@resend.dev, sending to arbitrary emails may be restricted
-    // unless domain is verified. If recipients array is empty, send to DEFAULT_CC.
     const toList = cleanRecipients.length > 0 ? cleanRecipients : [DEFAULT_CC];
 
     // Remove DEFAULT_CC from CC if it's already the primary TO
@@ -197,6 +205,29 @@ export default async function handler(req, res) {
 
     if (filteredCc.length > 0) {
       payload.cc = filteredCc;
+    }
+
+    // Process attachments: attach base64 image cleanly if provided
+    const payloadAttachments = Array.isArray(attachments) ? [...attachments] : [];
+    if (photoUrl && photoUrl.startsWith('data:')) {
+      const parts = photoUrl.split(',');
+      if (parts.length > 1) {
+        const mimeMatch = photoUrl.match(/^data:([^;]+);/);
+        const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+        let ext = 'jpg';
+        if (mimeType.includes('png')) ext = 'png';
+        else if (mimeType.includes('pdf')) ext = 'pdf';
+        else if (mimeType.includes('webp')) ext = 'webp';
+
+        payloadAttachments.push({
+          filename: attachmentName || `lampiran_pengumuman.${ext}`,
+          content: parts[1]
+        });
+      }
+    }
+
+    if (payloadAttachments.length > 0) {
+      payload.attachments = payloadAttachments;
     }
 
     // Call Resend API
