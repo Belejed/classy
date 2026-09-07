@@ -183,7 +183,7 @@ export default function App() {
   }, [currentClass?.id]);
 
   // Helper to send class notifications via serverless Resend endpoint
-  const sendClassNotificationEmail = async ({ subject, type = 'announcement', title, subtitle, message, metaRows = [], photoUrl = null, sendIndividual = false }) => {
+  const sendClassNotificationEmail = async ({ subject, type = 'announcement', title, subtitle, message, metaRows = [], photoUrl = null, sendIndividual = true }) => {
     try {
       const recipients = (currentClass?.members || [])
         .filter(m => (m.status || 'approved') === 'approved' && m.email)

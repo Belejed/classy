@@ -166,7 +166,7 @@ export default async function handler(req, res) {
       attachmentName,
       attachments = [],
       ccEmails = [],
-      sendIndividual = false
+      sendIndividual = true
     } = req.body || {};
 
     if (!subject) {

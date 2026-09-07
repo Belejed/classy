@@ -137,6 +137,7 @@ export default function ClassAnnouncements({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipients,
+          sendIndividual: true,
           subject: `[${announcement.type.toUpperCase()}] ${announcement.title} - ${currentClass?.name || 'Classy'}`,
           type: announcement.type,
           title: announcement.title,
@@ -164,7 +165,7 @@ export default function ClassAnnouncements({
           { id: toastId, duration: 6000 }
         );
       } else {
-        toast.success('Email notifikasi berhasil disiarkan ke seluruh anggota kelas!', { id: toastId });
+        toast.success('Email notifikasi berhasil disiarkan secara personal (batch) ke seluruh anggota kelas!', { id: toastId });
       }
     } catch (err) {
       toast.error(err.message || 'Gagal mengirim email notifikasi', { id: toastId });
@@ -236,6 +237,7 @@ export default function ClassAnnouncements({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               recipients: memberEmails,
+              sendIndividual: true,
               subject: `[PENGUMUMAN KELAS: ${currentClass?.name || 'Classy'}] ${title.trim()}`,
               type: type === 'important' ? 'important' : 'announcement',
               title: title.trim(),
