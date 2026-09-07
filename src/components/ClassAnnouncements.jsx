@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Megaphone, 
   Plus, 
@@ -86,6 +87,39 @@ export default function ClassAnnouncements({
     setSelectedPhoto(null);
     setPhotoPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleOpenPhotoInNewTab = (photoUrl) => {
+    if (!photoUrl) return;
+    if (photoUrl.startsWith('http')) {
+      window.open(photoUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    try {
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Lampiran Pengumuman</title>
+              <style>
+                body { margin: 0; padding: 24px; background-color: #0f172a; display: flex; align-items: center; justify-content: center; min-height: 100vh; box-sizing: border-box; }
+                img { max-width: 100%; max-height: 95vh; object-fit: contain; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+              </style>
+            </head>
+            <body>
+              <img src="${photoUrl}" alt="Ukuran Penuh" />
+            </body>
+          </html>
+        `);
+        win.document.close();
+      }
+    } catch {
+      window.open(photoUrl, '_blank');
+    }
   };
 
   const handleCreateSubmit = async (e) => {
@@ -387,15 +421,14 @@ export default function ClassAnnouncements({
                           Buka Ukuran Penuh
                         </button>
                         <span className="text-slate-300">·</span>
-                        <a
-                          href={photoSrc}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-slate-500 hover:text-slate-800 font-medium flex items-center gap-1 hover:underline"
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPhotoInNewTab(photoSrc)}
+                          className="text-slate-500 hover:text-slate-800 font-medium flex items-center gap-1 hover:underline cursor-pointer"
                         >
                           <ExternalLink size={12} />
                           Tab Baru
-                        </a>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -616,15 +649,15 @@ export default function ClassAnnouncements({
         isLoading={isDeletingAnnouncement}
       />
 
-      {/* FULLSCREEN PHOTO LIGHTBOX VIEWER */}
-      {fullscreenPhoto && (
+      {/* FULLSCREEN PHOTO LIGHTBOX VIEWER (Portaled to document.body over all modals) */}
+      {fullscreenPhoto && createPortal(
         <div 
-          className="fixed inset-0 z-[10000] bg-black/92 backdrop-blur-md flex flex-col select-none animate-in fade-in duration-200"
+          className="fixed inset-0 z-[99999] bg-black/95 backdrop-blur-md flex flex-col select-none animate-in fade-in duration-200"
           onClick={() => setFullscreenPhoto(null)}
         >
           {/* Top Floating Control Bar */}
           <div 
-            className="flex items-center justify-between px-4 py-3 bg-black/50 backdrop-blur-md border-b border-white/10 shrink-0 z-20"
+            className="flex items-center justify-between px-4 py-3 bg-black/60 backdrop-blur-md border-b border-white/10 shrink-0 z-30"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 text-white/90 text-xs font-medium min-w-0 pr-2">
@@ -667,14 +700,22 @@ export default function ClassAnnouncements({
                 )}
               </div>
 
-              {/* Open original / Download */}
+              {/* Open in new tab helper */}
+              <button
+                type="button"
+                onClick={() => handleOpenPhotoInNewTab(fullscreenPhoto)}
+                className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/10 transition-colors cursor-pointer"
+                title="Buka di Tab Baru"
+              >
+                <ExternalLink size={16} />
+              </button>
+
+              {/* Download Button */}
               <a
                 href={fullscreenPhoto}
-                target="_blank"
-                rel="noopener noreferrer"
-                download
+                download={selectedAnnouncement?.attachment?.name || 'foto_pengumuman.jpg'}
                 className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/10 transition-colors cursor-pointer"
-                title="Unduh / Buka di Tab Baru"
+                title="Unduh Gambar"
               >
                 <Download size={16} />
               </a>
@@ -704,11 +745,12 @@ export default function ClassAnnouncements({
               <img
                 src={fullscreenPhoto}
                 alt="Ukuran Penuh"
-                className="max-h-[85vh] max-w-[92vw] w-auto h-auto object-contain rounded-xl shadow-2xl select-none"
+                className="max-h-[88vh] max-w-[94vw] w-auto h-auto object-contain rounded-xl shadow-2xl select-none"
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
