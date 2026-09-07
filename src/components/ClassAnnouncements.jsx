@@ -345,14 +345,28 @@ export default function ClassAnnouncements({
           maxWidth="max-w-xl"
         >
           <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full shadow-2xl max-h-[85vh] overflow-y-auto flex flex-col">
-            {/* Sticky Modal Header so it never disappears when scrolling */}
-            <div className="sticky top-0 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-[#F1F5F9] flex items-center justify-between z-20 rounded-t-3xl">
-              <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-md bg-[#F1F5F9] text-[#475569]">
-                {selectedAnnouncement.type} Announcement
-              </span>
+            {/* Sticky Modal Header */}
+            <div className="sticky top-0 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-slate-100 flex items-center justify-between z-20 rounded-t-3xl">
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full tracking-wider ${
+                  selectedAnnouncement.type === 'important'
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                    : selectedAnnouncement.type === 'schedule'
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : selectedAnnouncement.type === 'assignment'
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                    : 'bg-slate-100 text-slate-700 border border-slate-200'
+                }`}>
+                  {selectedAnnouncement.type} Announcement
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  {new Date(selectedAnnouncement.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              </div>
               <button 
                 onClick={() => setSelectedAnnouncement(null)} 
-                className="p-1.5 rounded-full text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 cursor-pointer transition-colors"
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
+                title="Tutup (Esc)"
               >
                 <X size={18} />
               </button>
@@ -360,75 +374,95 @@ export default function ClassAnnouncements({
 
             {/* Modal Body */}
             <div className="p-6 space-y-4">
-              <div className="space-y-1.5">
-                <h3 className="font-bold text-lg text-[#0F172A] leading-snug">
+              {/* Title & Author Meta */}
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-xl text-slate-900 leading-snug tracking-tight">
                   {selectedAnnouncement.title}
                 </h3>
-
-                <div className="text-xs text-[#64748B] flex items-center gap-2">
-                  <span>Oleh {selectedAnnouncement.author}</span>
+                <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                  <span>Dipublikasikan oleh</span>
+                  <span className="font-semibold text-slate-700">{selectedAnnouncement.author}</span>
                   <span>·</span>
-                  <span>{new Date(selectedAnnouncement.createdAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} WIB</span>
-                </div>
+                  <span>{new Date(selectedAnnouncement.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</span>
+                </p>
               </div>
 
+              {/* Announcement Message */}
               {selectedAnnouncement.message && (
-                <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#1E293B] whitespace-pre-wrap leading-relaxed">
+                <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed py-1">
                   {selectedAnnouncement.message}
                 </div>
               )}
 
-              {/* Attached Photo Preview in Modal */}
+              {/* Clean Document / Photo Attachment Card */}
               {(selectedAnnouncement.attachment?.url || selectedAnnouncement.attachment?.previewUrl) && (() => {
                 const photoSrc = selectedAnnouncement.attachment.url || selectedAnnouncement.attachment.previewUrl;
                 const photoName = selectedAnnouncement.attachment.name || 'Foto Lampiran';
                 return (
-                  <div className="space-y-2 pt-1">
-                    <div 
-                      onClick={() => {
-                        setFullscreenPhoto(photoSrc);
-                        setPhotoZoom(1);
-                      }}
-                      className="group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100/70 hover:bg-slate-200/50 cursor-zoom-in transition-all duration-200 hover:shadow-md hover:border-indigo-400 flex items-center justify-center min-h-[180px] max-h-[340px]"
-                      title="Klik untuk membuka ukuran penuh"
-                    >
-                      <img
-                        src={photoSrc}
-                        alt={selectedAnnouncement.title}
-                        className="w-auto max-w-full max-h-[340px] block object-contain mx-auto transition-transform duration-200 group-hover:scale-[1.02]"
-                      />
-                      {/* Floating hover badge */}
-                      <div className="absolute inset-0 bg-slate-950/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                        <span className="bg-slate-900/90 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-2 shadow-xl backdrop-blur-sm">
-                          <Maximize2 size={14} />
-                          Buka Layar Penuh
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 flex-wrap gap-2">
-                      <span className="truncate max-w-[200px] sm:max-w-xs">📷 {photoName}</span>
-                      <div className="flex items-center gap-2.5 shrink-0">
+                  <div className="mt-4 pt-3 border-t border-slate-100 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <Paperclip size={12} className="text-slate-400" />
+                        Lampiran Dokumen / Foto
+                      </span>
+                      
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => {
                             setFullscreenPhoto(photoSrc);
                             setPhotoZoom(1);
                           }}
-                          className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1.5 hover:underline cursor-pointer"
+                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <Maximize2 size={12} />
-                          Buka Ukuran Penuh
+                          Layar Penuh
                         </button>
-                        <span className="text-slate-300">·</span>
                         <button
                           type="button"
                           onClick={() => handleOpenPhotoInNewTab(photoSrc)}
-                          className="text-slate-500 hover:text-slate-800 font-medium flex items-center gap-1 hover:underline cursor-pointer"
+                          className="text-[11px] font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                          title="Buka di tab baru"
                         >
                           <ExternalLink size={12} />
                           Tab Baru
                         </button>
+                      </div>
+                    </div>
+
+                    {/* Media Card Preview */}
+                    <div 
+                      onClick={() => {
+                        setFullscreenPhoto(photoSrc);
+                        setPhotoZoom(1);
+                      }}
+                      className="group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50/70 hover:border-indigo-300 transition-all cursor-zoom-in shadow-2xs hover:shadow-sm"
+                    >
+                      {/* Document Canvas Preview with soft depth */}
+                      <div className="p-4 sm:p-5 flex items-center justify-center bg-gradient-to-b from-slate-100/70 to-slate-200/40 min-h-[220px] max-h-[380px]">
+                        <img
+                          src={photoSrc}
+                          alt={selectedAnnouncement.title}
+                          className="max-h-[340px] w-auto max-w-full object-contain rounded-xl shadow-md border border-slate-200/80 transition-transform duration-200 group-hover:scale-[1.015]"
+                        />
+                        {/* Hover Overlay Badge */}
+                        <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                          <span className="bg-slate-900/90 text-white text-xs font-semibold px-4 py-2 rounded-full flex items-center gap-2 shadow-xl backdrop-blur-md">
+                            <Maximize2 size={13} />
+                            Klik untuk Buka Layar Penuh
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* File Info Footer */}
+                      <div className="px-4 py-2.5 bg-white border-t border-slate-200/80 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <ImageIcon size={14} className="text-indigo-500 shrink-0" />
+                          <span className="truncate font-medium text-slate-800 text-[11px]">{photoName}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono shrink-0 pl-2">
+                          {selectedAnnouncement.attachment?.size || 'Klik untuk perbesar'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -436,7 +470,8 @@ export default function ClassAnnouncements({
               })()}
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9] gap-2 flex-wrap">
+            {/* Harmonized Modal Footer */}
+            <div className="p-4 px-6 border-t border-slate-100 bg-slate-50/50 rounded-b-3xl flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2">
                 {/* Share to WhatsApp Button */}
                 <a
@@ -449,7 +484,7 @@ export default function ClassAnnouncements({
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                   title="Bagikan pengumuman ini langsung ke WhatsApp / Grup Kelas"
                 >
                   <Share2 size={13} />
@@ -468,7 +503,7 @@ export default function ClassAnnouncements({
                   return (
                     <a
                       href={`mailto:?bcc=${encodeURIComponent(emails)}&subject=${encodeURIComponent(mailSub)}&body=${encodeURIComponent(mailBody)}`}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                       title="Kirim email ke seluruh anggota kelas (BCC)"
                     >
                       <Mail size={13} />
@@ -481,7 +516,7 @@ export default function ClassAnnouncements({
                   <button
                     type="button"
                     onClick={() => setAnnouncementToDelete(selectedAnnouncement)}
-                    className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer transition-colors border border-rose-200/60 sm:border-transparent"
+                    className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
                   >
                     <Trash2 size={13} />
                     <span>Hapus</span>
@@ -491,9 +526,9 @@ export default function ClassAnnouncements({
 
               <button
                 onClick={() => setSelectedAnnouncement(null)}
-                className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer transition-colors shadow-2xs"
               >
-                Close
+                Tutup
               </button>
             </div>
           </div>
