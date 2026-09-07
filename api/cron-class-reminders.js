@@ -44,74 +44,74 @@ function getWibDateTime() {
 
 /**
  * HTML Template for Daily Morning Digest (Sent at 06:00 WIB)
- * Contains:
- * 1. Today's Lecture Schedule
- * 2. Upcoming Task Deadlines
- * 3. Latest Class Announcement
+ * Fully responsive on mobile & bulletproof in Gmail Dark Mode.
  */
 function buildDailyDigestHtml({ className, dayName, displayDate, todaySchedules = [], upcomingTasks = [], latestAnnouncement = null }) {
-  // 1. Schedule Section HTML
+  // 1. Schedule Section HTML (Mobile-proof vertical card, no cramped columns)
   let schedulesHtml = '';
   if (todaySchedules.length > 0) {
     schedulesHtml = `
       <div style="margin-top: 10px;">
-        ${todaySchedules.map((s) => `
-          <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px;">
-            <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
-              <tr>
-                <td>
-                  <div style="font-size: 14px; font-weight: 800; color: #0F172A;">${s.subject || 'Mata Kuliah'}</div>
-                  <div style="font-size: 12px; color: #64748B; margin-top: 3px;">
-                    Dosen: <strong>${s.lecturer || '-'}</strong> &middot; Ruang: <strong>${s.room || 'Online / Ruang Kelas'}</strong>
-                  </div>
-                </td>
-                <td align="right" style="vertical-align: middle; white-space: nowrap;">
-                  <span style="background-color: #EFF6FF; color: #1D4ED8; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 8px; border: 1px solid #DBEAFE;">
-                    ${s.startTime || '00:00'} - ${s.endTime || 'Selesai'} WIB
-                  </span>
-                </td>
-              </tr>
-            </table>
-          </div>
-        `).join('')}
+        ${todaySchedules.map((s) => {
+          let timeText = 'Waktu Sesuai Jadwal';
+          if (s.startTime && s.startTime !== '00:00') {
+            timeText = `${s.startTime} - ${s.endTime || 'Selesai'} WIB`;
+          } else if (s.endTime && s.endTime !== '00:00') {
+            timeText = `Selesai ${s.endTime} WIB`;
+          }
+
+          return `
+            <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid #2563EB; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;">
+              <div style="margin-bottom: 6px;">
+                <span style="display: inline-block; background-color: #2563EB; color: #FFFFFF; font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 6px; letter-spacing: 0.3px;">
+                  ⏰ ${timeText}
+                </span>
+              </div>
+              <div style="font-size: 15px; font-weight: 800; color: #0F172A; line-height: 1.35; margin-bottom: 4px;">
+                ${s.subject || 'Mata Kuliah'}
+              </div>
+              <div style="font-size: 12px; color: #475569; line-height: 1.5;">
+                ${s.lecturer ? `Dosen: <strong>${s.lecturer}</strong>` : ''}
+                ${s.lecturer && s.room ? ' &middot; ' : ''}
+                ${s.room ? `Ruang: <strong>${s.room}</strong>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
   } else {
     schedulesHtml = `
       <div style="background-color: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 12px; padding: 14px 16px; text-align: center; color: #64748B; font-size: 13px; margin-top: 10px;">
-        ☕ <strong>Tidak ada jadwal kuliah hari ini.</strong> Selamat beristirahat atau mencicil tugas!
+        ☕ <strong>Tidak ada jadwal kuliah hari ini.</strong> Waktu yang tepat untuk istirahat atau mencicil tugas!
       </div>
     `;
   }
 
-  // 2. Task Deadlines Section HTML
+  // 2. Task Deadlines Section HTML (High-contrast badges with white text, dark-mode safe)
   let tasksHtml = '';
   if (upcomingTasks.length > 0) {
     tasksHtml = `
       <div style="margin-top: 10px;">
         ${upcomingTasks.map(t => {
-          const badgeBg = t.isToday ? '#FFF1F2' : (t.isTomorrow ? '#FFFBEB' : '#F1F5F9');
-          const badgeColor = t.isToday ? '#E11D48' : (t.isTomorrow ? '#D97706' : '#475569');
-          const badgeBorder = t.isToday ? '#FECDD3' : (t.isTomorrow ? '#FDE68A' : '#E2E8F0');
+          const badgeBg = t.isToday ? '#E11D48' : (t.isTomorrow ? '#D97706' : '#0F172A');
           const badgeText = t.isToday ? 'HARI INI' : (t.isTomorrow ? 'BESOK' : `${t.daysDiff} HARI LAGI`);
+          const dueText = `${t.due_date} (${t.due_time || '23:59'} WIB)`;
 
           return `
-            <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4px solid ${badgeColor}; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
-                <tr>
-                  <td>
-                    <div style="font-size: 13px; font-weight: 700; color: #0F172A;">${t.title}</div>
-                    <div style="font-size: 11px; color: #64748B; margin-top: 2px;">
-                      ${t.subject || 'Tugas'} &middot; Tenggat: <strong>${t.due_date} (${t.due_time || '23:59'} WIB)</strong>
-                    </div>
-                  </td>
-                  <td align="right" style="vertical-align: middle; white-space: nowrap;">
-                    <span style="background-color: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 6px;">
-                      ${badgeText}
-                    </span>
-                  </td>
-                </tr>
-              </table>
+            <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4px solid ${badgeBg}; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;">
+              <div style="margin-bottom: 6px;">
+                <span style="display: inline-block; background-color: ${badgeBg}; color: #FFFFFF; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 6px; letter-spacing: 0.5px; text-transform: uppercase;">
+                  ${badgeText}
+                </span>
+                <span style="font-size: 11px; color: #64748B; margin-left: 6px;">Tenggat: <strong>${dueText}</strong></span>
+              </div>
+              <div style="font-size: 14px; font-weight: 800; color: #0F172A; line-height: 1.35; margin-bottom: 4px;">
+                ${t.title}
+              </div>
+              <div style="font-size: 12px; color: #475569;">
+                Mata Kuliah: <strong>${t.subject || 'Perkuliahan'}</strong>
+              </div>
             </div>
           `;
         }).join('')}
@@ -119,7 +119,7 @@ function buildDailyDigestHtml({ className, dayName, displayDate, todaySchedules 
     `;
   } else {
     tasksHtml = `
-      <div style="background-color: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; padding: 12px 16px; text-align: center; color: #166534; font-size: 13px; margin-top: 10px;">
+      <div style="background-color: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; padding: 14px 16px; text-align: center; color: #166534; font-size: 13px; margin-top: 10px;">
         ✨ <strong>Semua tugas aman!</strong> Tidak ada tenggat tugas mendesak dalam waktu dekat.
       </div>
     `;
@@ -130,29 +130,29 @@ function buildDailyDigestHtml({ className, dayName, displayDate, todaySchedules 
   if (latestAnnouncement) {
     const annType = latestAnnouncement.color || 'general';
     const isImportant = annType === 'important';
-    const annBorder = isImportant ? '#E11D48' : '#3B82F6';
-    const annBadgeBg = isImportant ? '#FFF1F2' : '#EFF6FF';
-    const annBadgeColor = isImportant ? '#E11D48' : '#1D4ED8';
+    const annBadgeBg = isImportant ? '#E11D48' : '#0F172A';
 
     announcementHtml = `
-      <div style="margin-top: 10px; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid ${annBorder}; border-radius: 12px; padding: 14px 16px;">
+      <div style="margin-top: 10px; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid ${annBadgeBg}; border-radius: 12px; padding: 14px 16px;">
         <div style="margin-bottom: 6px;">
-          <span style="background-color: ${annBadgeBg}; color: ${annBadgeColor}; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 6px; text-transform: uppercase;">
-            ${isImportant ? 'PENTING' : 'PENGUMUMAN TERBARU'}
+          <span style="display: inline-block; background-color: ${annBadgeBg}; color: #FFFFFF; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+            ${isImportant ? 'PENTING' : 'PENGUMUMAN KELAS'}
           </span>
-          <span style="font-size: 11px; color: #94A3B8; margin-left: 6px;">Oleh ${latestAnnouncement.author || 'Komti'}</span>
+          <span style="font-size: 11px; color: #64748B; margin-left: 6px;">Oleh ${latestAnnouncement.author || 'Komti'}</span>
         </div>
-        <div style="font-size: 14px; font-weight: 800; color: #0F172A; margin-bottom: 6px;">${latestAnnouncement.title}</div>
-        <div style="font-size: 13px; color: #475569; line-height: 1.5;">
-          ${(latestAnnouncement.content || '').length > 250 
-            ? (latestAnnouncement.content || '').substring(0, 250) + '...' 
+        <div style="font-size: 14px; font-weight: 800; color: #0F172A; margin-bottom: 6px; line-height: 1.35;">
+          ${latestAnnouncement.title}
+        </div>
+        <div style="font-size: 13px; color: #475569; line-height: 1.55;">
+          ${(latestAnnouncement.content || '').length > 280 
+            ? (latestAnnouncement.content || '').substring(0, 280) + '...' 
             : (latestAnnouncement.content || '')}
         </div>
       </div>
     `;
   } else {
     announcementHtml = `
-      <div style="background-color: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 12px; padding: 12px 16px; text-align: center; color: #64748B; font-size: 13px; margin-top: 10px;">
+      <div style="background-color: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 12px; padding: 14px 16px; text-align: center; color: #64748B; font-size: 13px; margin-top: 10px;">
         Belum ada pengumuman baru dari pengurus kelas.
       </div>
     `;
@@ -164,95 +164,81 @@ function buildDailyDigestHtml({ className, dayName, displayDate, todaySchedules 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
   <title>Classy Daily Briefing - ${dayName}, ${displayDate}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #FDFBF7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0F172A;">
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; background-color: #FDFBF7; padding: 32px 16px;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; background-color: #FDFBF7; padding: 24px 12px;">
     <tr>
       <td align="center">
         <!-- Main Card Container -->
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); border: 1px solid #E2E8F0;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="max-width: 580px; width: 100%; background-color: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); border: 1px solid #E2E8F0;">
           
-          <!-- Top Light Header (Matches Classy Web Navbar) -->
+          <!-- Header (Clean, spacious, mobile-optimized) -->
           <tr>
-            <td style="background-color: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 20px 26px;">
+            <td style="background-color: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 20px 22px;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
                 <tr>
-                  <td style="width: 44px; vertical-align: middle; padding-right: 12px;">
+                  <td style="width: 44px; vertical-align: top; padding-right: 12px;">
                     <img src="${PORTAL_URL}/classy-logo.png" alt="Classy Logo" width="40" height="40" style="width: 40px; height: 40px; border-radius: 10px; display: block; border: 1px solid #E2E8F0;" />
                   </td>
-                  <td style="vertical-align: middle;">
-                    <div style="font-size: 17px; font-weight: 800; color: #0F172A; letter-spacing: -0.4px; line-height: 1.2;">
-                      Classy
-                      <span style="font-size: 10px; font-weight: 700; color: #64748B; background-color: #F1F5F9; border: 1px solid #E2E8F0; padding: 2px 7px; border-radius: 8px; vertical-align: middle; margin-left: 6px; letter-spacing: 0.5px; text-transform: uppercase;">Portal Kelas</span>
+                  <td style="vertical-align: top;">
+                    <div style="line-height: 1.3;">
+                      <span style="font-size: 18px; font-weight: 800; color: #0F172A; letter-spacing: -0.4px; vertical-align: middle;">Classy</span>
+                      <span style="display: inline-block; font-size: 9px; font-weight: 800; color: #475569; background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 2px 7px; border-radius: 6px; vertical-align: middle; margin-left: 6px; letter-spacing: 0.5px; text-transform: uppercase;">PORTAL KELAS</span>
                     </div>
-                    <div style="font-size: 12px; color: #64748B; font-weight: 600; margin-top: 3px;">
+                    <div style="font-size: 12px; color: #64748B; font-weight: 600; margin-top: 4px;">
                       ${className || 'Kelas Akademik'} &middot; Ringkasan Pagi
                     </div>
                   </td>
-                  <td align="right" style="vertical-align: middle;">
-                    <span style="background-color: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 5px 11px; border-radius: 20px; letter-spacing: 0.5px; display: inline-block;">
-                      ${dayName.toUpperCase()}, ${displayDate.split(' ')[0]} ${displayDate.split(' ')[1].substring(0, 3).toUpperCase()}
-                    </span>
-                  </td>
                 </tr>
               </table>
+
+              <!-- Date Badge Bar (Never squished on mobile) -->
+              <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #F1F5F9;">
+                <span style="display: inline-block; background-color: #0F172A; color: #FFFFFF; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.5px; text-transform: uppercase;">
+                  📅 ${dayName.toUpperCase()}, ${displayDate.toUpperCase()}
+                </span>
+              </div>
             </td>
           </tr>
 
           <!-- Email Content Body -->
           <tr>
-            <td style="padding: 26px 26px 20px 26px;">
+            <td style="padding: 22px 22px 18px 22px;">
               
-              <!-- Greeting & Subtitle -->
+              <!-- Greeting -->
               <div style="margin-bottom: 22px;">
                 <h2 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 800; color: #0F172A; letter-spacing: -0.3px;">
                   Selamat Pagi Rekan Mahasiswa! ☀️
                 </h2>
                 <p style="margin: 0; font-size: 13px; color: #64748B; line-height: 1.5;">
-                  Berikut adalah agenda perkuliahan hari ini, pengingat deadline tugas terdekat, dan pengumuman terbaru di ruang kelas Anda.
+                  Berikut adalah agenda perkuliahan hari ini, pengingat deadline tugas terdekat, dan pengumuman terbaru di kelas Anda.
                 </p>
               </div>
 
               <!-- SECTION 1: LECTURE SCHEDULE -->
-              <div style="margin-bottom: 24px;">
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
-                  <tr>
-                    <td>
-                      <span style="font-size: 13px; font-weight: 800; color: #0F172A; text-transform: uppercase; letter-spacing: 0.5px;">
-                        📅 Jadwal Kuliah Hari Ini (${dayName})
-                      </span>
-                    </td>
-                  </tr>
-                </table>
+              <div style="margin-bottom: 22px;">
+                <div style="font-size: 12px; font-weight: 800; color: #0F172A; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                  📅 JADWAL KULIAH HARI INI (${dayName.toUpperCase()})
+                </div>
                 ${schedulesHtml}
               </div>
 
               <!-- SECTION 2: TASK DEADLINES -->
-              <div style="margin-bottom: 24px;">
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
-                  <tr>
-                    <td>
-                      <span style="font-size: 13px; font-weight: 800; color: #0F172A; text-transform: uppercase; letter-spacing: 0.5px;">
-                        📝 Pengingat Deadline Tugas
-                      </span>
-                    </td>
-                  </tr>
-                </table>
+              <div style="margin-bottom: 22px;">
+                <div style="font-size: 12px; font-weight: 800; color: #0F172A; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                  📝 PENGINGAT DEADLINE TUGAS
+                </div>
                 ${tasksHtml}
               </div>
 
               <!-- SECTION 3: LATEST ANNOUNCEMENT -->
-              <div style="margin-bottom: 26px;">
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
-                  <tr>
-                    <td>
-                      <span style="font-size: 13px; font-weight: 800; color: #0F172A; text-transform: uppercase; letter-spacing: 0.5px;">
-                        📢 Pengumuman Terakhir Kelas
-                      </span>
-                    </td>
-                  </tr>
-                </table>
+              <div style="margin-bottom: 24px;">
+                <div style="font-size: 12px; font-weight: 800; color: #0F172A; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                  📢 PENGUMUMAN TERAKHIR KELAS
+                </div>
                 ${announcementHtml}
               </div>
 
@@ -266,12 +252,12 @@ function buildDailyDigestHtml({ className, dayName, displayDate, todaySchedules 
             </td>
           </tr>
 
-          <!-- Footer (Warm Cream Accent) -->
+          <!-- Footer -->
           <tr>
-            <td style="background-color: #FDFBF7; padding: 18px 26px; border-top: 1px solid #E2E8F0; text-align: center;">
+            <td style="background-color: #FDFBF7; padding: 16px 22px; border-top: 1px solid #E2E8F0; text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #64748B; line-height: 1.5;">
                 Email ringkasan harian otomatis dikirimkan setiap pagi pukul 06:00 WIB oleh <strong>Classy</strong>.<br/>
-                Salinan otomatis dikirimkan ke koordinator kelas: <code>${DEFAULT_CC}</code>
+                Salinan otomatis dikirimkan ke koordinator: <code>${DEFAULT_CC}</code>
               </p>
               <p style="margin: 6px 0 0 0; font-size: 10px; color: #94A3B8;">
                 &copy; ${new Date().getFullYear()} Classy Academic Hub &middot; <a href="${PORTAL_URL}" style="color: #0F172A; font-weight: 700; text-decoration: underline;">classy.exars.my.id</a>

@@ -11,12 +11,12 @@ const PORTAL_URL = 'https://classy.exars.my.id';
 function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], ctaLabel = 'Buka Portal Kelas', ctaUrl = PORTAL_URL, photoUrl = null }) {
   const badgeStyle = 
     type === 'important' || type === 'reminder_1h' || type === 'task_deadline' 
-      ? { bg: '#FFF1F2', color: '#E11D48', border: '#FECDD3' } :
+      ? { bg: '#E11D48', color: '#FFFFFF', border: '#BE123C' } :
     type === 'task_new' 
-      ? { bg: '#F0F9FF', color: '#0284C7', border: '#BAE6FD' } :
+      ? { bg: '#0284C7', color: '#FFFFFF', border: '#0369A1' } :
     type === 'reminder_2h' 
-      ? { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' } :
-      { bg: '#F8FAFC', color: '#334155', border: '#CBD5E1' };
+      ? { bg: '#D97706', color: '#FFFFFF', border: '#B45309' } :
+      { bg: '#0F172A', color: '#FFFFFF', border: '#000000' };
 
   const badgeText = 
     type === 'announcement' ? 'PENGUMUMAN KELAS' :
@@ -61,39 +61,43 @@ function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
   <title>${title}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #FDFBF7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0F172A;">
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; background-color: #FDFBF7; padding: 32px 16px;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%; background-color: #FDFBF7; padding: 24px 12px;">
     <tr>
       <td align="center">
         <!-- Main Card Container (Classy Light Theme) -->
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="max-width: 580px; width: 100%; background-color: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); border: 1px solid #E2E8F0;">
           
-          <!-- Top Light Header (Matches Classy Web Navbar) -->
+          <!-- Top Light Header (Clean mobile-proof header) -->
           <tr>
-            <td style="background-color: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 20px 26px;">
+            <td style="background-color: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 20px 22px;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width: 100%;">
                 <tr>
-                  <td style="width: 44px; vertical-align: middle; padding-right: 12px;">
+                  <td style="width: 44px; vertical-align: top; padding-right: 12px;">
                     <img src="${PORTAL_URL}/classy-logo.png" alt="Classy Logo" width="40" height="40" style="width: 40px; height: 40px; border-radius: 10px; display: block; border: 1px solid #E2E8F0;" />
                   </td>
-                  <td style="vertical-align: middle;">
-                    <div style="font-size: 17px; font-weight: 800; color: #0F172A; letter-spacing: -0.4px; line-height: 1.2;">
-                      Classy
-                      <span style="font-size: 10px; font-weight: 700; color: #64748B; background-color: #F1F5F9; border: 1px solid #E2E8F0; padding: 2px 7px; border-radius: 8px; vertical-align: middle; margin-left: 6px; letter-spacing: 0.5px; text-transform: uppercase;">Portal Kelas</span>
+                  <td style="vertical-align: top;">
+                    <div style="line-height: 1.3;">
+                      <span style="font-size: 18px; font-weight: 800; color: #0F172A; letter-spacing: -0.4px; vertical-align: middle;">Classy</span>
+                      <span style="display: inline-block; font-size: 9px; font-weight: 800; color: #475569; background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 2px 7px; border-radius: 6px; vertical-align: middle; margin-left: 6px; letter-spacing: 0.5px; text-transform: uppercase;">PORTAL KELAS</span>
                     </div>
-                    <div style="font-size: 12px; color: #64748B; font-weight: 600; margin-top: 3px;">
+                    <div style="font-size: 12px; color: #64748B; font-weight: 600; margin-top: 4px;">
                       ${subtitle || 'Notifikasi Akademik'}
                     </div>
                   </td>
-                  <td align="right" style="vertical-align: middle;">
-                    <span style="background-color: ${badgeStyle.bg}; color: ${badgeStyle.color}; border: 1px solid ${badgeStyle.border}; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 5px 11px; border-radius: 20px; letter-spacing: 0.5px; display: inline-block;">
-                      ${badgeText}
-                    </span>
-                  </td>
                 </tr>
               </table>
+
+              <!-- Badge Bar (High-contrast, dark-mode proof) -->
+              <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #F1F5F9;">
+                <span style="display: inline-block; background-color: ${badgeStyle.bg}; color: ${badgeStyle.color}; border: 1px solid ${badgeStyle.border}; font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.5px;">
+                  ${badgeText}
+                </span>
+              </div>
             </td>
           </tr>
 
