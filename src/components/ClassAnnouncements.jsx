@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Megaphone, 
   Plus, 
@@ -10,7 +10,12 @@ import {
   Share2,
   Mail,
   Image as ImageIcon,
-  Check
+  Check,
+  Maximize2,
+  ZoomIn,
+  ZoomOut,
+  Download,
+  ExternalLink
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
@@ -26,6 +31,8 @@ export default function ClassAnnouncements({
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [fullscreenPhoto, setFullscreenPhoto] = useState(null);
+  const [photoZoom, setPhotoZoom] = useState(1);
 
   // In-app Delete Confirmation Modal
   const [announcementToDelete, setAnnouncementToDelete] = useState(null);
@@ -40,6 +47,18 @@ export default function ClassAnnouncements({
   const [sendEmailNotification, setSendEmailNotification] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Escape listener for fullscreen photo lightbox
+  useEffect(() => {
+    if (!fullscreenPhoto) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setFullscreenPhoto(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fullscreenPhoto]);
 
   const role = currentClass?.userRole;
   const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
@@ -287,7 +306,10 @@ export default function ClassAnnouncements({
 
       {/* MODAL 1: ANNOUNCEMENT DETAIL MODAL */}
       {selectedAnnouncement && (
-        <ModalPortal onClose={() => setSelectedAnnouncement(null)}>
+        <ModalPortal 
+          onClose={() => setSelectedAnnouncement(null)}
+          maxWidth={selectedAnnouncement?.attachment ? 'max-w-2xl' : 'max-w-lg'}
+        >
           <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
               <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#475569]">
@@ -313,29 +335,63 @@ export default function ClassAnnouncements({
                 {selectedAnnouncement.message}
               </div>
 
-              {/* Attached Photo in Modal */}
-              {(selectedAnnouncement.attachment?.url || selectedAnnouncement.attachment?.previewUrl) && (
-                <div className="space-y-1.5 pt-1">
-                  <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900/5 max-h-[380px] flex items-center justify-center p-1">
-                    <img
-                      src={selectedAnnouncement.attachment.url || selectedAnnouncement.attachment.previewUrl}
-                      alt={selectedAnnouncement.title}
-                      className="max-h-[360px] w-auto max-w-full object-contain rounded-xl"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
-                    <span>📷 {selectedAnnouncement.attachment.name || 'Foto Lampiran'}</span>
-                    <a
-                      href={selectedAnnouncement.attachment.url || selectedAnnouncement.attachment.previewUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-600 hover:underline font-semibold"
+              {/* Attached Photo in Modal - Full width & expanded natural view */}
+              {(selectedAnnouncement.attachment?.url || selectedAnnouncement.attachment?.previewUrl) && (() => {
+                const photoSrc = selectedAnnouncement.attachment.url || selectedAnnouncement.attachment.previewUrl;
+                const photoName = selectedAnnouncement.attachment.name || 'Foto Lampiran';
+                return (
+                  <div className="space-y-2 pt-2">
+                    <div 
+                      onClick={() => {
+                        setFullscreenPhoto(photoSrc);
+                        setPhotoZoom(1);
+                      }}
+                      className="group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 hover:bg-slate-100/60 cursor-zoom-in transition-all duration-200 hover:shadow-md hover:border-indigo-400"
+                      title="Klik untuk melihat layar penuh"
                     >
-                      Buka Ukuran Penuh ↗
-                    </a>
+                      <img
+                        src={photoSrc}
+                        alt={selectedAnnouncement.title}
+                        className="w-full h-auto block rounded-2xl object-contain max-h-[75vh] mx-auto transition-transform duration-200 group-hover:scale-[1.01]"
+                      />
+                      {/* Floating hover badge */}
+                      <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                        <span className="bg-slate-900/90 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-2 shadow-xl backdrop-blur-sm">
+                          <Maximize2 size={14} />
+                          Klik untuk Layar Penuh
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 flex-wrap gap-2">
+                      <span className="truncate max-w-[200px] sm:max-w-xs">📷 {photoName}</span>
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFullscreenPhoto(photoSrc);
+                            setPhotoZoom(1);
+                          }}
+                          className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1.5 hover:underline cursor-pointer"
+                        >
+                          <Maximize2 size={12} />
+                          Buka Ukuran Penuh
+                        </button>
+                        <span className="text-slate-300">·</span>
+                        <a
+                          href={photoSrc}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-slate-500 hover:text-slate-800 font-medium flex items-center gap-1 hover:underline"
+                        >
+                          <ExternalLink size={12} />
+                          Tab Baru
+                        </a>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9] gap-2 flex-wrap">
@@ -550,6 +606,101 @@ export default function ClassAnnouncements({
         type="danger"
         isLoading={isDeletingAnnouncement}
       />
+
+      {/* FULLSCREEN PHOTO LIGHTBOX VIEWER */}
+      {fullscreenPhoto && (
+        <div 
+          className="fixed inset-0 z-[10000] bg-black/92 backdrop-blur-md flex flex-col select-none animate-in fade-in duration-200"
+          onClick={() => setFullscreenPhoto(null)}
+        >
+          {/* Top Floating Control Bar */}
+          <div 
+            className="flex items-center justify-between px-4 py-3 bg-black/50 backdrop-blur-md border-b border-white/10 shrink-0 z-20"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-white/90 text-xs font-medium min-w-0 pr-2">
+              <ImageIcon size={16} className="text-indigo-400 shrink-0" />
+              <span className="truncate max-w-[200px] sm:max-w-md">
+                {selectedAnnouncement?.attachment?.name || 'Tinjauan Gambar Penuh'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Zoom In / Out Controls */}
+              <div className="flex items-center bg-white/10 rounded-xl p-0.5 border border-white/10 text-white">
+                <button
+                  type="button"
+                  onClick={() => setPhotoZoom(prev => Math.max(0.5, +(prev - 0.25).toFixed(2)))}
+                  className="p-1.5 hover:bg-white/15 rounded-lg transition-colors cursor-pointer"
+                  title="Perkecil (-)"
+                >
+                  <ZoomOut size={16} />
+                </button>
+                <span className="text-[11px] font-mono px-2 select-none min-w-[42px] text-center">
+                  {Math.round(photoZoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPhotoZoom(prev => Math.min(3, +(prev + 0.25).toFixed(2)))}
+                  className="p-1.5 hover:bg-white/15 rounded-lg transition-colors cursor-pointer"
+                  title="Perbesar (+)"
+                >
+                  <ZoomIn size={16} />
+                </button>
+                {photoZoom !== 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setPhotoZoom(1)}
+                    className="text-[10px] font-semibold px-2 py-1 hover:bg-white/15 rounded-md transition-colors cursor-pointer text-indigo-300"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+
+              {/* Open original / Download */}
+              <a
+                href={fullscreenPhoto}
+                target="_blank"
+                rel="noopener noreferrer"
+                download
+                className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/10 transition-colors cursor-pointer"
+                title="Unduh / Buka di Tab Baru"
+              >
+                <Download size={16} />
+              </a>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setFullscreenPhoto(null)}
+                className="p-2 bg-rose-500/80 hover:bg-rose-500 text-white rounded-xl transition-colors cursor-pointer shadow-sm"
+                title="Tutup (Esc)"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Center Scrollable / Zoomable Image Stage */}
+          <div 
+            className="flex-1 overflow-auto p-4 sm:p-8 flex items-center justify-center cursor-zoom-out"
+            onClick={() => setFullscreenPhoto(null)}
+          >
+            <div 
+              className="transition-transform duration-150 ease-out origin-center cursor-default max-w-full"
+              style={{ transform: `scale(${photoZoom})` }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={fullscreenPhoto}
+                alt="Ukuran Penuh"
+                className="max-h-[85vh] max-w-[92vw] w-auto h-auto object-contain rounded-xl shadow-2xl select-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
