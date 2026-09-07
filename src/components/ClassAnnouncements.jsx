@@ -45,7 +45,7 @@ export default function ClassAnnouncements({
   const [type, setType] = useState('general'); // 'general' | 'assignment' | 'schedule' | 'important'
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
-  const [sendEmailNotification, setSendEmailNotification] = useState(true);
+  const [sendEmailNotification, setSendEmailNotification] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const fileInputRef = useRef(null);
@@ -679,18 +679,23 @@ export default function ClassAnnouncements({
                 )}
               </div>
 
-              {/* Automatic Email Notification Checkbox */}
+              {/* Optional Immediate Email Notification */}
               <div className="pt-1">
-                <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs font-semibold text-indigo-950 cursor-pointer select-none">
+                <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs text-[#334155] cursor-pointer select-none transition-colors">
                   <input
                     type="checkbox"
                     checked={sendEmailNotification}
                     onChange={(e) => setSendEmailNotification(e.target.checked)}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-indigo-300 cursor-pointer"
+                    className="w-4 h-4 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
                   />
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <Mail size={13} className="text-indigo-600 shrink-0" />
-                    <span className="truncate">Kirim notifikasi email otomatis ke seluruh anggota kelas</span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 font-bold text-[#0F172A]">
+                      <Mail size={13} className="text-indigo-600 shrink-0" />
+                      <span>Kirim email seketika sekarang (Khusus Pengumuman Mendesak)</span>
+                    </div>
+                    <p className="text-[11px] text-[#64748B] font-normal mt-0.5 leading-snug">
+                      Pengumuman ini otomatis masuk ke email ringkasan pagi (pk 06:00 WIB) bersama jadwal & tugas. Centang jika butuh broadcast darurat sekarang.
+                    </p>
                   </div>
                 </label>
               </div>
