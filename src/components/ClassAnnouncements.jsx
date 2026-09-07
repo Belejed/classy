@@ -308,57 +308,66 @@ export default function ClassAnnouncements({
       {selectedAnnouncement && (
         <ModalPortal 
           onClose={() => setSelectedAnnouncement(null)}
-          maxWidth={selectedAnnouncement?.attachment ? 'max-w-2xl' : 'max-w-lg'}
+          maxWidth="max-w-xl"
         >
-          <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
-              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#475569]">
+          <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full shadow-2xl max-h-[85vh] overflow-y-auto flex flex-col">
+            {/* Sticky Modal Header so it never disappears when scrolling */}
+            <div className="sticky top-0 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-[#F1F5F9] flex items-center justify-between z-20 rounded-t-3xl">
+              <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-md bg-[#F1F5F9] text-[#475569]">
                 {selectedAnnouncement.type} Announcement
               </span>
-              <button onClick={() => setSelectedAnnouncement(null)} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A] cursor-pointer">
+              <button 
+                onClick={() => setSelectedAnnouncement(null)} 
+                className="p-1.5 rounded-full text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 cursor-pointer transition-colors"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="space-y-3">
-              <h3 className="font-bold text-lg text-[#0F172A] leading-snug">
-                {selectedAnnouncement.title}
-              </h3>
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div className="space-y-1.5">
+                <h3 className="font-bold text-lg text-[#0F172A] leading-snug">
+                  {selectedAnnouncement.title}
+                </h3>
 
-              <div className="text-xs text-[#64748B] flex items-center gap-3">
-                <span>By {selectedAnnouncement.author}</span>
-                <span>·</span>
-                <span>{new Date(selectedAnnouncement.createdAt).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                <div className="text-xs text-[#64748B] flex items-center gap-2">
+                  <span>Oleh {selectedAnnouncement.author}</span>
+                  <span>·</span>
+                  <span>{new Date(selectedAnnouncement.createdAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} WIB</span>
+                </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#1E293B] whitespace-pre-wrap leading-relaxed">
-                {selectedAnnouncement.message}
-              </div>
+              {selectedAnnouncement.message && (
+                <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#1E293B] whitespace-pre-wrap leading-relaxed">
+                  {selectedAnnouncement.message}
+                </div>
+              )}
 
-              {/* Attached Photo in Modal - Full width & expanded natural view */}
+              {/* Attached Photo Preview in Modal */}
               {(selectedAnnouncement.attachment?.url || selectedAnnouncement.attachment?.previewUrl) && (() => {
                 const photoSrc = selectedAnnouncement.attachment.url || selectedAnnouncement.attachment.previewUrl;
                 const photoName = selectedAnnouncement.attachment.name || 'Foto Lampiran';
                 return (
-                  <div className="space-y-2 pt-2">
+                  <div className="space-y-2 pt-1">
                     <div 
                       onClick={() => {
                         setFullscreenPhoto(photoSrc);
                         setPhotoZoom(1);
                       }}
-                      className="group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 hover:bg-slate-100/60 cursor-zoom-in transition-all duration-200 hover:shadow-md hover:border-indigo-400"
-                      title="Klik untuk melihat layar penuh"
+                      className="group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100/70 hover:bg-slate-200/50 cursor-zoom-in transition-all duration-200 hover:shadow-md hover:border-indigo-400 flex items-center justify-center min-h-[180px] max-h-[340px]"
+                      title="Klik untuk membuka ukuran penuh"
                     >
                       <img
                         src={photoSrc}
                         alt={selectedAnnouncement.title}
-                        className="w-full h-auto block rounded-2xl object-contain max-h-[75vh] mx-auto transition-transform duration-200 group-hover:scale-[1.01]"
+                        className="w-auto max-w-full max-h-[340px] block object-contain mx-auto transition-transform duration-200 group-hover:scale-[1.02]"
                       />
                       {/* Floating hover badge */}
-                      <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                      <div className="absolute inset-0 bg-slate-950/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                         <span className="bg-slate-900/90 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-2 shadow-xl backdrop-blur-sm">
                           <Maximize2 size={14} />
-                          Klik untuk Layar Penuh
+                          Buka Layar Penuh
                         </span>
                       </div>
                     </div>
