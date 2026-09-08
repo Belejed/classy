@@ -784,8 +784,11 @@ export const dbService = {
           isJson = false;
         }
 
-        const attachments = Array.isArray(t.attachments) ? t.attachments : [];
+        const attachments = Array.isArray(t.attachments) && t.attachments.length > 0
+          ? t.attachments
+          : (Array.isArray(meta.attachments) ? meta.attachments : []);
         const submissions = meta.submissions || [];
+        const submissionType = meta.submissionType || 'individual'; // 'individual' | 'group'
 
         return {
           id: t.id,
@@ -798,6 +801,7 @@ export const dbService = {
           description: isJson ? (meta.text || '') : (t.description || ''),
           instructions: meta.instructions || '',
           submissionRequired: meta.submissionRequired !== false,
+          submissionType,
           attachments,
           submissions,
           createdAt: t.created_at
@@ -812,6 +816,8 @@ export const dbService = {
         instructions: item.instructions || '',
         lecturer: item.lecturer || '',
         submissionRequired: item.submissionRequired !== false,
+        submissionType: item.submissionType || 'individual',
+        attachments: item.attachments || [],
         submissions: []
       };
 
@@ -845,13 +851,14 @@ export const dbService = {
         description: meta.text,
         instructions: meta.instructions,
         submissionRequired: meta.submissionRequired,
+        submissionType: meta.submissionType,
         attachments: row.attachments,
         submissions: [],
         createdAt: row.created_at
       };
     },
 
-    submit: async (taskId, { userId, userName, fileName, fileUrl, fileSize }) => {
+    submit: async (taskId, { userId, userName, fileName, fileUrl, fileSize, isGroup = false, groupMembers = [] }) => {
       const { data: existing, error: getErr } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
       if (getErr || !existing) throw new Error('Tugas tidak ditemukan.');
 
@@ -870,11 +877,20 @@ export const dbService = {
         fileName,
         fileUrl: fileUrl || '',
         fileSize: fileSize || '',
+        isGroup: Boolean(isGroup),
+        groupMembers: Array.isArray(groupMembers) ? groupMembers : [],
         submittedAt: new Date().toISOString()
       };
 
+      // Exclude previous submission from this user or any user in the group
+      const memberUserIds = new Set([userId, ...newSubmission.groupMembers.map(m => m.userId)]);
+
       const updatedSubmissions = [
-        ...submissions.filter(s => s.userId !== userId),
+        ...submissions.filter(s => {
+          if (memberUserIds.has(s.userId)) return false;
+          if (s.groupMembers?.some(m => memberUserIds.has(m.userId))) return false;
+          return true;
+        }),
         newSubmission
       ];
 
@@ -901,7 +917,12 @@ export const dbService = {
       }
 
       const submissions = meta.submissions || [];
-      const updatedSubmissions = submissions.filter(s => s.userId !== userId);
+      // Remove submission if user is submitter or in the group
+      const updatedSubmissions = submissions.filter(s => {
+        if (s.userId === userId) return false;
+        if (s.groupMembers?.some(m => m.userId === userId)) return false;
+        return true;
+      });
       meta.submissions = updatedSubmissions;
 
       const { error: updErr } = await supabase.from('tasks').update({
@@ -962,22 +983,54 @@ export const dbService = {
         }
         const subs = meta.submissions || [];
         subs.forEach(s => {
+          const groupNames = Array.isArray(s.groupMembers) && s.groupMembers.length > 0
+            ? s.groupMembers.map(m => m.userName || m.name).filter(Boolean).join(', ')
+            : '';
           submissionFiles.push({
             id: 'sub_' + (s.id || `${s.userId}_${t.id}`),
             classId: t.workspace_id,
             name: s.fileName || `${s.userName} - Submission`,
             category: 'Submission',
-            folder: `Tugas: ${t.title}`, // Folder specifically grouped by task title!
+            folder: `Tugas: ${t.title}`,
             course: t.subject || '',
-            groupName: t.title,
+            groupName: groupNames ? `Kelompok: ${groupNames}` : t.title,
             uploadedBy: s.userName || 'Mahasiswa',
             fileSize: s.fileSize || '1.2 MB',
             fileType: (s.fileName || '').split('.').pop()?.toLowerCase() || 'pdf',
             storageUrl: s.fileUrl || '',
             createdAt: s.submittedAt || t.created_at,
             isSubmission: true,
+            isGroup: Boolean(s.isGroup),
+            groupMembers: s.groupMembers || [],
             taskId: t.id
           });
+        });
+
+        // Also extract task instructor attachments (soal/materi panduan)
+        const taskAttachments = Array.isArray(t.attachments) && t.attachments.length > 0
+          ? t.attachments
+          : (Array.isArray(meta.attachments) ? meta.attachments : []);
+
+        taskAttachments.forEach((att, attIdx) => {
+          if (att?.url || att?.storageUrl) {
+            submissionFiles.push({
+              id: `task_att_${t.id}_${attIdx}`,
+              classId: t.workspace_id,
+              name: att.name || `Lampiran Soal: ${t.title}`,
+              category: 'Assignments',
+              folder: `Tugas: ${t.title}`,
+              course: t.subject || '',
+              groupName: t.title,
+              uploadedBy: meta.lecturer || 'Dosen/Komti',
+              fileSize: att.size || '1.0 MB',
+              fileType: (att.name || '').split('.').pop()?.toLowerCase() || 'pdf',
+              storageUrl: att.url || att.storageUrl || '',
+              driveFileId: att.fileId || att.driveFileId || '',
+              createdAt: t.created_at,
+              isTaskAttachment: true,
+              taskId: t.id
+            });
+          }
         });
       });
 

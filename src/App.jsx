@@ -274,10 +274,12 @@ export default function App() {
     setTasks(prev => [created, ...prev]);
 
     try {
+      const typeLabel = item.submissionType === 'group' ? ' (Tugas Kelompok)' : '';
+      const attInfo = item.attachments?.length ? ` [${item.attachments.length} Lampiran]` : '';
       await dbService.logs.create(currentClass.id, {
         actionType: 'task_create',
-        title: `Tugas baru: ${item.title}`,
-        details: `${user?.displayName || 'Komti'} menambahkan tugas "${item.title}" untuk mata kuliah ${item.course || '-'}. Tenggat: ${item.dueDate} ${item.dueTime || '23:59'}.`,
+        title: `Tugas baru: ${item.title}${typeLabel}`,
+        details: `${user?.displayName || 'Komti'} menambahkan tugas "${item.title}"${typeLabel}${attInfo} untuk mata kuliah ${item.course || '-'}. Tenggat: ${item.dueDate} ${item.dueTime || '23:59'}.`,
         actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
         targetName: item.title,
         color: 'blue'
@@ -287,19 +289,26 @@ export default function App() {
 
     // Send email notification if enabled
     if (item.sendEmailNotification !== false) {
+      const isGroup = item.submissionType === 'group';
+      const metaRows = [
+        ['Mata Kuliah', item.course || 'Perkuliahan'],
+        ['Judul Tugas', item.title],
+        ['Jenis Pengerjaan', isGroup ? '👥 Tugas Kelompok (1 Perwakilan Kumpul)' : '👤 Tugas Individu'],
+        ['Batas Pengumpulan', `${item.dueDate} pukul ${item.dueTime || '23:59'} WIB`],
+        ['Dosen Pengajar', item.lecturer || '-'],
+        ['Ruang Kelas', currentClass?.name || 'Classy']
+      ];
+      if (item.attachments?.length) {
+        metaRows.push(['Lampiran Soal', `${item.attachments.length} berkas/foto terlampir di portal`]);
+      }
+
       sendClassNotificationEmail({
         subject: `[TUGAS KULIAH BARU: ${item.course || currentClass?.name || 'Classy'}] ${item.title}`,
         type: 'task_new',
         title: item.title,
         subtitle: `Tugas Kuliah Baru - ${item.course || currentClass?.name || 'Classy'}`,
         message: item.description ? item.description : `Telah ditambahkan penugasan baru untuk mata kuliah ${item.course || '-'}. Harap periksa detail tugas dan instruksi pengumpulan.`,
-        metaRows: [
-          ['Mata Kuliah', item.course || 'Perkuliahan'],
-          ['Judul Tugas', item.title],
-          ['Batas Pengumpulan', `${item.dueDate} pukul ${item.dueTime || '23:59'} WIB`],
-          ['Dosen Pengajar', item.lecturer || '-'],
-          ['Ruang Kelas', currentClass?.name || 'Classy']
-        ]
+        metaRows
       }).catch(err => console.warn('Gagal mengirim notifikasi email tugas baru:', err));
     }
 
@@ -309,7 +318,7 @@ export default function App() {
   const handleSubmitAssignment = async (taskId, submissionData) => {
     // If student previously submitted a file with a different URL, move the old one to Trash in Drive
     const currentTask = tasks?.find(t => t.id === taskId);
-    const existingSub = currentTask?.submissions?.find(s => s.userId === submissionData.userId);
+    const existingSub = currentTask?.submissions?.find(s => s.userId === submissionData.userId || s.groupMembers?.some(m => m.userId === submissionData.userId));
     if (existingSub?.fileUrl && existingSub.fileUrl !== submissionData.fileUrl) {
       try {
         await moveFileToDriveTrash(existingSub.fileUrl);
@@ -330,10 +339,23 @@ export default function App() {
 
     try {
       const targetTask = refreshed.find(t => t.id === taskId);
+      const isGroup = Boolean(submissionData.isGroup);
+      const groupList = Array.isArray(submissionData.groupMembers) && submissionData.groupMembers.length > 0
+        ? submissionData.groupMembers.map(m => m.userName || m.name).filter(Boolean).join(', ')
+        : '';
+
+      const logTitle = isGroup
+        ? `${submissionData.userName} mengumpulkan tugas kelompok`
+        : `${submissionData.userName} mengumpulkan tugas`;
+
+      const logDetails = isGroup
+        ? `${submissionData.userName} mengumpulkan berkas kelompok "${submissionData.fileName}" bersama: ${groupList} untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`
+        : `${submissionData.userName} mengumpulkan berkas "${submissionData.fileName}" untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`;
+
       await dbService.logs.create(currentClass.id, {
         actionType: 'task_submit',
-        title: `${submissionData.userName} mengumpulkan tugas`,
-        details: `${submissionData.userName} mengumpulkan berkas "${submissionData.fileName}" untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`,
+        title: logTitle,
+        details: logDetails,
         actor: { name: submissionData.userName, email: user?.email, role: 'student' },
         targetName: targetTask?.title || '',
         color: 'sky'
