@@ -201,7 +201,8 @@ export default function ClassAnnouncements({
               fileName: selectedPhoto?.name || 'announcement_photo.jpg',
               mimeType: selectedPhoto?.type || 'image/jpeg',
               fileData: photoPreview,
-              folderName: 'Lampiran Pengumuman'
+              folderName: 'Lampiran Pengumuman',
+              workspaceName: currentClass?.name || 'Umum'
             })
           });
           if (driveRes.ok) {

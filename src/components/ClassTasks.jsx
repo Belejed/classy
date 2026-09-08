@@ -471,7 +471,8 @@ export default function ClassTasks({
         const driveRes = await uploadToGoogleDrive({
           file,
           name: submissionFileName,
-          folderName: taskFolder
+          folderName: taskFolder,
+          workspaceName: currentClass?.name || 'Umum'
         });
         fileUrl = driveRes.webViewLink || driveRes.previewUrl;
         fileSize = driveRes.fileSize || fileSize;

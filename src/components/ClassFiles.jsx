@@ -149,7 +149,8 @@ export default function ClassFiles({
           const driveRes = await uploadToGoogleDrive({
             file: selectedFileObj,
             name: uploadName.trim(),
-            folderName: targetFolder
+            folderName: targetFolder,
+            workspaceName: currentClass?.name || 'Umum'
           });
           fileUrl = driveRes.webViewLink || driveRes.previewUrl;
           driveFileId = driveRes.fileId || null;

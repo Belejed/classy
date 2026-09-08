@@ -3,7 +3,7 @@
  */
 const DIRECT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwi3vHYbWBRva2OhDZVefspXZsr_dOid3hdtQ7rwxWtCoiRsS-24gU4l4A167mNVHEeww/exec';
 
-export async function uploadToGoogleDrive({ file, name, folderName }) {
+export async function uploadToGoogleDrive({ file, name, folderName, workspaceName }) {
   if (!file) throw new Error('File tidak ditemukan');
 
   const reader = new FileReader();
@@ -16,6 +16,7 @@ export async function uploadToGoogleDrive({ file, name, folderName }) {
   const fileName = name || file.name;
   const mimeType = file.type || 'application/octet-stream';
   const targetFolder = folderName || 'Materi Kuliah';
+  const targetWorkspace = (workspaceName || '').trim() || 'Umum';
 
   // 1. Try via Vercel serverless / dev proxy endpoint
   try {
@@ -28,7 +29,8 @@ export async function uploadToGoogleDrive({ file, name, folderName }) {
         fileName,
         mimeType,
         fileData,
-        folderName: targetFolder
+        folderName: targetFolder,
+        workspaceName: targetWorkspace
       })
     });
 
@@ -50,7 +52,7 @@ export async function uploadToGoogleDrive({ file, name, folderName }) {
       fileName,
       mimeType,
       fileData,
-      folderName: targetFolder
+      folderName: `${targetWorkspace} - ${targetFolder}`
     })
   });
 
