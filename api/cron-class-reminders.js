@@ -211,7 +211,7 @@ function buildDailyDigestHtml({ className, dayName, displayDate, todaySchedules 
               <!-- Greeting -->
               <div style="margin-bottom: 22px;">
                 <h2 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 800; color: #0F172A; letter-spacing: -0.3px;">
-                  Selamat Pagi Rekan Mahasiswa! ☀️
+                  Selamat Pagi! ☀️
                 </h2>
                 <p style="margin: 0; font-size: 13px; color: #64748B; line-height: 1.5;">
                   Berikut adalah agenda perkuliahan hari ini, pengingat deadline tugas terdekat, dan pengumuman terbaru di kelas Anda.
