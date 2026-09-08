@@ -22,6 +22,7 @@ import ClassActivityLog from './components/ClassActivityLog';
 import UserProfileModal from './components/UserProfileModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import ClassTopHeader from './components/ClassTopHeader';
+import SuperadminDashboardModal from './components/SuperadminDashboardModal';
 import { DashboardSkeleton, TasksSkeleton, ScheduleSkeleton } from './components/SkeletonLoader';
 
 export default function App() {
@@ -964,6 +965,7 @@ function ClassWorkspace({
   const { classId, tab } = useParams();
   const navigate = useNavigate();
   const [isTogglingBlock, setIsTogglingBlock] = useState(false);
+  const [showSuperadminModal, setShowSuperadminModal] = useState(false);
 
   const handleToggleClassBlock = async (targetClassId, newBlockedState) => {
     setIsTogglingBlock(true);
@@ -1118,28 +1120,40 @@ function ClassWorkspace({
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={() => handleToggleClassBlock(currentClass.id, !isClassBlocked(currentClass))}
-              disabled={isTogglingBlock}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50 ${
-                isClassBlocked(currentClass)
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'bg-rose-600 hover:bg-rose-700 text-white'
-              }`}
-            >
-              {isClassBlocked(currentClass) ? (
-                <>
-                  <ShieldCheck size={14} />
-                  <span>{isTogglingBlock ? 'Memproses...' : '⚡ Buka Blokir / Setujui Kelas Ini'}</span>
-                </>
-              ) : (
-                <>
-                  <Lock size={14} />
-                  <span>{isTogglingBlock ? 'Memproses...' : '🔒 Blokir Kelas Ini'}</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSuperadminModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                title="Buka Pusat Kendali Superadmin"
+              >
+                <ShieldCheck size={14} />
+                <span>📊 Command Center</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleToggleClassBlock(currentClass.id, !isClassBlocked(currentClass))}
+                disabled={isTogglingBlock}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50 ${
+                  isClassBlocked(currentClass)
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : 'bg-rose-600 hover:bg-rose-700 text-white'
+                }`}
+              >
+                {isClassBlocked(currentClass) ? (
+                  <>
+                    <ShieldCheck size={14} />
+                    <span>{isTogglingBlock ? 'Memproses...' : '⚡ Buka Blokir / Setujui Kelas Ini'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock size={14} />
+                    <span>{isTogglingBlock ? 'Memproses...' : '🔒 Blokir Kelas Ini'}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
 
@@ -1267,6 +1281,24 @@ function ClassWorkspace({
           </main>
         </ErrorBoundary>
       </div>
+
+      {/* Superadmin Command Center Modal */}
+      {showSuperadminModal && (
+        <SuperadminDashboardModal
+          currentUser={user}
+          isOpen={showSuperadminModal}
+          onClose={() => setShowSuperadminModal(false)}
+          onSelectClass={(cls) => {
+            setCurrentClass(cls);
+            navigate(`/class/${cls.id}/dashboard`);
+          }}
+          onRefreshParentClasses={async () => {
+            if (typeof onRefreshClasses === 'function') {
+              await onRefreshClasses();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

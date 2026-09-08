@@ -3,6 +3,7 @@ import { dbService, isSuperAdmin, isClassBlocked } from '../utils/db';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
 import EmptyState from './EmptyState';
+import SuperadminDashboardModal from './SuperadminDashboardModal';
 import { 
   Plus, 
   Users, 
@@ -12,15 +13,15 @@ import {
   X, 
   BookOpen, 
   LogOut, 
-  Search,
-  UserCheck,
-  Clock,
-  AlertCircle,
-  RefreshCw,
-  ShieldCheck,
-  Lock,
-  Mail,
-  ShieldAlert
+  Search, 
+  UserCheck, 
+  Clock, 
+  AlertCircle, 
+  RefreshCw, 
+  ShieldCheck, 
+  Lock, 
+  Mail, 
+  ShieldAlert 
 } from 'lucide-react';
 
 export default function ClassLobby({ 
@@ -35,6 +36,7 @@ export default function ClassLobby({
 }) {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSuperadminModal, setShowSuperadminModal] = useState(false);
   const [createdClassInfo, setCreatedClassInfo] = useState(null);
 
   // Join Class Form State
@@ -187,7 +189,19 @@ export default function ClassLobby({
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            {isSuperAdmin(currentUser) && (
+              <button
+                type="button"
+                onClick={() => setShowSuperadminModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white font-bold text-xs shadow-2xs transition-all cursor-pointer"
+                title="Buka Pusat Kendali Superadmin"
+              >
+                <ShieldCheck size={14} />
+                <span>Superadmin Panel</span>
+              </button>
+            )}
+
             <button
               onClick={onOpenProfile}
               className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#E2E8F0] dark:border-slate-800 hover:border-[#CBD5E1] dark:hover:border-slate-700 transition-colors text-xs font-semibold text-[#0F172A] dark:text-slate-200 cursor-pointer shadow-2xs"
@@ -835,6 +849,17 @@ export default function ClassLobby({
             )}
           </div>
         </ModalPortal>
+      )}
+
+      {/* MODAL 3: SUPERADMIN COMMAND CENTER */}
+      {showSuperadminModal && (
+        <SuperadminDashboardModal
+          currentUser={currentUser}
+          isOpen={showSuperadminModal}
+          onClose={() => setShowSuperadminModal(false)}
+          onSelectClass={onSelectClass}
+          onRefreshParentClasses={onRefreshClasses}
+        />
       )}
 
     </div>

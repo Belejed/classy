@@ -57,6 +57,19 @@ export const isClassBlocked = (cls) => {
   return !isMlogB;
 };
 
+// Helper: Protect primary class (M.Log B) from accidental deletion
+export const isProtectedClass = (clsOrId) => {
+  if (!clsOrId) return false;
+  const id = typeof clsOrId === 'string' ? clsOrId : clsOrId.id;
+  const name = typeof clsOrId === 'object' ? (clsOrId.name || '').toLowerCase() : '';
+  const identifier = typeof clsOrId === 'object' ? (clsOrId.classIdentifier || '').toLowerCase() : '';
+
+  if (id === 'class_xwa91itgg') return true;
+  if (name.includes('log') && name.includes('b')) return true;
+  if (identifier.includes('26b')) return true;
+  return false;
+};
+
 // --- AUTHENTICATION SERVICE ---
 export const authService = {
   getCurrentUser: async () => {
@@ -817,6 +830,28 @@ export const dbService = {
         isBlocked: meta.isBlocked,
         status: meta.status
       };
+    },
+
+    delete: async (classId) => {
+      if (isProtectedClass(classId)) {
+        throw new Error('Kelas utama (M.Log B) dilindungi sistem dan tidak dapat dihapus.');
+      }
+
+      // 1. Cascading delete on all dependent records
+      await Promise.allSettled([
+        supabase.from('schedules').delete().eq('workspace_id', classId),
+        supabase.from('tasks').delete().eq('workspace_id', classId),
+        supabase.from('notes').delete().eq('workspace_id', classId),
+        supabase.from('announcements').delete().eq('workspace_id', classId),
+        supabase.from('activity_logs').delete().eq('workspace_id', classId),
+        supabase.from('groups').delete().eq('workspace_id', classId)
+      ]);
+
+      // 2. Delete workspace record
+      const { error } = await supabase.from('workspaces').delete().eq('id', classId);
+      if (error) throw error;
+
+      return { success: true, id: classId };
     }
   },
 
@@ -1644,6 +1679,86 @@ export const dbService = {
     clear: async (classId) => {
       if (!classId) return;
       await supabase.from('notes').delete().eq('workspace_id', classId).eq('category', 'activity_log');
+    }
+  },
+
+  // 10. SUPERADMIN GLOBAL SERVICE
+  superadmin: {
+    getGlobalMetrics: async () => {
+      // 1. Fetch all workspaces
+      const { data: workspaces, error: wsErr } = await supabase.from('workspaces').select('*').order('created_at', { ascending: false });
+      if (wsErr) throw wsErr;
+
+      const classList = (workspaces || []).map(w => {
+        let meta = {};
+        try { meta = typeof w.description === 'string' && w.description.startsWith('{') ? JSON.parse(w.description) : {}; } catch {}
+        const isBlocked = meta.isBlocked !== undefined
+          ? Boolean(meta.isBlocked)
+          : isClassBlocked({ name: w.name, classIdentifier: meta.classIdentifier || w.description, isBlocked: meta.isBlocked, status: meta.status });
+        return {
+          id: w.id,
+          name: w.name,
+          classIdentifier: meta.classIdentifier || w.description || 'TI-3A',
+          lecturer: meta.lecturer || 'Dosen Pengajar',
+          academicPeriod: meta.academicPeriod || '2026/2027',
+          joinCode: w.invite_code,
+          isBlocked,
+          status: isBlocked ? 'blocked' : 'active',
+          isProtected: isProtectedClass({ id: w.id, name: w.name, classIdentifier: meta.classIdentifier }),
+          members: (w.members || []).filter(m => m && m.role !== 'superadmin' && !isSuperAdminEmail(m.email)),
+          memberCount: ((w.members || []).filter(m => m && m.role !== 'superadmin' && !isSuperAdminEmail(m.email))).length || 0,
+          createdAt: w.created_at
+        };
+      });
+
+      const totalClasses = classList.length;
+      const activeClasses = classList.filter(c => !c.isBlocked).length;
+      const blockedClasses = classList.filter(c => c.isBlocked).length;
+
+      // Unique user calculation
+      const userMap = new Map();
+      let komtiCount = 0;
+      let lecturerCount = 0;
+      let studentCount = 0;
+
+      classList.forEach(cls => {
+        (cls.members || []).forEach(m => {
+          const email = (m.email || m.userId || '').toLowerCase();
+          if (!email) return;
+          if (!userMap.has(email)) {
+            userMap.set(email, m);
+            const role = (m.role || '').toLowerCase();
+            if (role === 'komti' || role === 'coordinator') komtiCount++;
+            else if (role === 'lecturer' || role === 'dosen') lecturerCount++;
+            else studentCount++;
+          }
+        });
+      });
+
+      // 2. Platform totals for tasks, files, schedules
+      const [tasksRes, filesRes, schRes] = await Promise.allSettled([
+        supabase.from('tasks').select('id', { count: 'exact', head: true }),
+        supabase.from('notes').select('id', { count: 'exact', head: true }).eq('category', 'file'),
+        supabase.from('schedules').select('id', { count: 'exact', head: true })
+      ]);
+
+      const totalTasks = tasksRes.status === 'fulfilled' ? (tasksRes.value.count || 0) : 0;
+      const totalFiles = filesRes.status === 'fulfilled' ? (filesRes.value.count || 0) : 0;
+      const totalSchedules = schRes.status === 'fulfilled' ? (schRes.value.count || 0) : 0;
+
+      return {
+        classes: classList,
+        totalClasses,
+        activeClasses,
+        blockedClasses,
+        totalUsers: userMap.size,
+        komtiCount,
+        lecturerCount,
+        studentCount,
+        totalTasks,
+        totalFiles,
+        totalSchedules
+      };
     }
   }
 };
