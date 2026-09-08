@@ -159,6 +159,24 @@ export const authService = {
     return data;
   },
 
+  updateEmail: async (newEmail) => {
+    const cleanEmail = String(newEmail).trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      throw new Error('Alamat email baru tidak valid.');
+    }
+
+    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const base = isDev ? window.location.origin : 'https://classy.exars.my.id';
+    const emailRedirectTo = `${base}/`;
+
+    const { data, error } = await supabase.auth.updateUser(
+      { email: cleanEmail },
+      { emailRedirectTo }
+    );
+    if (error) throw error;
+    return data;
+  },
+
   logout: async () => {
     await supabase.auth.signOut();
   },
@@ -607,6 +625,31 @@ export const dbService = {
           await supabase.from('workspaces').update({ members: updated }).eq('id', classId);
         }
       } catch {}
+    },
+
+    syncMemberEmail: async (userId, newEmail) => {
+      if (!userId || !newEmail) return;
+      const cleanEmail = String(newEmail).trim().toLowerCase();
+      try {
+        const { data: workspaces, error } = await supabase.from('workspaces').select('id, members');
+        if (error || !workspaces) return;
+        for (const ws of workspaces) {
+          const members = ws.members || [];
+          let changed = false;
+          const updated = members.map(m => {
+            if (m.userId === userId && m.email?.toLowerCase() !== cleanEmail) {
+              changed = true;
+              return { ...m, email: cleanEmail };
+            }
+            return m;
+          });
+          if (changed) {
+            await supabase.from('workspaces').update({ members: updated }).eq('id', ws.id);
+          }
+        }
+      } catch (err) {
+        console.warn('syncMemberEmail error:', err);
+      }
     },
 
     update: async (classId, { name, classIdentifier, lecturer, academicPeriod, waGroupLink }) => {

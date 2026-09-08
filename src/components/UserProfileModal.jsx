@@ -8,7 +8,12 @@ import {
   Bell, 
   Lock, 
   LogOut, 
-  Edit2
+  Edit2,
+  Check,
+  AlertCircle,
+  CheckCircle2,
+  RefreshCw,
+  Send
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authService, dbService, isSuperAdmin, DEFAULT_NOTIFICATION_PREFERENCES } from '../utils/db';
@@ -26,6 +31,13 @@ export default function UserProfileModal({
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [prefs, setPrefs] = useState(currentUser?.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Email change state
+  const [isChangingEmail, setIsChangingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [confirmNewEmail, setConfirmNewEmail] = useState('');
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [emailChangeStatus, setEmailChangeStatus] = useState(null); // { type: 'pending' | 'success', email: string, message: string }
 
   const togglePref = (key) => {
     setPrefs(prev => ({
@@ -52,6 +64,67 @@ export default function UserProfileModal({
       toast.error('Gagal menyimpan profil: ' + err.message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleUpdateEmail = async (e) => {
+    e?.preventDefault();
+    const clean = newEmail.trim().toLowerCase();
+    const confirmClean = confirmNewEmail.trim().toLowerCase();
+
+    if (!clean || !clean.includes('@') || !clean.includes('.')) {
+      toast.error('Masukkan alamat email baru yang valid');
+      return;
+    }
+
+    if (clean === currentUser?.email?.toLowerCase()) {
+      toast.error('Email baru sama dengan email yang digunakan saat ini');
+      return;
+    }
+
+    if (clean !== confirmClean) {
+      toast.error('Konfirmasi email baru tidak cocok');
+      return;
+    }
+
+    setIsUpdatingEmail(true);
+    try {
+      const res = await authService.updateEmail(clean);
+      const isPendingConfirm = !!res?.user?.new_email || res?.user?.email !== clean;
+
+      if (isPendingConfirm) {
+        setEmailChangeStatus({
+          type: 'pending',
+          email: clean,
+          message: `Tautan verifikasi telah dikirim ke ${clean}. Silakan periksa kotak masuk (inbox) atau spam pada email baru Anda dan klik tautan untuk mengaktifkan email baru.`
+        });
+        toast.success(`Tautan verifikasi telah dikirim ke ${clean}!`, { duration: 6000 });
+      } else {
+        // Updated immediately without email confirmation required
+        setEmailChangeStatus({
+          type: 'success',
+          email: clean,
+          message: `Email akun Anda berhasil diperbarui menjadi ${clean}.`
+        });
+        if (currentUser?.uid) {
+          await dbService.classes.syncMemberEmail(currentUser.uid, clean);
+        }
+        if (onUpdateUser) {
+          onUpdateUser({
+            ...currentUser,
+            email: clean
+          });
+        }
+        toast.success('Alamat email berhasil diperbarui!');
+        setIsChangingEmail(false);
+        setNewEmail('');
+        setConfirmNewEmail('');
+      }
+    } catch (err) {
+      console.error('Update email error:', err);
+      toast.error(err.message || 'Gagal mengubah email');
+    } finally {
+      setIsUpdatingEmail(false);
     }
   };
 
@@ -85,15 +158,154 @@ export default function UserProfileModal({
               {currentUser?.displayName || 'Student'}
             </h4>
             <p className="text-xs text-slate-500 truncate">{currentUser?.email}</p>
-            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-800 inline-block mt-1">
-              {isSuperAdmin(currentUser) 
-                ? '⚡ Superadmin (Ghost Mode)' 
-                : (currentClass?.userRole === 'komti' || currentClass?.userRole === 'coordinator' 
-                    ? '👑 Komti' 
-                    : (currentClass?.userRole === 'lecturer' ? '🎓 Dosen' : '👤 Mahasiswa'))}
-            </span>
+            <div className="flex items-center gap-2 flex-wrap mt-1">
+              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-800 inline-block">
+                {isSuperAdmin(currentUser) 
+                  ? '⚡ Superadmin (Ghost Mode)' 
+                  : (currentClass?.userRole === 'komti' || currentClass?.userRole === 'coordinator' 
+                      ? '👑 Komti' 
+                      : (currentClass?.userRole === 'lecturer' ? '🎓 Dosen' : '👤 Mahasiswa'))}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsChangingEmail(prev => !prev);
+                  setEmailChangeStatus(null);
+                }}
+                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Edit2 size={11} />
+                <span>{isChangingEmail ? 'Tutup Ganti Email' : 'Ganti Email'}</span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Change Email Card / Form */}
+        {isChangingEmail && (
+          <div className="p-4 rounded-2xl border-2 border-indigo-200/80 bg-indigo-50/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+                <Mail size={13} className="text-indigo-600" />
+                <span>Ganti Alamat Email Akun</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsChangingEmail(false);
+                  setEmailChangeStatus(null);
+                  setNewEmail('');
+                  setConfirmNewEmail('');
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                title="Tutup"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {emailChangeStatus && (
+              <div className={`p-3 rounded-xl text-xs space-y-1 ${
+                emailChangeStatus.type === 'pending'
+                  ? 'bg-amber-50 border border-amber-200 text-amber-900'
+                  : 'bg-emerald-50 border border-emerald-200 text-emerald-900'
+              }`}>
+                <div className="flex items-center gap-1.5 font-bold">
+                  {emailChangeStatus.type === 'pending' ? (
+                    <>
+                      <AlertCircle size={14} className="text-amber-600 shrink-0" />
+                      <span>Menunggu Konfirmasi Email</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                      <span>Email Berhasil Diperbarui</span>
+                    </>
+                  )}
+                </div>
+                <p className="text-[11px] leading-relaxed">{emailChangeStatus.message}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateEmail} className="space-y-3 pt-1">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-[#334155] block">
+                  Email Saat Ini
+                </label>
+                <input
+                  type="text"
+                  value={currentUser?.email || ''}
+                  disabled
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 text-xs text-slate-500 font-medium cursor-not-allowed"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-[#334155] block">
+                  Alamat Email Baru
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="contoh: nama.baru@gmail.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-[#334155] block">
+                  Konfirmasi Email Baru
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="Ulangi alamat email baru"
+                  value={confirmNewEmail}
+                  onChange={(e) => setConfirmNewEmail(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all font-medium"
+                />
+              </div>
+
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                Email baru akan digunakan untuk login ke Classy dan menerima notifikasi tugas serta pengumuman kelas.
+              </p>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsChangingEmail(false);
+                    setEmailChangeStatus(null);
+                    setNewEmail('');
+                    setConfirmNewEmail('');
+                  }}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingEmail}
+                  className="flex-1 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {isUpdatingEmail ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={13} />
+                      <span>Simpan Email Baru</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* Contact Information (WhatsApp Number) */}
         <div className="p-4 rounded-2xl border border-slate-200 space-y-2.5">
@@ -247,21 +459,35 @@ export default function UserProfileModal({
           </button>
         </div>
 
-        {/* Account Section: Password & Logout */}
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-          <button
-            onClick={() => {
-              onClose();
-              navigate('/reset-password');
-            }}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-900 cursor-pointer"
-          >
-            Ganti Kata Sandi
-          </button>
+        {/* Account Section: Email, Password & Logout */}
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => {
+                setIsChangingEmail(true);
+                setEmailChangeStatus(null);
+              }}
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer flex items-center gap-1"
+            >
+              <Mail size={12} />
+              <span>Ganti Email</span>
+            </button>
+            <span className="text-slate-300">·</span>
+            <button
+              onClick={() => {
+                onClose();
+                navigate('/reset-password');
+              }}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-900 cursor-pointer flex items-center gap-1"
+            >
+              <Lock size={12} />
+              <span>Ganti Kata Sandi</span>
+            </button>
+          </div>
 
           <button
             onClick={onLogout}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
           >
             <LogOut size={13} />
             <span>Keluar</span>
