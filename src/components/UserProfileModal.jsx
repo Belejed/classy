@@ -8,11 +8,10 @@ import {
   Bell, 
   Lock, 
   LogOut, 
-  Check, 
   Edit2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { authService, dbService, DEFAULT_NOTIFICATION_PREFERENCES } from '../utils/db';
+import { authService, dbService, isSuperAdmin, DEFAULT_NOTIFICATION_PREFERENCES } from '../utils/db';
 import ModalPortal from './ModalPortal';
 
 export default function UserProfileModal({
@@ -86,8 +85,12 @@ export default function UserProfileModal({
               {currentUser?.displayName || 'Student'}
             </h4>
             <p className="text-xs text-slate-500 truncate">{currentUser?.email}</p>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 inline-block mt-1">
-              {currentClass?.userRole === 'coordinator' ? 'Class Coordinator' : 'Student'}
+            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-800 inline-block mt-1">
+              {isSuperAdmin(currentUser) 
+                ? '⚡ Superadmin (Ghost Mode)' 
+                : (currentClass?.userRole === 'komti' || currentClass?.userRole === 'coordinator' 
+                    ? '👑 Komti' 
+                    : (currentClass?.userRole === 'lecturer' ? '🎓 Dosen' : '👤 Mahasiswa'))}
             </span>
           </div>
         </div>

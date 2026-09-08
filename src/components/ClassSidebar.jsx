@@ -135,7 +135,7 @@ export default function ClassSidebar({
   };
 
   const role = currentClass?.userRole || 'student';
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
 
   const navTabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -145,17 +145,21 @@ export default function ClassSidebar({
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'forum', label: 'Forum', icon: MessageSquare },
     { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
-    { id: 'members', label: 'Members (Komti)', icon: Users, isSpecial: true },
+    { id: 'members', label: role === 'superadmin' ? 'Members' : 'Members (Komti)', icon: Users, isSpecial: true },
     ...(isManager ? [{ id: 'logs', label: 'Log Aktivitas', icon: History, isSpecial: true }] : [])
   ];
 
   const getRoleLabel = () => {
+    if (role === 'superadmin') return '⚡ Superadmin';
     if (role === 'komti' || role === 'coordinator') return 'Komti';
     if (role === 'lecturer' || role === 'dosen') return 'Dosen';
     return 'Mahasiswa';
   };
 
   const getRoleBadgeStyle = () => {
+    if (role === 'superadmin') {
+      return 'bg-slate-900 text-white border-slate-900';
+    }
     if (role === 'komti' || role === 'coordinator') {
       return 'bg-amber-50 text-amber-800 border-amber-200';
     }

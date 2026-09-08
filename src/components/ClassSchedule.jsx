@@ -294,7 +294,7 @@ export default function ClassSchedule({
   const [eventDesc, setEventDesc] = useState('');
 
   const role = currentClass?.userRole;
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
 
   // Dynamic schedule boundaries to fit cleanly on 1 screen without unnecessary vertical scrolling
   const { startHour, endHour } = useMemo(() => {

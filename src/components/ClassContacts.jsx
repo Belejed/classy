@@ -30,12 +30,14 @@ export default function ClassContacts({
   const [selectedDayFilter, setSelectedDayFilter] = useState('Semua');
   const [copiedId, setCopiedId] = useState(null);
 
-  // Identify class coordinator / komti
+  // Identify class coordinator / komti (excluding superadmin)
   const coordinatorMember = useMemo(() => {
     return (currentClass?.members || []).find(m => 
-      m.role === 'komti' || 
-      m.role === 'coordinator' || 
-      m.userId === currentClass?.ownerId
+      m && m.role !== 'superadmin' && (
+        m.role === 'komti' || 
+        m.role === 'coordinator' || 
+        m.userId === currentClass?.ownerId
+      )
     );
   }, [currentClass]);
 

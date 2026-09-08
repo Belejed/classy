@@ -34,7 +34,7 @@ export default function ClassActivityLog({
   const [refreshing, setRefreshing] = useState(false);
 
   const role = currentClass?.userRole || 'student';
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
 
   const handleRefresh = async () => {
     if (!onRefresh) return;

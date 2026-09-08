@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { dbService } from '../utils/db';
+import { dbService, isSuperAdmin } from '../utils/db';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
 import EmptyState from './EmptyState';
@@ -213,7 +213,7 @@ export default function ClassLobby({
             </div>
 
             <div className="flex items-center gap-2">
-              {classes.length === 0 ? (
+              {classes.length === 0 || isSuperAdmin(currentUser) ? (
                 <>
                   <button
                     onClick={() => {
@@ -247,6 +247,26 @@ export default function ClassLobby({
               )}
             </div>
           </div>
+
+          {/* Superadmin Stealth Mode Indicator (Only visible to superadmin) */}
+          {isSuperAdmin(currentUser) && (
+            <div className="max-w-xl mb-4 p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 flex items-center justify-between gap-3 shadow-md">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300 font-bold shrink-0 text-sm">
+                  ⚡
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                    <span>Mode Superadmin (Ghost)</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 font-semibold uppercase tracking-wider">Hidden</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-300 truncate">
+                    Akses penuh ke seluruh workspace kelas tanpa terlihat di daftar anggota publik.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Loading Skeleton, Empty State, or Class Cards */}
           {classesLoading ? (
@@ -349,7 +369,7 @@ export default function ClassLobby({
                           {cls.classIdentifier || 'Rombel'}
                         </span>
                         <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                          {cls.userRole === 'komti' || cls.userRole === 'coordinator' ? '👑 Komti' : cls.userRole === 'lecturer' ? '🎓 Dosen' : '👤 Mahasiswa'}
+                          {cls.userRole === 'superadmin' ? '⚡ Superadmin' : (cls.userRole === 'komti' || cls.userRole === 'coordinator' ? '👑 Komti' : cls.userRole === 'lecturer' ? '🎓 Dosen' : '👤 Mahasiswa')}
                         </span>
                       </div>
 

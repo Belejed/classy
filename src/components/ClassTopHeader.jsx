@@ -56,7 +56,7 @@ export default function ClassTopHeader({
   };
 
   const role = currentClass?.userRole || 'student';
-  const roleLabel = role === 'komti' || role === 'coordinator' ? '👑 Komti' : role === 'lecturer' || role === 'dosen' ? '🎓 Dosen' : '👤 Mahasiswa';
+  const roleLabel = role === 'superadmin' ? '⚡ Superadmin' : (role === 'komti' || role === 'coordinator' ? '👑 Komti' : role === 'lecturer' || role === 'dosen' ? '🎓 Dosen' : '👤 Mahasiswa');
 
   const userInitial = currentUser?.displayName ? currentUser.displayName[0].toUpperCase() : 'U';
 

@@ -63,7 +63,7 @@ export default function ClassAnnouncements({
   }, [fullscreenPhoto]);
 
   const role = currentClass?.userRole;
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
 
   const handlePhotoSelect = (e) => {
     const file = e.target.files?.[0];

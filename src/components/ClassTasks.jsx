@@ -377,7 +377,7 @@ export default function ClassTasks({
   const [isCreating, setIsCreating] = useState(false);
 
   const role = currentClass?.userRole;
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
 
   // Overdue count for current user
   const overdueTasksCount = useMemo(() => {

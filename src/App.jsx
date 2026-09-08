@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
-import { authService, dbService } from './utils/db';
+import { authService, dbService, isSuperAdmin } from './utils/db';
 import { moveFileToDriveTrash, moveFilesToDriveTrash } from './utils/driveUpload';
 import { unlockBodyScroll } from './components/ModalPortal';
 
@@ -930,6 +930,12 @@ function ClassWorkspace({
     // Try finding from loaded classes
     const matched = classes.find(c => c.id === classId);
     if (matched) {
+      if (isSuperAdmin(user)) {
+        matched.userRole = 'superadmin';
+        matched.membershipStatus = 'approved';
+        setCurrentClass(matched);
+        return;
+      }
       if (matched.membershipStatus && matched.membershipStatus !== 'approved') {
         toast.error('Keanggotaan Anda masih menunggu persetujuan Komti/Dosen.');
         navigate('/lobby');
@@ -940,9 +946,10 @@ function ClassWorkspace({
       // Direct load via URL: fetch from db
       dbService.classes.get(classId).then((cls) => {
         if (cls) {
+          const isSuper = isSuperAdmin(user);
           const isOwner = cls.ownerId === user?.uid;
           const memberObj = (cls.members || []).find(m => m.userId === user?.uid || m.email?.toLowerCase() === user?.email?.toLowerCase());
-          const isApproved = isOwner || (memberObj && (memberObj.status || 'approved') === 'approved');
+          const isApproved = isSuper || isOwner || (memberObj && (memberObj.status || 'approved') === 'approved');
 
           if (!isApproved) {
             toast.error('Keanggotaan Anda masih menunggu persetujuan Komti/Dosen.');
@@ -950,7 +957,11 @@ function ClassWorkspace({
             return;
           }
 
-          if (isOwner || memberObj) {
+          if (isSuper) {
+            cls.userRole = 'superadmin';
+            cls.membershipStatus = 'approved';
+            setCurrentClass(cls);
+          } else if (isOwner || memberObj) {
             cls.userRole = memberObj?.role || (isOwner ? 'komti' : 'student');
             cls.membershipStatus = 'approved';
             setCurrentClass(cls);

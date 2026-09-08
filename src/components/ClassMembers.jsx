@@ -22,6 +22,7 @@ import {
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
 import EmptyState from './EmptyState';
+import { isSuperAdminEmail } from '../utils/db';
 
 export default function ClassMembers({
   currentClass,
@@ -47,9 +48,11 @@ export default function ClassMembers({
   const [settingWaGroupLink, setSettingWaGroupLink] = useState('');
   const [savingSettings, setSavingSettings] = useState(false);
 
-  const members = currentClass?.members || [];
+  // Superadmin is in ghost mode (never displayed in member list or counted)
+  const rawMembers = currentClass?.members || [];
+  const members = rawMembers.filter(m => m && m.role !== 'superadmin' && !isSuperAdminEmail(m.email));
   const myRole = currentClass?.userRole || 'student';
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(myRole) || currentClass?.ownerId === currentUser?.uid;
+  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(myRole) || currentClass?.ownerId === currentUser?.uid;
 
   // Separate pending join requests from approved members
   const pendingMembers = members.filter(m => m && m.status === 'pending');

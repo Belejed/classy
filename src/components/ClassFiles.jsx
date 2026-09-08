@@ -59,7 +59,7 @@ export default function ClassFiles({
   const [selectedFileObj, setSelectedFileObj] = useState(null);
 
   const role = currentClass?.userRole;
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
 
   // Group files by Folder
   const folderStats = useMemo(() => {

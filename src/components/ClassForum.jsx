@@ -48,7 +48,7 @@ export default function ClassForum({
   const [newGroupDesc, setNewGroupDesc] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  const isCoordinator = currentClass?.userRole === 'coordinator';
+  const isCoordinator = ['komti', 'coordinator', 'superadmin'].includes(currentClass?.userRole) || currentClass?.ownerId === currentUser?.uid;
 
   const handleCreateGroupSubmit = async (e) => {
     e.preventDefault();
