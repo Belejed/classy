@@ -28,7 +28,8 @@ import {
   UserCheck,
   CheckCircle2,
   Eye,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Maximize2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
@@ -90,6 +91,31 @@ const getCleanInstructions = (inst) => {
     } catch {}
   }
   return inst;
+};
+
+// Helper to determine if an attachment is an image
+export const isAttachmentImage = (att) => {
+  if (!att) return false;
+  if (att.isImage) return true;
+  if (att.type && typeof att.type === 'string' && att.type.startsWith('image/')) return true;
+  if (att.name && typeof att.name === 'string' && /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(att.name)) return true;
+  return false;
+};
+
+// Helper to get direct displayable image URL from Google Drive or local attachment
+export const getAttachmentDirectImageUrl = (att) => {
+  if (!att) return '';
+  if (att.directUrl) return att.directUrl;
+  if (att.dataUrl) return att.dataUrl;
+  const rawUrl = att.url || att.previewUrl || '';
+  if (!rawUrl) return '';
+  if (rawUrl.startsWith('data:') || rawUrl.startsWith('blob:')) return rawUrl;
+
+  const driveId = att.fileId || extractDriveFileId(rawUrl);
+  if (driveId) {
+    return `https://lh3.googleusercontent.com/d/${driveId}`;
+  }
+  return rawUrl;
 };
 
 export default function ClassTasks({
@@ -471,10 +497,21 @@ export default function ClassTasks({
       const targetFolder = taskTitle.trim() ? `Tugas: ${taskTitle.trim()}` : 'Materi Kuliah';
 
       for (const file of files) {
-        const isImage = file.type?.startsWith('image/');
+        const isImage = file.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(file.name);
         let fileUrl = '';
         let fileId = null;
         let fileSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+        let localDataUrl = '';
+
+        if (isImage) {
+          try {
+            const reader = new FileReader();
+            localDataUrl = await new Promise(res => {
+              reader.onload = () => res(reader.result);
+              reader.readAsDataURL(file);
+            });
+          } catch {}
+        }
 
         try {
           const driveRes = await uploadToGoogleDrive({
@@ -488,19 +525,21 @@ export default function ClassTasks({
           fileSize = driveRes.fileSize || fileSize;
         } catch (driveErr) {
           console.warn('Drive upload fallback to local encoding:', driveErr);
-          const reader = new FileReader();
-          fileUrl = await new Promise(res => {
-            reader.onload = () => res(reader.result);
-            reader.readAsDataURL(file);
-          });
+          fileUrl = localDataUrl;
         }
+
+        const directUrl = fileId 
+          ? `https://lh3.googleusercontent.com/d/${fileId}` 
+          : (localDataUrl || fileUrl);
 
         uploadedList.push({
           id: 'att_' + Math.random().toString(36).substr(2, 9),
           name: file.name,
           size: fileSize,
-          type: file.type || 'application/octet-stream',
+          type: file.type || (isImage ? 'image/jpeg' : 'application/octet-stream'),
           url: fileUrl,
+          directUrl,
+          dataUrl: localDataUrl,
           fileId,
           isImage
         });
@@ -1172,61 +1211,137 @@ export default function ClassTasks({
               </div>
             )}
 
-            {/* Instructor Attachments Section (Photos/Files) */}
+            {/* Instructor Attachments Section (Photos/Files) - Direct Inline View */}
             {selectedTask.attachments?.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-xs text-[#0F172A] flex items-center gap-1.5">
                     <Paperclip size={13} className="text-indigo-600" />
                     <span>Lampiran Soal / Berkas ({selectedTask.attachments.length})</span>
                   </h4>
-                  <span className="text-[10px] text-slate-500 font-medium">Klik untuk melihat atau mengunduh</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Klik foto untuk memperbesar layar penuh</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+
+                <div className="space-y-3">
                   {selectedTask.attachments.map((att, idx) => {
-                    const isImg = att.isImage || (att.type && att.type.startsWith('image/')) || (att.name && /\.(png|jpe?g|webp|gif)$/i.test(att.name));
+                    const isImg = isAttachmentImage(att);
+                    const directImgUrl = getAttachmentDirectImageUrl(att);
+                    const driveId = att.fileId || extractDriveFileId(att.url || att.previewUrl);
+
+                    if (isImg) {
+                      return (
+                        <div
+                          key={att.id || idx}
+                          className="rounded-2xl border border-slate-200 overflow-hidden bg-slate-50/80 shadow-2xs space-y-0"
+                        >
+                          {/* Photo Card Header */}
+                          <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-b border-slate-100 gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700 shrink-0">
+                                <ImageIcon size={14} />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-xs font-bold text-slate-800 truncate block" title={att.name}>
+                                  {att.name}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-mono block">
+                                  {att.size || 'Foto Lampiran'}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewAttachmentImage(att)}
+                                className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                                title="Buka Layar Penuh"
+                              >
+                                <Maximize2 size={12} />
+                                <span>Layar Penuh</span>
+                              </button>
+
+                              {att.url && (
+                                <a
+                                  href={att.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  download={att.name}
+                                  className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                                  title="Unduh / Buka di Google Drive"
+                                >
+                                  <ExternalLink size={14} />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* DIRECT EMBEDDED PHOTO VIEW */}
+                          <div
+                            onClick={() => setPreviewAttachmentImage(att)}
+                            className="relative group p-3 sm:p-4 flex items-center justify-center bg-slate-100/70 cursor-zoom-in min-h-[180px] max-h-[420px] overflow-hidden"
+                            title="Klik untuk memperbesar foto layar penuh"
+                          >
+                            <img
+                              src={directImgUrl}
+                              alt={att.name}
+                              onError={(e) => {
+                                // Multi-tier fallback for Google Drive photos
+                                if (driveId) {
+                                  if (!e.currentTarget.dataset.step) {
+                                    e.currentTarget.dataset.step = '1';
+                                    e.currentTarget.src = `https://drive.google.com/thumbnail?id=${driveId}&sz=w1200`;
+                                  } else if (e.currentTarget.dataset.step === '1') {
+                                    e.currentTarget.dataset.step = '2';
+                                    e.currentTarget.src = `https://drive.google.com/uc?export=view&id=${driveId}`;
+                                  }
+                                }
+                              }}
+                              className="max-h-[380px] w-auto max-w-full object-contain rounded-xl shadow-xs border border-slate-200/90 transition-transform duration-200 group-hover:scale-[1.01]"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                              <span className="bg-slate-900/90 text-white text-xs font-semibold px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg backdrop-blur-xs">
+                                <Maximize2 size={12} />
+                                Klik untuk Memperbesar
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Non-image document attachment (PDF, DOCX, ZIP, etc.)
                     return (
                       <div
                         key={att.id || idx}
-                        className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-100/80 transition-colors flex items-center justify-between gap-2"
+                        className="p-3 rounded-2xl border border-slate-200 bg-white hover:border-indigo-200 transition-colors flex items-center justify-between gap-3 shadow-2xs"
                       >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          {isImg ? (
-                            <button
-                              type="button"
-                              onClick={() => setPreviewAttachmentImage(att)}
-                              className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-200 relative group cursor-pointer bg-white"
-                              title="Klik untuk perbesar foto"
-                            >
-                              <img src={att.url} alt={att.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                <Eye size={13} />
-                              </div>
-                            </button>
-                          ) : (
-                            <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                              <FileText size={18} />
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0 border border-indigo-100">
+                            <FileText size={18} />
+                          </div>
                           <div className="min-w-0 flex-1">
-                            <span className="text-xs font-semibold text-slate-800 truncate block" title={att.name}>
+                            <span className="text-xs font-bold text-slate-800 truncate block" title={att.name}>
                               {att.name}
                             </span>
                             <span className="text-[10px] text-slate-500 font-mono block">
-                              {att.size || 'Lampiran'}
+                              {att.size || 'Dokumen Pendukung'}
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {isImg && (
-                            <button
-                              type="button"
-                              onClick={() => setPreviewAttachmentImage(att)}
-                              className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
-                              title="Lihat Foto"
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {att.url && (
+                            <a
+                              href={att.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors"
                             >
-                              <Eye size={14} />
-                            </button>
+                              <ExternalLink size={12} />
+                              <span>Buka Berkas</span>
+                            </a>
                           )}
                           {att.url && (
                             <a
@@ -1234,8 +1349,8 @@ export default function ClassTasks({
                               target="_blank"
                               rel="noopener noreferrer"
                               download={att.name}
-                              className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
-                              title="Buka / Unduh Berkas"
+                              className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
+                              title="Unduh Berkas"
                             >
                               <Download size={14} />
                             </a>
@@ -2130,7 +2245,7 @@ export default function ClassTasks({
                       >
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           {att.isImage ? (
-                            <img src={att.url} alt={att.name} className="w-7 h-7 rounded object-cover shrink-0 border border-slate-200" />
+                            <img src={getAttachmentDirectImageUrl(att)} alt={att.name} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-slate-200 bg-slate-100" />
                           ) : (
                             <FileText size={16} className="text-indigo-600 shrink-0" />
                           )}
@@ -2245,11 +2360,22 @@ export default function ClassTasks({
               </button>
             </div>
             <div className="py-4 max-h-[75vh] flex items-center justify-center overflow-auto w-full">
-              <img src={previewAttachmentImage.url} alt={previewAttachmentImage.name} className="max-h-[70vh] object-contain rounded-lg" />
+              <img
+                src={getAttachmentDirectImageUrl(previewAttachmentImage)}
+                alt={previewAttachmentImage.name}
+                onError={(e) => {
+                  const driveId = previewAttachmentImage.fileId || extractDriveFileId(previewAttachmentImage.url || previewAttachmentImage.previewUrl);
+                  if (driveId && !e.currentTarget.dataset.step) {
+                    e.currentTarget.dataset.step = '1';
+                    e.currentTarget.src = `https://drive.google.com/thumbnail?id=${driveId}&sz=w1600`;
+                  }
+                }}
+                className="max-h-[70vh] w-auto max-w-full object-contain rounded-lg shadow-2xl"
+              />
             </div>
             <div className="w-full flex justify-end pt-2 border-t border-slate-800">
               <a
-                href={previewAttachmentImage.url}
+                href={previewAttachmentImage.url || getAttachmentDirectImageUrl(previewAttachmentImage)}
                 target="_blank"
                 rel="noopener noreferrer"
                 download={previewAttachmentImage.name}
