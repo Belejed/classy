@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
+import { isClassBlocked } from '../utils/db';
 
 export default function ClassAnnouncements({
   currentClass,
@@ -125,6 +126,10 @@ export default function ClassAnnouncements({
 
   const handleSendEmailBroadcast = async (announcement) => {
     if (!announcement) return;
+    if (isClassBlocked(currentClass)) {
+      toast.error('Pengiriman email notifikasi di-pause karena kelas ini sedang terblokir.', { duration: 4000 });
+      return;
+    }
     setIsSendingEmail(true);
     const toastId = toast.loading('Mengirim email notifikasi via Resend...');
     try {
@@ -136,6 +141,7 @@ export default function ClassAnnouncements({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          classId: currentClass?.id,
           recipients,
           sendIndividual: true,
           subject: `[${announcement.type.toUpperCase()}] ${announcement.title} - ${currentClass?.name || 'Classy'}`,
@@ -157,6 +163,11 @@ export default function ClassAnnouncements({
       const data = await res.json();
       if (!res.ok && !data.success) {
         throw new Error(data.error || 'Gagal mengirim email');
+      }
+
+      if (data.paused) {
+        toast.info(data.message || 'Pengiriman email di-pause karena kelas terblokir.', { id: toastId, duration: 4000 });
+        return;
       }
 
       if (data.mode === 'resend_sandbox_delivered_to_owner') {
@@ -228,34 +239,39 @@ export default function ClassAnnouncements({
 
       // If sendEmailNotification is true, trigger email dispatch to members (+ CC exars.012@gmail.com)
       if (sendEmailNotification) {
-        try {
-          const memberEmails = (currentClass?.members || [])
-            .filter(m => (m.status || 'approved') === 'approved' && m.email)
-            .map(m => m.email);
+        if (isClassBlocked(currentClass)) {
+          toast.success('Pengumuman dipublikasikan (Pengiriman email di-pause karena kelas terblokir).');
+        } else {
+          try {
+            const memberEmails = (currentClass?.members || [])
+              .filter(m => (m.status || 'approved') === 'approved' && m.email)
+              .map(m => m.email);
 
-          fetch('/api/send-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              recipients: memberEmails,
-              sendIndividual: true,
-              subject: `[PENGUMUMAN KELAS: ${currentClass?.name || 'Classy'}] ${title.trim()}`,
-              type: type === 'important' ? 'important' : 'announcement',
-              title: title.trim(),
-              subtitle: `Pengumuman Kelas ${currentClass?.name || 'Classy'}`,
-              message: message.trim(),
-              photoUrl: attachment?.url || null,
-              attachmentName: attachment?.name || 'lampiran_pengumuman.jpg',
-              metaRows: [
-                ['Kategori', type.toUpperCase()],
-                ['Pengirim', currentUser?.displayName || 'Koordinator Kelas'],
-                ['Ruang Kelas', currentClass?.name || 'Classy']
-              ]
-            })
-          }).catch(emailErr => console.warn('Email broadcast error:', emailErr));
-          
-          toast.success('Pengumuman dipublikasikan & email notifikasi dikirim!');
-        } catch {}
+            fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                classId: currentClass?.id,
+                recipients: memberEmails,
+                sendIndividual: true,
+                subject: `[PENGUMUMAN KELAS: ${currentClass?.name || 'Classy'}] ${title.trim()}`,
+                type: type === 'important' ? 'important' : 'announcement',
+                title: title.trim(),
+                subtitle: `Pengumuman Kelas ${currentClass?.name || 'Classy'}`,
+                message: message.trim(),
+                photoUrl: attachment?.url || null,
+                attachmentName: attachment?.name || 'lampiran_pengumuman.jpg',
+                metaRows: [
+                  ['Kategori', type.toUpperCase()],
+                  ['Pengirim', currentUser?.displayName || 'Koordinator Kelas'],
+                  ['Ruang Kelas', currentClass?.name || 'Classy']
+                ]
+              })
+            }).catch(emailErr => console.warn('Email broadcast error:', emailErr));
+            
+            toast.success('Pengumuman dipublikasikan & email notifikasi dikirim!');
+          } catch {}
+        }
       } else {
         toast.success('Pengumuman berhasil dipublikasikan!');
       }

@@ -1,3 +1,7 @@
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://klnemjadmcuetdpulzkf.supabase.co';
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_OhvNh6I3jjbj4vLvFNmEWQ_t0GwP5O1';
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const RESEND_BATCH_URL = 'https://api.resend.com/emails/batch';
 const DEFAULT_RESEND_KEY = process.env.RESEND_API_KEY || 're_49d3iMFv_QCsHWiJpaJ8GnGtcQ5y2c8NN';
@@ -186,11 +190,43 @@ export default async function handler(req, res) {
       attachmentName,
       attachments = [],
       ccEmails = [],
-      sendIndividual = true
+      sendIndividual = true,
+      classId
     } = req.body || {};
 
     if (!subject) {
       return res.status(400).json({ error: 'subject is required' });
+    }
+
+    // Check if class is blocked / paused (except for Superadmin approval requests)
+    if (classId && type !== 'class_approval_request') {
+      try {
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const { data: ws } = await supabase
+          .from('workspaces')
+          .select('id, name, description')
+          .eq('id', classId)
+          .maybeSingle();
+
+        if (ws) {
+          let meta = {};
+          try {
+            meta = typeof ws.description === 'string' && ws.description.startsWith('{') ? JSON.parse(ws.description) : {};
+          } catch {}
+          const isMlogB = (ws.name || '').toLowerCase().includes('log') && (ws.name || '').toLowerCase().includes('b');
+          const isBlocked = meta.isBlocked !== undefined ? Boolean(meta.isBlocked) : (!isMlogB);
+          if (isBlocked) {
+            console.log(`[send-email] Pengiriman email di-pause karena kelas terblokir: ${ws.name} (${classId})`);
+            return res.status(200).json({
+              success: false,
+              paused: true,
+              message: 'Pengiriman email notifikasi di-pause karena kelas sedang dalam status terblokir.'
+            });
+          }
+        }
+      } catch (checkErr) {
+        console.warn('[send-email] Gagal mengecek status blokir kelas:', checkErr);
+      }
     }
 
     // Process recipient list (clean and deduplicate)

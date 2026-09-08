@@ -187,6 +187,11 @@ export default function App() {
   // Helper to send class notifications via serverless Resend endpoint
   const sendClassNotificationEmail = async ({ subject, type = 'announcement', title, subtitle, message, metaRows = [], photoUrl = null, sendIndividual = true }) => {
     try {
+      if (isClassBlocked(currentClass)) {
+        console.warn('[sendClassNotificationEmail] Pengiriman email di-pause karena kelas terblokir:', currentClass?.name);
+        return { success: false, paused: true, message: 'Pengiriman email di-pause karena kelas sedang terblokir.' };
+      }
+
       const recipients = (currentClass?.members || [])
         .filter(m => (m.status || 'approved') === 'approved' && m.email)
         .map(m => m.email);
@@ -195,6 +200,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          classId: currentClass?.id,
           recipients,
           sendIndividual,
           subject,

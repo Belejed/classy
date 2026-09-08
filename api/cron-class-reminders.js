@@ -303,6 +303,19 @@ export default async function handler(req, res) {
 
     for (const ws of (workspaces || [])) {
       const classId = ws.id;
+
+      // Check if class is blocked / paused
+      let meta = {};
+      try {
+        meta = typeof ws.description === 'string' && ws.description.startsWith('{') ? JSON.parse(ws.description) : {};
+      } catch {}
+      const isMlogB = (ws.name || '').toLowerCase().includes('log') && (ws.name || '').toLowerCase().includes('b');
+      const isBlocked = meta.isBlocked !== undefined ? Boolean(meta.isBlocked) : (!isMlogB);
+      if (isBlocked) {
+        console.log(`[cron] Skipping blocked/paused class: ${ws.name} (${classId})`);
+        continue;
+      }
+
       const members = ws.members || [];
       const cleanRecipients = members
         .filter(m => (m.status || 'approved') === 'approved' && m.email)

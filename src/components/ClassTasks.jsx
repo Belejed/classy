@@ -37,6 +37,7 @@ import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../uti
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
+import { isClassBlocked } from '../utils/db';
 
 // Helper to check if a task deadline has passed
 export const isTaskOverdue = (dueDate, dueTime = '23:59') => {
@@ -143,6 +144,10 @@ export default function ClassTasks({
   // Send 1-on-1 task deadline reminder email to all unsubmitted students
   const handleSendTaskDeadlineEmail = async (task, unsubmittedList = []) => {
     if (!task) return;
+    if (isClassBlocked(currentClass)) {
+      toast.error('Pengiriman email pengingat tugas di-pause karena kelas ini sedang terblokir.', { duration: 4000 });
+      return;
+    }
     setIsSendingDeadlineEmail(true);
     const toastId = toast.loading('Mengirim email pengingat tugas ke mahasiswa...');
     try {
@@ -160,6 +165,7 @@ export default function ClassTasks({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          classId: currentClass?.id,
           recipients: recipientEmails,
           sendIndividual: true,
           subject: `[PENGINGAT DEADLINE TUGAS] ${task.course || 'Tugas Kuliah'} - ${task.title}`,
@@ -180,6 +186,11 @@ export default function ClassTasks({
       const data = await res.json();
       if (!res.ok && !data.success) {
         throw new Error(data.error || 'Gagal mengirim email pengingat');
+      }
+
+      if (data.paused) {
+        toast.info(data.message || 'Pengiriman email di-pause karena kelas terblokir.', { id: toastId, duration: 4000 });
+        return;
       }
 
       toast.success(`Berhasil mengirim pengingat ke ${recipientEmails.length} mahasiswa!`, { id: toastId });
