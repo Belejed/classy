@@ -354,7 +354,8 @@ export default function ClassTasks({
     const unsubmittedList = [];
 
     eligibleMembers.forEach(member => {
-      const sub = submittedMap.get(member.userId);
+      const mId = member.userId || member.uid || member.id;
+      const sub = submittedMap.get(mId);
       if (sub && !isSubmissionFileMissing(sub)) {
         submittedList.push({ member, submission: sub });
       } else {
@@ -364,7 +365,7 @@ export default function ClassTasks({
 
     // Capture any submissions from accounts not yet in eligibleMembers array
     submissions.forEach(s => {
-      const exists = eligibleMembers.some(m => m.userId === s.userId);
+      const exists = eligibleMembers.some(m => (m.userId || m.uid || m.id) === s.userId);
       if (!exists && !isSubmissionFileMissing(s)) {
         submittedList.push({ 
           member: { userId: s.userId, name: s.userName, email: '' }, 
@@ -387,7 +388,8 @@ export default function ClassTasks({
 
   const filteredGroupCandidates = useMemo(() => {
     return eligibleMembers.filter(m => {
-      if (m.userId === currentUser?.uid) return false;
+      const mId = m.userId || m.uid || m.id;
+      if (mId === currentUser?.uid) return false;
       const q = groupSearchQuery.trim().toLowerCase();
       if (!q) return true;
       return (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q);
@@ -395,6 +397,7 @@ export default function ClassTasks({
   }, [eligibleMembers, currentUser?.uid, groupSearchQuery]);
 
   const toggleGroupMember = (memberUserId) => {
+    if (!memberUserId) return;
     setSelectedGroupMemberIds(prev => {
       if (prev.includes(memberUserId)) {
         return prev.filter(id => id !== memberUserId);
@@ -806,8 +809,12 @@ export default function ClassTasks({
         ? [
             { userId: currentUser.uid, userName: currentUser.displayName || 'Mahasiswa', email: currentUser.email || '' },
             ...eligibleMembers
-              .filter(m => selectedGroupMemberIds.includes(m.userId))
-              .map(m => ({ userId: m.userId, userName: m.name || m.email, email: m.email || '' }))
+              .filter(m => selectedGroupMemberIds.includes(m.userId || m.uid || m.id))
+              .map(m => ({ 
+                userId: m.userId || m.uid || m.id, 
+                userName: m.name || m.userName || m.email || 'Mahasiswa', 
+                email: m.email || '' 
+              }))
           ]
         : [];
 
@@ -1621,38 +1628,53 @@ export default function ClassTasks({
                               </p>
                             ) : (
                               filteredGroupCandidates.map(member => {
-                                const isSelected = selectedGroupMemberIds.includes(member.userId);
-                                const name = member.name || member.email || 'Mahasiswa';
+                                const mId = member.userId || member.uid || member.id;
+                                const isSelected = selectedGroupMemberIds.includes(mId);
+                                const name = member.name || member.userName || member.email || 'Mahasiswa';
                                 return (
-                                  <label
-                                    key={member.userId}
-                                    onClick={() => toggleGroupMember(member.userId)}
-                                    className={`p-2 rounded-xl border flex items-center justify-between gap-2 text-xs cursor-pointer transition-colors ${
+                                  <div
+                                    key={mId}
+                                    role="checkbox"
+                                    aria-checked={isSelected}
+                                    tabIndex={0}
+                                    onClick={() => toggleGroupMember(mId)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === ' ' || e.key === 'Enter') {
+                                        e.preventDefault();
+                                        toggleGroupMember(mId);
+                                      }
+                                    }}
+                                    className={`p-2 rounded-xl border flex items-center justify-between gap-2 text-xs cursor-pointer select-none transition-all ${
                                       isSelected 
-                                        ? 'bg-violet-100/80 border-violet-300 text-violet-950 font-semibold' 
+                                        ? 'bg-violet-100/90 border-violet-400 text-violet-950 font-semibold shadow-2xs' 
                                         : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
                                     }`}
                                   >
-                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                      <input
-                                        type="checkbox"
-                                        checked={isSelected}
-                                        onChange={() => {}}
-                                        className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 border-gray-300 pointer-events-none"
-                                      />
+                                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pointer-events-none">
+                                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors shrink-0 ${
+                                        isSelected
+                                          ? 'bg-violet-600 border-violet-600 text-white'
+                                          : 'bg-white border-slate-300'
+                                      }`}>
+                                        {isSelected && <Check size={11} strokeWidth={3} />}
+                                      </div>
                                       <div className="min-w-0 flex-1">
-                                        <span className="truncate block">{name}</span>
+                                        <span className="truncate block font-medium">{name}</span>
                                         {member.email && (
                                           <span className="text-[10px] text-slate-500 font-normal truncate block">{member.email}</span>
                                         )}
                                       </div>
                                     </div>
-                                    {isSelected && (
-                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-violet-200 text-violet-800 shrink-0">
+                                    {isSelected ? (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-200 text-violet-800 shrink-0">
                                         Terpilih
                                       </span>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-400 font-normal shrink-0">
+                                        Centang
+                                      </span>
                                     )}
-                                  </label>
+                                  </div>
                                 );
                               })
                             )}
