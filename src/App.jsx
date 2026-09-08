@@ -315,6 +315,27 @@ export default function App() {
     return created;
   };
 
+  const handleUpdateTask = async (taskId, updates) => {
+    const updated = await dbService.tasks.update(taskId, updates);
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updated } : t));
+
+    try {
+      const typeLabel = updated.submissionType === 'group' ? ' (Tugas Kelompok)' : '';
+      const attInfo = updated.attachments?.length ? ` [${updated.attachments.length} Lampiran]` : '';
+      await dbService.logs.create(currentClass.id, {
+        actionType: 'task_update',
+        title: `Tugas diperbarui: ${updated.title}${typeLabel}`,
+        details: `${user?.displayName || 'Komti'} memperbarui rincian tugas "${updated.title}"${typeLabel}${attInfo} untuk mata kuliah ${updated.course || '-'}. Tenggat: ${updated.dueDate} ${updated.dueTime || '23:59'}.`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        targetName: updated.title,
+        color: 'indigo'
+      });
+      handleRefreshLogs();
+    } catch {}
+
+    return updated;
+  };
+
   const handleSubmitAssignment = async (taskId, submissionData) => {
     // If student previously submitted a file with a different URL, move the old one to Trash in Drive
     const currentTask = tasks?.find(t => t.id === taskId);
@@ -847,6 +868,7 @@ export default function App() {
                   handleUpdateSchedule={handleUpdateSchedule}
                   handleDeleteSchedule={handleDeleteSchedule}
                   handleCreateTask={handleCreateTask}
+                  handleUpdateTask={handleUpdateTask}
                   handleSubmitAssignment={handleSubmitAssignment}
                   handleDeleteSubmission={handleDeleteSubmission}
                   handleDeleteTask={handleDeleteTask}
@@ -913,6 +935,7 @@ function ClassWorkspace({
   handleUpdateSchedule,
   handleDeleteSchedule,
   handleCreateTask,
+  handleUpdateTask,
   handleSubmitAssignment,
   handleDeleteSubmission,
   handleDeleteTask,
@@ -1091,6 +1114,7 @@ function ClassWorkspace({
                 tasks={tasks}
                 schedules={schedules}
                 onCreateTask={handleCreateTask}
+                onUpdateTask={handleUpdateTask}
                 onSubmitAssignment={handleSubmitAssignment}
                 onDeleteSubmission={handleDeleteSubmission}
                 onDeleteTask={handleDeleteTask}

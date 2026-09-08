@@ -29,7 +29,8 @@ import {
   CheckCircle2,
   Eye,
   Image as ImageIcon,
-  Maximize2
+  Maximize2,
+  Edit2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
@@ -124,6 +125,7 @@ export default function ClassTasks({
   tasks = [],
   schedules = [],
   onCreateTask,
+  onUpdateTask,
   onSubmitAssignment,
   onDeleteSubmission,
   onDeleteTask
@@ -603,6 +605,161 @@ export default function ClassTasks({
     }
   };
 
+  // Edit Task State & Handlers
+  const [editingTask, setEditingTask] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editCourse, setEditCourse] = useState('');
+  const [isCustomEditCourse, setIsCustomEditCourse] = useState(false);
+  const [editLecturer, setEditLecturer] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editDueTime, setEditDueTime] = useState('23:59');
+  const [editDesc, setEditDesc] = useState('');
+  const [editInstructions, setEditInstructions] = useState('');
+  const [editSubmissionType, setEditSubmissionType] = useState('individual');
+  const [editAttachments, setEditAttachments] = useState([]);
+  const [isUploadingEditAttachment, setIsUploadingEditAttachment] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const editAttachmentInputRef = useRef(null);
+
+  const handleStartEdit = (task) => {
+    if (!task) return;
+    setEditingTask(task);
+    setEditTitle(task.title || '');
+    setEditCourse(task.course || '');
+    setIsCustomEditCourse(Boolean(task.course && !availableCourses.includes(task.course)));
+    setEditLecturer(task.lecturer || '');
+    setEditDueDate(task.dueDate || new Date().toISOString().split('T')[0]);
+    setEditDueTime(task.dueTime || '23:59');
+    setEditDesc(getCleanDescription(task.description) || '');
+    setEditInstructions(getCleanInstructions(task.instructions) || '');
+    setEditSubmissionType(task.submissionType || 'individual');
+    setEditAttachments(Array.isArray(task.attachments) ? [...task.attachments] : []);
+  };
+
+  const handleEditAttachmentUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setIsUploadingEditAttachment(true);
+    const toastId = toast.loading('Mengunggah lampiran baru ke Google Drive...');
+    try {
+      const uploadedList = [];
+      const targetFolder = editTitle.trim() ? `Tugas: ${editTitle.trim()}` : 'Materi Kuliah';
+
+      for (const file of files) {
+        const isImage = file.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(file.name);
+        let fileUrl = '';
+        let fileId = null;
+        let fileSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+        let localDataUrl = '';
+
+        if (isImage) {
+          try {
+            const reader = new FileReader();
+            localDataUrl = await new Promise(res => {
+              reader.onload = () => res(reader.result);
+              reader.readAsDataURL(file);
+            });
+          } catch {}
+        }
+
+        try {
+          const driveRes = await uploadToGoogleDrive({
+            file,
+            name: file.name,
+            folderName: targetFolder,
+            workspaceName: currentClass?.name || 'Umum'
+          });
+          fileUrl = driveRes.webViewLink || driveRes.previewUrl;
+          fileId = driveRes.fileId;
+          fileSize = driveRes.fileSize || fileSize;
+        } catch (driveErr) {
+          console.warn('Drive upload fallback to local encoding:', driveErr);
+          fileUrl = localDataUrl;
+        }
+
+        const directUrl = fileId 
+          ? `https://lh3.googleusercontent.com/d/${fileId}` 
+          : (localDataUrl || fileUrl);
+
+        uploadedList.push({
+          id: 'att_' + Math.random().toString(36).substr(2, 9),
+          name: file.name,
+          size: fileSize,
+          type: file.type || (isImage ? 'image/jpeg' : 'application/octet-stream'),
+          url: fileUrl,
+          directUrl,
+          dataUrl: localDataUrl,
+          fileId,
+          isImage
+        });
+      }
+
+      setEditAttachments(prev => [...prev, ...uploadedList]);
+      toast.success('Lampiran baru berhasil ditambahkan!', { id: toastId });
+    } catch (err) {
+      toast.error(err.message || 'Gagal mengunggah lampiran', { id: toastId });
+    } finally {
+      setIsUploadingEditAttachment(false);
+      if (editAttachmentInputRef.current) editAttachmentInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveEditAttachment = (attId) => {
+    setEditAttachments(prev => prev.filter(a => a.id !== attId));
+  };
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    if (!editTitle.trim()) {
+      toast.error('Judul tugas wajib diisi');
+      return;
+    }
+    if (!editCourse.trim()) {
+      toast.error('Nama mata kuliah wajib diisi');
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      const updated = await onUpdateTask(editingTask.id, {
+        title: editTitle.trim(),
+        course: editCourse.trim(),
+        lecturer: editLecturer.trim(),
+        dueDate: editDueDate,
+        dueTime: editDueTime,
+        description: editDesc.trim(),
+        instructions: editInstructions.trim(),
+        submissionType: editSubmissionType,
+        attachments: editAttachments
+      });
+
+      // Synchronize currently opened selectedTask
+      if (selectedTask?.id === editingTask.id) {
+        setSelectedTask(prev => ({
+          ...prev,
+          ...updated,
+          title: editTitle.trim(),
+          course: editCourse.trim(),
+          lecturer: editLecturer.trim(),
+          dueDate: editDueDate,
+          dueTime: editDueTime,
+          description: editDesc.trim(),
+          instructions: editInstructions.trim(),
+          submissionType: editSubmissionType,
+          attachments: editAttachments
+        }));
+      }
+
+      setEditingTask(null);
+      toast.success('Perubahan tugas berhasil disimpan!');
+    } catch (err) {
+      toast.error(err.message || 'Gagal memperbarui tugas');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !selectedTask) return;
@@ -1062,19 +1219,32 @@ export default function ClassTasks({
                         <span>{status.submittedCount}/{status.totalCount} Terkumpul</span>
                       </span>
 
-                      {unsubmittedCount > 0 ? (
-                        <span className={`font-bold px-2 py-0.5 rounded-full border ${
-                          isOverdue 
-                            ? 'text-rose-700 bg-rose-100/90 border-rose-300' 
-                            : 'text-rose-700 bg-rose-50 border-rose-200/80'
-                        }`}>
-                          {unsubmittedCount} belum kirim {isOverdue && '(Terlewat)'}
-                        </span>
-                      ) : (
-                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                          Semua sudah kirim ✨
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {unsubmittedCount > 0 ? (
+                          <span className={`font-bold px-2 py-0.5 rounded-full border ${
+                            isOverdue 
+                              ? 'text-rose-700 bg-rose-100/90 border-rose-300' 
+                              : 'text-rose-700 bg-rose-50 border-rose-200/80'
+                          }`}>
+                            {unsubmittedCount} belum kirim {isOverdue && '(Terlewat)'}
+                          </span>
+                        ) : (
+                          <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            Semua sudah kirim ✨
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStartEdit(task);
+                          }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                          title="Edit Tugas"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                      </div>
                     </div>
                   );
                 })()}
@@ -1112,13 +1282,26 @@ export default function ClassTasks({
                   {selectedTask.title}
                 </h3>
               </div>
-              <button 
-                onClick={() => setSelectedTask(null)} 
-                className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
-                title="Tutup Modal"
-              >
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {isManager && (
+                  <button
+                    type="button"
+                    onClick={() => handleStartEdit(selectedTask)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer min-h-[36px]"
+                    title="Edit Rincian Tugas"
+                  >
+                    <Edit2 size={13} />
+                    <span>Edit Tugas</span>
+                  </button>
+                )}
+                <button 
+                  onClick={() => setSelectedTask(null)} 
+                  className="min-w-[36px] min-h-[36px] flex items-center justify-center p-2 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Tutup Modal"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             {/* Scrollable Modal Body */}
@@ -2021,14 +2204,24 @@ export default function ClassTasks({
             {/* Modal Footer */}
             <div className="flex items-center justify-between gap-2 p-4 sm:p-6 pt-3 border-t border-[#F1F5F9] shrink-0 bg-white">
               {isManager ? (
-                <button
-                  type="button"
-                  onClick={() => setTaskToDelete(selectedTask)}
-                  className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3.5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer min-h-[38px] transition-colors border border-rose-200/60 sm:border-transparent"
-                >
-                  <Trash2 size={13} />
-                  <span>Hapus Tugas</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleStartEdit(selectedTask)}
+                    className="text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer min-h-[38px] transition-colors border border-indigo-200"
+                  >
+                    <Edit2 size={13} />
+                    <span>Edit Tugas</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTaskToDelete(selectedTask)}
+                    className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3.5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer min-h-[38px] transition-colors border border-rose-200/60 sm:border-transparent"
+                  >
+                    <Trash2 size={13} />
+                    <span className="hidden sm:inline">Hapus Tugas</span>
+                  </button>
+                </div>
               ) : <div />}
 
               <button
@@ -2312,6 +2505,273 @@ export default function ClassTasks({
                   className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] disabled:opacity-50 cursor-pointer shadow-2xs min-h-[40px] text-center"
                 >
                   {isCreating ? 'Menyimpan...' : 'Publikasikan Tugas'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* MODAL 3: EDIT TASK MODAL (Managers) */}
+      {editingTask && (
+        <ModalPortal onClose={() => !isSavingEdit && setEditingTask(null)} maxWidth="max-w-md">
+          <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-6 pb-3 border-b border-[#F1F5F9] shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700">
+                  <Edit2 size={16} />
+                </div>
+                <h3 className="font-bold text-base text-[#0F172A]">Edit Penugasan</h3>
+              </div>
+              <button 
+                onClick={() => !isSavingEdit && setEditingTask(null)} 
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center p-2 -mr-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Tutup Modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="p-4 sm:p-6 pt-3 space-y-3.5 overflow-y-auto flex-1 custom-scrollbar">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-[#334155]">Judul Penugasan</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Makalah Riset Logistik & Analisis Kasus"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
+                />
+              </div>
+
+              {/* Course Selection */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <label className="text-xs font-semibold text-[#334155]">Mata Kuliah</label>
+                  {availableCourses.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomEditCourse(prev => !prev);
+                        if (!isCustomEditCourse) setEditCourse('');
+                      }}
+                      className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                    >
+                      {isCustomEditCourse ? '← Pilih dari Jadwal Kelas' : '+ Tulis Mata Kuliah Baru'}
+                    </button>
+                  )}
+                </div>
+
+                {!isCustomEditCourse && availableCourses.length > 0 ? (
+                  <select
+                    value={editCourse}
+                    onChange={(e) => {
+                      const selected = e.target.value;
+                      setEditCourse(selected);
+                      const matched = (schedules || []).find(s => (s.course || s.title) === selected);
+                      if (matched && matched.lecturer) {
+                        setEditLecturer(matched.lecturer.split(',')[0]);
+                      }
+                    }}
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all cursor-pointer min-h-[40px]"
+                  >
+                    <option value="">-- Pilih Mata Kuliah --</option>
+                    {availableCourses.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="e.g. Manajemen Rantai Pasok"
+                    value={editCourse}
+                    onChange={(e) => setEditCourse(e.target.value)}
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
+                  />
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-[#334155]">Dosen Pengajar</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Dr. Budi Santoso, M.T."
+                  value={editLecturer}
+                  onChange={(e) => setEditLecturer(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
+                />
+              </div>
+
+              {/* Submission Type: Individu vs Kelompok */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#334155]">Tipe Penugasan</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditSubmissionType('individual')}
+                    className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                      editSubmissionType === 'individual'
+                        ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>👤 Tugas Individu</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditSubmissionType('group')}
+                    className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                      editSubmissionType === 'group'
+                        ? 'bg-violet-700 text-white border-violet-700 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>👥 Tugas Kelompok</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  {editSubmissionType === 'group'
+                    ? 'Mode kelompok: 1 perwakilan kelompok mengumpulkan berkas & mencentang teman kelompoknya.'
+                    : 'Mode individu: Setiap mahasiswa mengumpulkan berkas tugas secara mandiri.'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[#334155]">Batas Tanggal (Due Date)</label>
+                  <input
+                    type="date"
+                    value={editDueDate}
+                    onChange={(e) => setEditDueDate(e.target.value)}
+                    required
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[#334155]">Batas Jam (Due Time)</label>
+                  <input
+                    type="time"
+                    value={editDueTime}
+                    onChange={(e) => setEditDueTime(e.target.value)}
+                    required
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-[#334155]">Deskripsi Penugasan</label>
+                <textarea
+                  rows={3}
+                  placeholder="Ringkasan tugas, topik pembahasan, atau instruksi pengerjaan..."
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-[#334155]">Aturan Pengumpulan (Opsional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Format PDF maksimal 10MB, tugas dikerjakan individu..."
+                  value={editInstructions}
+                  onChange={(e) => setEditInstructions(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
+                />
+              </div>
+
+              {/* Attachments Section: Photos or Files (Soal/Panduan) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-[#334155] flex items-center gap-1.5">
+                    <Paperclip size={13} className="text-indigo-600" />
+                    <span>Lampiran Soal / File Pendukung ({editAttachments.length})</span>
+                  </label>
+                  <input
+                    type="file"
+                    ref={editAttachmentInputRef}
+                    onChange={handleEditAttachmentUpload}
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    disabled={isUploadingEditAttachment}
+                    onClick={() => editAttachmentInputRef.current?.click()}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <Plus size={12} />
+                    <span>{isUploadingEditAttachment ? 'Mengunggah...' : '+ Tambah Foto / File'}</span>
+                  </button>
+                </div>
+
+                {editAttachments.length > 0 ? (
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {editAttachments.map(att => (
+                      <div
+                        key={att.id}
+                        className="p-2 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {att.isImage ? (
+                            <img src={getAttachmentDirectImageUrl(att)} alt={att.name} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-slate-200 bg-slate-100" />
+                          ) : (
+                            <FileText size={16} className="text-indigo-600 shrink-0" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <span className="font-semibold text-slate-800 truncate block text-[11px]">{att.name}</span>
+                            <span className="text-[9px] text-slate-500 block">{att.size}</span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEditAttachment(att.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                          title="Hapus lampiran"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => editAttachmentInputRef.current?.click()}
+                    className="p-3 rounded-xl border border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/20 text-center cursor-pointer transition-colors"
+                  >
+                    <p className="text-[11px] text-slate-600 font-medium">
+                      {isUploadingEditAttachment ? 'Sedang mengunggah berkas ke Drive...' : 'Belum ada lampiran. Klik untuk menambahkan foto atau file.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Notice that student submissions remain safe */}
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/70 text-amber-800 text-[11px] flex items-start gap-2">
+                <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                <span>Pengumpulan tugas yang sudah diserahkan oleh mahasiswa tetap aman dan tidak akan terhapus saat mengubah rincian tugas.</span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#F1F5F9]">
+                <button
+                  type="button"
+                  disabled={isSavingEdit}
+                  onClick={() => setEditingTask(null)}
+                  className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-semibold text-[#64748B] hover:bg-[#F1F5F9] cursor-pointer min-h-[40px] text-center"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] disabled:opacity-50 cursor-pointer shadow-2xs min-h-[40px] text-center"
+                >
+                  {isSavingEdit ? 'Menyimpan Perubahan...' : 'Simpan Perubahan'}
                 </button>
               </div>
             </form>

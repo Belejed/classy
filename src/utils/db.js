@@ -977,6 +977,60 @@ export const dbService = {
       return true;
     },
 
+    update: async (taskId, updates) => {
+      const { data: existing, error: getErr } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
+      if (getErr || !existing) throw new Error('Tugas tidak ditemukan.');
+
+      let meta = {};
+      try {
+        meta = typeof existing.description === 'string' && existing.description.startsWith('{') ? JSON.parse(existing.description) : {};
+      } catch {
+        meta = { text: existing.description };
+      }
+
+      // Strictly preserve existing student submissions
+      const submissions = meta.submissions || [];
+
+      if (updates.description !== undefined) meta.text = updates.description;
+      if (updates.instructions !== undefined) meta.instructions = updates.instructions;
+      if (updates.lecturer !== undefined) meta.lecturer = updates.lecturer;
+      if (updates.submissionRequired !== undefined) meta.submissionRequired = updates.submissionRequired;
+      if (updates.submissionType !== undefined) meta.submissionType = updates.submissionType;
+      if (updates.attachments !== undefined) meta.attachments = updates.attachments;
+
+      const rowUpdates = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (updates.title !== undefined) rowUpdates.title = updates.title.trim();
+      if (updates.course !== undefined) rowUpdates.subject = (updates.course || '').trim();
+      if (updates.dueDate !== undefined) rowUpdates.due_date = updates.dueDate;
+      if (updates.dueTime !== undefined) rowUpdates.due_time = updates.dueTime;
+      if (updates.attachments !== undefined) rowUpdates.attachments = updates.attachments;
+      rowUpdates.description = JSON.stringify(meta);
+
+      const { error: updErr } = await supabase.from('tasks').update(rowUpdates).eq('id', taskId);
+      if (updErr) throw updErr;
+
+      return {
+        id: taskId,
+        classId: existing.workspace_id,
+        title: rowUpdates.title !== undefined ? rowUpdates.title : existing.title,
+        course: rowUpdates.subject !== undefined ? rowUpdates.subject : (existing.subject || ''),
+        lecturer: meta.lecturer || '',
+        dueDate: rowUpdates.due_date !== undefined ? rowUpdates.due_date : existing.due_date,
+        dueTime: rowUpdates.due_time !== undefined ? rowUpdates.due_time : (existing.due_time || '23:59'),
+        description: meta.text || '',
+        instructions: meta.instructions || '',
+        submissionRequired: meta.submissionRequired !== false,
+        submissionType: meta.submissionType || 'individual',
+        attachments: updates.attachments !== undefined ? updates.attachments : (existing.attachments || meta.attachments || []),
+        submissions,
+        createdAt: existing.created_at,
+        updatedAt: rowUpdates.updated_at
+      };
+    },
+
     delete: async (taskId) => {
       await supabase.from('tasks').delete().eq('id', taskId);
     }
