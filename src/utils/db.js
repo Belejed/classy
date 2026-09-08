@@ -22,7 +22,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = {
 
 // --- SUPERADMIN CONFIGURATION (GHOST / STEALTH ROLE) ---
 export const SUPERADMIN_EMAILS = [
-  'exars.012@gmail.com'
+  'exars.012@gmail.com',
+  'arya@exars.my.id'
 ];
 
 export const isSuperAdminEmail = (email) => {
@@ -40,6 +41,20 @@ export const isSuperAdmin = (user) => {
   if (!user) return false;
   if (user.role === 'superadmin' || user.userRole === 'superadmin' || user.user_metadata?.role === 'superadmin') return true;
   return isSuperAdminEmail(user.email);
+};
+
+// Helper: Determine if a class is blocked (Classes other than MLOG B are blocked by default unless unblocked by Superadmin)
+export const isClassBlocked = (cls) => {
+  if (!cls) return false;
+  if (typeof cls.isBlocked === 'boolean') return cls.isBlocked;
+  if (cls.status === 'blocked' || cls.status === 'pending_approval') return true;
+  if (cls.status === 'active') return false;
+
+  // Default rule: only M.Log B is active, all other classes are blocked
+  const name = (cls.name || '').toLowerCase();
+  const identifier = (cls.classIdentifier || '').toLowerCase();
+  const isMlogB = (name.includes('log') && name.includes('b')) || identifier.includes('26b');
+  return !isMlogB;
 };
 
 // --- AUTHENTICATION SERVICE ---
@@ -283,6 +298,10 @@ export const dbService = {
         // Always hide superadmin from member lists and member count
         const cleanMembers = (c.members || []).filter(m => m && m.role !== 'superadmin' && !isSuperAdminEmail(m.email));
 
+        const isBlocked = meta.isBlocked !== undefined
+          ? Boolean(meta.isBlocked)
+          : isClassBlocked({ name: c.name, classIdentifier: meta.classIdentifier || c.description, isBlocked: meta.isBlocked, status: meta.status });
+
         return {
           id: c.id,
           name: c.name,
@@ -294,6 +313,8 @@ export const dbService = {
           ownerId: c.owner_id,
           userRole, // 'superadmin' | 'komti' | 'lecturer' | 'student'
           membershipStatus, // 'approved' | 'pending' | 'rejected'
+          isBlocked,
+          status: isBlocked ? 'blocked' : 'active',
           members: cleanMembers,
           memberCount: cleanMembers.filter(m => (m.status || 'approved') === 'approved').length || 1,
           createdAt: c.created_at
@@ -315,6 +336,10 @@ export const dbService = {
       // Always hide superadmin from member lists and member count
       const cleanMembers = (data.members || []).filter(m => m && m.role !== 'superadmin' && !isSuperAdminEmail(m.email));
 
+      const isBlocked = meta.isBlocked !== undefined
+        ? Boolean(meta.isBlocked)
+        : isClassBlocked({ name: data.name, classIdentifier: meta.classIdentifier || data.description, isBlocked: meta.isBlocked, status: meta.status });
+
       return {
         id: data.id,
         name: data.name,
@@ -324,6 +349,8 @@ export const dbService = {
         waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
         ownerId: data.owner_id,
+        isBlocked,
+        status: isBlocked ? 'blocked' : 'active',
         members: cleanMembers,
         memberCount: cleanMembers.filter(m => (m.status || 'approved') === 'approved').length || 1,
         createdAt: data.created_at
@@ -345,6 +372,10 @@ export const dbService = {
       // Always hide superadmin from member lists and member count
       const cleanMembers = (data.members || []).filter(m => m && m.role !== 'superadmin' && !isSuperAdminEmail(m.email));
 
+      const isBlocked = meta.isBlocked !== undefined
+        ? Boolean(meta.isBlocked)
+        : isClassBlocked({ name: data.name, classIdentifier: meta.classIdentifier || data.description, isBlocked: meta.isBlocked, status: meta.status });
+
       return {
         id: data.id,
         name: data.name,
@@ -352,6 +383,8 @@ export const dbService = {
         lecturer: meta.lecturer || 'Dosen Pengajar',
         academicPeriod: meta.academicPeriod || '2026/2027',
         joinCode: data.invite_code,
+        isBlocked,
+        status: isBlocked ? 'blocked' : 'active',
         members: cleanMembers,
         memberCount: cleanMembers.filter(m => (m.status || 'approved') === 'approved').length || 1
       };
@@ -367,11 +400,18 @@ export const dbService = {
       const classId = 'class_' + Math.random().toString(36).substr(2, 9);
       const joinCode = generateJoinCode();
 
+      const isSuper = isSuperAdminEmail(userEmail);
+      const isMlogB = (name.trim().toLowerCase().includes('log') && name.trim().toLowerCase().includes('b')) || (classIdentifier || '').toLowerCase().includes('26b');
+      // Non-superadmin classes other than M.Log B default to blocked pending admin approval
+      const isBlocked = !isSuper && !isMlogB;
+
       const meta = {
         classIdentifier: (classIdentifier || 'TI-3A').trim(),
         lecturer: (lecturer || 'Dosen Pengajar').trim(),
         academicPeriod: (academicPeriod || '2026/2027').trim(),
-        waGroupLink: (waGroupLink || '').trim()
+        waGroupLink: (waGroupLink || '').trim(),
+        isBlocked,
+        status: isBlocked ? 'blocked' : 'active'
       };
 
       const finalRole = (creatorRole === 'lecturer' || creatorRole === 'dosen') ? 'lecturer' : 'komti';
@@ -401,14 +441,45 @@ export const dbService = {
       const { error } = await supabase.from('workspaces').insert(newDbRecord);
       if (error) throw error;
 
+      // Send approval confirmation email to administrator (arya@exars.my.id)
+      try {
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipients: ['arya@exars.my.id'],
+            subject: `[PERMINTAAN KELAS BARU] Pengajuan Ruang Kelas: ${name.trim()}`,
+            type: 'class_approval_request',
+            title: `Pengajuan Ruang Kelas Baru`,
+            subtitle: `Permintaan Aktivasi Kelas - ${name.trim()}`,
+            message: `Halo Administrator! Telah diajukan pembuatan ruang kelas baru di portal Classy. Ruang kelas ini otomatis berstatus terblokir sampai Anda menyetujui / membuka aksesnya di portal.`,
+            metaRows: [
+              ['Nama Kelas', name.trim()],
+              ['Rombel / Kode', meta.classIdentifier || '-'],
+              ['Dosen Pengampu', meta.lecturer || '-'],
+              ['Tahun / Periode', meta.academicPeriod || '-'],
+              ['Pembuat Kelas', `${userName || userEmail} (${userEmail})`],
+              ['Peran Pembuat', finalRole === 'lecturer' ? 'Dosen' : 'Komti'],
+              ['No. WhatsApp', (phoneNumber || '-')],
+              ['Kode Undangan', joinCode],
+              ['Status Awal', isBlocked ? '🔒 Terblokir (Menunggu Aktivasi Admin)' : 'Aktif']
+            ],
+            ctaLabel: 'Buka Portal & Kelola Kelas',
+            ctaUrl: 'https://classy.exars.my.id/lobby'
+          })
+        }).catch(err => console.warn('Gagal mengirim email konfirmasi kelas ke arya@exars.my.id:', err));
+      } catch (emailErr) {
+        console.warn('Error dispatching class creation email:', emailErr);
+      }
+
       // Log class creation
       try {
         await dbService.logs.create(newDbRecord.id, {
           actionType: 'class_create',
           title: `Ruang kelas "${name.trim()}" dibuat`,
-          details: `${userName || userEmail} membuat ruang kelas baru dengan kode undangan ${joinCode}.`,
+          details: `${userName || userEmail} membuat ruang kelas baru dengan kode undangan ${joinCode}.${isBlocked ? ' Status: Menunggu persetujuan admin (Terblokir).' : ''}`,
           actor: { name: userName || userEmail, email: userEmail, role: finalRole },
-          color: 'indigo'
+          color: isBlocked ? 'amber' : 'indigo'
         });
       } catch (logErr) {
         console.warn('Could not record create log:', logErr);
@@ -425,6 +496,8 @@ export const dbService = {
         ownerId: newDbRecord.owner_id,
         userRole: finalRole,
         membershipStatus: 'approved',
+        isBlocked,
+        status: isBlocked ? 'blocked' : 'active',
         members: newDbRecord.members,
         memberCount: 1,
         createdAt: newDbRecord.created_at
@@ -438,6 +511,20 @@ export const dbService = {
       const { data, error } = await supabase.from('workspaces').select('*').ilike('invite_code', cleanCode).maybeSingle();
       if (error || !data) {
         throw new Error('Kode kelas tidak valid atau kelas tidak ditemukan.');
+      }
+
+      // Check if class is blocked
+      let rawMeta = {};
+      try {
+        rawMeta = typeof data.description === 'string' && data.description.startsWith('{') ? JSON.parse(data.description) : {};
+      } catch {
+        rawMeta = {};
+      }
+      const isSuper = isSuperAdminEmail(userEmail);
+      const isMlogB = (data.name || '').toLowerCase().includes('log') && (data.name || '').toLowerCase().includes('b');
+      const isBlocked = rawMeta.isBlocked !== undefined ? !!rawMeta.isBlocked : (!isMlogB);
+      if (isBlocked && !isSuper) {
+        throw new Error('Kelas ini saat ini diblokir atau belum diaktivasi oleh Superadmin. Silakan hubungi Arya via email: arya@exars.my.id untuk konfirmasi pembukaan akses.');
       }
 
       // If user is already in a different class
@@ -690,6 +777,45 @@ export const dbService = {
         members: data.members || [],
         memberCount: (data.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1,
         createdAt: data.created_at
+      };
+    },
+
+    updateBlockStatus: async (classId, isBlocked) => {
+      const { data, error } = await supabase.from('workspaces').select('*').eq('id', classId).maybeSingle();
+      if (error || !data) throw new Error('Kelas tidak ditemukan.');
+
+      let meta = {};
+      try {
+        meta = typeof data.description === 'string' && data.description.startsWith('{') ? JSON.parse(data.description) : {};
+      } catch {
+        meta = {};
+      }
+
+      meta.isBlocked = Boolean(isBlocked);
+      meta.status = isBlocked ? 'blocked' : 'active';
+
+      const { error: updErr } = await supabase.from('workspaces').update({
+        description: JSON.stringify(meta)
+      }).eq('id', classId);
+
+      if (updErr) throw updErr;
+
+      try {
+        await dbService.logs.create(classId, {
+          actionType: isBlocked ? 'class_block' : 'class_unblock',
+          title: isBlocked ? `Ruang kelas diblokir` : `Ruang kelas diaktifkan`,
+          details: isBlocked
+            ? `Superadmin memblokir akses ke ruang kelas ini. Akses mahasiswa & komti ditangguhkan.`
+            : `Superadmin menyetujui dan membuka blokir ruang kelas ini. Mahasiswa & komti kini dapat beraktivitas normal.`,
+          actor: { name: 'Superadmin', role: 'superadmin' },
+          color: isBlocked ? 'rose' : 'emerald'
+        });
+      } catch {}
+
+      return {
+        id: data.id,
+        isBlocked: meta.isBlocked,
+        status: meta.status
       };
     }
   },

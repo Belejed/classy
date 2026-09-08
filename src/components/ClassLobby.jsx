@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { dbService, isSuperAdmin } from '../utils/db';
+import { dbService, isSuperAdmin, isClassBlocked } from '../utils/db';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
 import EmptyState from './EmptyState';
@@ -17,7 +17,10 @@ import {
   Clock,
   AlertCircle,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  Lock,
+  Mail,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function ClassLobby({ 
@@ -49,6 +52,7 @@ export default function ClassLobby({
   const [creatorRole, setCreatorRole] = useState('komti'); // 'komti' | 'lecturer'
   const [isCreating, setIsCreating] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [blockingClassId, setBlockingClassId] = useState(null);
 
   // Determine greeting based on local time
   const hour = new Date().getHours();
@@ -75,6 +79,10 @@ export default function ClassLobby({
 
   const handleConfirmJoin = async () => {
     if (!joinCodeInput.trim()) return;
+    if (previewClass && isClassBlocked(previewClass) && !isSuperAdmin(currentUser)) {
+      toast.error('Kelas ini saat ini diblokir. Hubungi arya@exars.my.id untuk meminta aktivasi.');
+      return;
+    }
     setIsJoining(true);
     try {
       const joined = await dbService.classes.joinByCode(
@@ -100,6 +108,20 @@ export default function ClassLobby({
       toast.error(err.message || 'Gagal bergabung ke kelas');
     } finally {
       setIsJoining(false);
+    }
+  };
+
+  const handleToggleBlock = async (classId, newBlockedState) => {
+    setBlockingClassId(classId);
+    const toastId = toast.loading(newBlockedState ? 'Memblokir kelas...' : 'Membuka blokir kelas...');
+    try {
+      await dbService.classes.updateBlockStatus(classId, newBlockedState);
+      await onRefreshClasses();
+      toast.success(newBlockedState ? 'Kelas berhasil diblokir!' : 'Kelas berhasil dibuka blokirnya / diaktifkan!', { id: toastId });
+    } catch (err) {
+      toast.error(err.message || 'Gagal memperbarui status kelas', { id: toastId });
+    } finally {
+      setBlockingClassId(null);
     }
   };
 
@@ -355,26 +377,50 @@ export default function ClassLobby({
                   );
                 }
 
+                const isBlocked = isClassBlocked(cls);
+                const isSuper = isSuperAdmin(currentUser);
+
                 return (
                   <div
                     key={cls.id}
-                    className="relative overflow-hidden bg-white dark:bg-[#151D2F] border border-slate-200 dark:border-slate-800 hover:border-indigo-400/50 dark:hover:border-indigo-500/50 rounded-3xl p-6 sm:p-7 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-5 group"
+                    className={`relative overflow-hidden bg-white dark:bg-[#151D2F] border rounded-3xl p-6 sm:p-7 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-5 group ${
+                      isBlocked
+                        ? 'border-rose-300/80 dark:border-rose-900/60 bg-gradient-to-b from-white to-rose-50/20 dark:from-[#151D2F] dark:to-rose-950/20'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-indigo-400/50 dark:hover:border-indigo-500/50'
+                    }`}
                   >
                     {/* Top gradient accent line */}
-                    <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500" />
+                    <div className={`absolute top-0 left-0 right-0 h-1.5 ${
+                      isBlocked 
+                        ? 'bg-gradient-to-r from-rose-500 via-red-500 to-amber-500' 
+                        : 'bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500'
+                    }`} />
 
                     <div className="space-y-3 pt-1">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
                         <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                           {cls.classIdentifier || 'Rombel'}
                         </span>
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                          {cls.userRole === 'superadmin' ? '⚡ Superadmin' : (cls.userRole === 'komti' || cls.userRole === 'coordinator' ? '👑 Komti' : cls.userRole === 'lecturer' ? '🎓 Dosen' : '👤 Mahasiswa')}
-                        </span>
+                        
+                        <div className="flex items-center gap-1.5">
+                          {isBlocked && (
+                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 flex items-center gap-1">
+                              <Lock size={10} />
+                              <span>Terblokir</span>
+                            </span>
+                          )}
+                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                            {cls.userRole === 'superadmin' ? '⚡ Superadmin' : (cls.userRole === 'komti' || cls.userRole === 'coordinator' ? '👑 Komti' : cls.userRole === 'lecturer' ? '🎓 Dosen' : '👤 Mahasiswa')}
+                          </span>
+                        </div>
                       </div>
 
                       <div>
-                        <h3 className="font-extrabold text-xl text-slate-900 dark:text-white tracking-tight leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <h3 className={`font-extrabold text-xl tracking-tight leading-snug transition-colors ${
+                          isBlocked 
+                            ? 'text-slate-800 dark:text-slate-200' 
+                            : 'text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                        }`}>
                           {cls.name}
                         </h3>
                         <div className="mt-2 space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -390,21 +436,71 @@ export default function ClassLobby({
                           )}
                         </div>
                       </div>
+
+                      {/* Notice if class is blocked */}
+                      {isBlocked && (
+                        <div className="p-3 rounded-2xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900/60 text-xs text-rose-800 dark:text-rose-200 space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-300 text-xs">
+                            <ShieldAlert size={14} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                            <span>Akses Kelas Dibatasi / Menunggu Aktivasi</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed text-rose-700/90 dark:text-rose-300/90">
+                            Kelas ini memerlukan persetujuan aktivasi dari Superadmin. Silakan hubungi admin via email di bawah untuk verifikasi dan pembukaan akses.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
                         <Users size={14} className="text-slate-400" />
                         <span>{cls.memberCount} Anggota terdaftar</span>
                       </span>
 
-                      <button
-                        onClick={() => onSelectClass(cls)}
-                        className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-xs group-hover:gap-3 cursor-pointer"
-                      >
-                        <span>Masuk ke Kelas</span>
-                        <ArrowRight size={14} />
-                      </button>
+                      {/* Action buttons depending on blocked & superadmin status */}
+                      {isSuper ? (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleBlock(cls.id, !isBlocked)}
+                            disabled={blockingClassId === cls.id}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50 ${
+                              isBlocked
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/50 dark:border-rose-800 dark:text-rose-300'
+                            }`}
+                            title={isBlocked ? "Setujui / Buka Blokir Kelas Ini" : "Blokir Kelas Ini"}
+                          >
+                            {isBlocked ? <ShieldCheck size={14} /> : <Lock size={14} />}
+                            <span>{blockingClassId === cls.id ? '...' : (isBlocked ? '⚡ Buka Blokir' : '🔒 Blokir')}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onSelectClass(cls)}
+                            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            <span>Masuk</span>
+                            <ArrowRight size={14} />
+                          </button>
+                        </div>
+                      ) : isBlocked ? (
+                        <a
+                          href={`mailto:arya@exars.my.id?subject=${encodeURIComponent(`Permintaan Buka Blokir Kelas: ${cls.name} (${cls.classIdentifier || ''})`)}&body=${encodeURIComponent(`Halo Superadmin Arya,\n\nSaya ingin meminta pembukaan blokir / verifikasi kelas berikut di Classy:\n- Nama Kelas: ${cls.name}\n- Kode/Rombel: ${cls.classIdentifier || '-'}\n- Dosen: ${cls.lecturer || '-'}\n- Pemohon: ${currentUser?.displayName || '-'} (${currentUser?.email || '-'})\n\nMohon bantuannya untuk membuka blokir kelas ini agar mahasiswa dapat mengaksesnya. Terima kasih.`)}`}
+                          className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        >
+                          <Mail size={14} />
+                          <span>Email arya@exars.my.id</span>
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onSelectClass(cls)}
+                          className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-xs group-hover:gap-3 cursor-pointer"
+                        >
+                          <span>Masuk ke Kelas</span>
+                          <ArrowRight size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -450,13 +546,33 @@ export default function ClassLobby({
 
               {previewClass && (
                 <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2 animate-in fade-in">
-                  <span className="text-[10px] font-bold uppercase text-[#64748B]">Kelas Ditemukan:</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-[#64748B]">Kelas Ditemukan:</span>
+                    {isClassBlocked(previewClass) && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1">
+                        <Lock size={10} />
+                        <span>Terblokir</span>
+                      </span>
+                    )}
+                  </div>
                   <div className="space-y-1">
                     <h4 className="font-bold text-sm text-[#0F172A]">{previewClass.name}</h4>
                     <p className="text-xs text-[#475569]">{previewClass.classIdentifier} · {previewClass.academicPeriod}</p>
                     <p className="text-xs text-[#64748B]">Dosen: {previewClass.lecturer}</p>
                     <p className="text-xs text-[#64748B]">Anggota: {previewClass.memberCount} siswa terdaftar</p>
                   </div>
+
+                  {isClassBlocked(previewClass) && !isSuperAdmin(currentUser) && (
+                    <div className="mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-800 space-y-1">
+                      <p className="font-semibold flex items-center gap-1 text-rose-700">
+                        <AlertCircle size={13} className="shrink-0" />
+                        <span>Kelas Belum Diaktivasi</span>
+                      </p>
+                      <p className="leading-relaxed">
+                        Kelas ini diblokir atau belum disetujui Superadmin. Silakan hubungi Arya di <strong className="font-mono">arya@exars.my.id</strong>.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -471,9 +587,9 @@ export default function ClassLobby({
               </button>
               <button
                 type="button"
-                disabled={!previewClass || isJoining}
+                disabled={!previewClass || isJoining || (isClassBlocked(previewClass) && !isSuperAdmin(currentUser))}
                 onClick={handleConfirmJoin}
-                className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] disabled:opacity-50 shadow-xs"
+                className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] disabled:opacity-50 shadow-xs cursor-pointer"
               >
                 {isJoining ? 'Joining...' : 'Join Class'}
               </button>
@@ -488,7 +604,7 @@ export default function ClassLobby({
           <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
               <h3 className="font-bold text-base text-[#0F172A]">
-                {createdClassInfo ? 'Class Created' : 'Create Class'}
+                {createdClassInfo ? (isClassBlocked(createdClassInfo) ? 'Permintaan Terkirim' : 'Kelas Berhasil Dibuat') : 'Create Class'}
               </h3>
               <button 
                 onClick={() => setShowCreateModal(false)} 
@@ -500,44 +616,109 @@ export default function ClassLobby({
             </div>
 
             {createdClassInfo ? (
-              <div className="space-y-5 text-center py-2">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
-                  <Check size={24} />
-                </div>
+              <div className="space-y-4 text-center py-2">
+                {isClassBlocked(createdClassInfo) ? (
+                  <>
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
+                      <Clock size={24} />
+                    </div>
 
-                <div className="space-y-1">
-                  <h4 className="font-bold text-lg text-[#0F172A]">{createdClassInfo.name}</h4>
-                  <p className="text-xs text-[#64748B]">{createdClassInfo.classIdentifier}</p>
-                </div>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-lg text-[#0F172A]">{createdClassInfo.name}</h4>
+                      <p className="text-xs text-[#64748B]">{createdClassInfo.classIdentifier || 'Rombel Baru'}</p>
+                    </div>
 
-                <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-                  <span className="text-[11px] font-semibold text-[#64748B] block">Class Join Code</span>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="font-mono font-extrabold text-2xl tracking-widest text-[#0F172A]">
-                      {createdClassInfo.joinCode}
-                    </span>
+                    <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-left space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800">
+                        <ShieldAlert size={14} className="text-amber-600 shrink-0" />
+                        <span>Menunggu Persetujuan Admin</span>
+                      </div>
+                      <p className="text-[11px] text-amber-700 leading-relaxed">
+                        Email notifikasi telah otomatis dikirimkan ke <strong className="font-mono">arya@exars.my.id</strong>. Ruang kelas ini otomatis diblokir sampai disetujui / diaktivasi oleh Superadmin.
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
+                      <span className="text-[11px] font-semibold text-[#64748B] block">Kode Undangan Kelas</span>
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="font-mono font-extrabold text-2xl tracking-widest text-[#0F172A]">
+                          {createdClassInfo.joinCode}
+                        </span>
+                        <button
+                          onClick={() => handleCopyCode(createdClassInfo.joinCode)}
+                          className="p-1.5 rounded-lg border border-[#CBD5E1] text-[#475569] hover:bg-white"
+                          title="Copy code"
+                        >
+                          {copiedCode ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-[#64748B] pt-1">
+                        Simpan kode ini. Anggota dapat bergabung setelah kelas dibuka blokirnya oleh Superadmin.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2 pt-2">
+                      <a
+                        href={`mailto:arya@exars.my.id?subject=${encodeURIComponent(`Pengajuan Aktivasi Kelas: ${createdClassInfo.name}`)}&body=${encodeURIComponent(`Halo Superadmin Arya,\n\nSaya telah membuat kelas baru di Classy:\n- Nama Kelas: ${createdClassInfo.name}\n- Kode: ${createdClassInfo.joinCode}\n- Pembuat: ${currentUser?.displayName || '-'} (${currentUser?.email || '-'})\n\nMohon bantuannya untuk menyetujui dan membuka blokir kelas ini. Terima kasih!`)}`}
+                        className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                      >
+                        <Mail size={14} />
+                        <span>Kirim Email Konfirmasi ke arya@exars.my.id</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCreateModal(false);
+                          setCreatedClassInfo(null);
+                        }}
+                        className="w-full py-2 rounded-xl text-xs font-semibold text-[#64748B] hover:bg-[#F1F5F9] transition-colors cursor-pointer"
+                      >
+                        Selesai & Kembali ke Lobby
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                      <Check size={24} />
+                    </div>
+
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-lg text-[#0F172A]">{createdClassInfo.name}</h4>
+                      <p className="text-xs text-[#64748B]">{createdClassInfo.classIdentifier}</p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
+                      <span className="text-[11px] font-semibold text-[#64748B] block">Class Join Code</span>
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="font-mono font-extrabold text-2xl tracking-widest text-[#0F172A]">
+                          {createdClassInfo.joinCode}
+                        </span>
+                        <button
+                          onClick={() => handleCopyCode(createdClassInfo.joinCode)}
+                          className="p-1.5 rounded-lg border border-[#CBD5E1] text-[#475569] hover:bg-white"
+                          title="Copy code"
+                        >
+                          {copiedCode ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-[#64748B] pt-1">
+                        Share this code with your classmates so they can join.
+                      </p>
+                    </div>
+
                     <button
-                      onClick={() => handleCopyCode(createdClassInfo.joinCode)}
-                      className="p-1.5 rounded-lg border border-[#CBD5E1] text-[#475569] hover:bg-white"
-                      title="Copy code"
+                      type="button"
+                      onClick={() => {
+                        setShowCreateModal(false);
+                        onSelectClass(createdClassInfo);
+                      }}
+                      className="w-full py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-xs cursor-pointer"
                     >
-                      {copiedCode ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                      Enter Class Workspace
                     </button>
-                  </div>
-                  <p className="text-[10px] text-[#64748B] pt-1">
-                    Share this code with your classmates so they can join.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    onSelectClass(createdClassInfo);
-                  }}
-                  className="w-full py-2.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-xs"
-                >
-                  Enter Class Workspace
-                </button>
+                  </>
+                )}
               </div>
             ) : (
               <form onSubmit={handleCreateSubmit} className="space-y-3.5">
@@ -621,6 +802,17 @@ export default function ClassLobby({
                     onChange={(e) => setNewPeriod(e.target.value)}
                     className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A] focus:outline-none focus:border-[#0F172A]"
                   />
+                </div>
+
+                {/* Admin Approval Notice */}
+                <div className="p-3 rounded-xl bg-amber-50/90 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
+                    <ShieldAlert size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>Konfirmasi Admin Diperlukan</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300/90">
+                    Setiap pembuatan kelas baru akan otomatis dikonfirmasi via email ke <strong>arya@exars.my.id</strong> dan berstatus terblokir sementara hingga disetujui oleh Superadmin.
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#F1F5F9]">

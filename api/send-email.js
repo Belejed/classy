@@ -14,11 +14,14 @@ function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], 
       ? { bg: '#E11D48', color: '#FFFFFF', border: '#BE123C' } :
     type === 'task_new' 
       ? { bg: '#0284C7', color: '#FFFFFF', border: '#0369A1' } :
+    type === 'class_approval_request'
+      ? { bg: '#6366F1', color: '#FFFFFF', border: '#4F46E5' } :
     type === 'reminder_2h' 
       ? { bg: '#D97706', color: '#FFFFFF', border: '#B45309' } :
       { bg: '#0F172A', color: '#FFFFFF', border: '#000000' };
 
   const badgeText = 
+    type === 'class_approval_request' ? 'PERSETUJUAN KELAS BARU' :
     type === 'announcement' ? 'PENGUMUMAN KELAS' :
     type === 'important' ? 'PENGUMUMAN PENTING' :
     type === 'reminder_2h' ? 'PENGINGAT KELAS (2 JAM LAGI)' :
