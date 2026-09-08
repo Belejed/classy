@@ -1725,15 +1725,36 @@ export const dbService = {
         (cls.members || []).forEach(m => {
           const email = (m.email || m.userId || '').toLowerCase();
           if (!email) return;
+          const userRole = (m.role || 'student').toLowerCase();
+
           if (!userMap.has(email)) {
-            userMap.set(email, m);
-            const role = (m.role || '').toLowerCase();
-            if (role === 'komti' || role === 'coordinator') komtiCount++;
-            else if (role === 'lecturer' || role === 'dosen') lecturerCount++;
+            if (userRole === 'komti' || userRole === 'coordinator') komtiCount++;
+            else if (userRole === 'lecturer' || userRole === 'dosen') lecturerCount++;
             else studentCount++;
+
+            userMap.set(email, {
+              userId: m.userId,
+              name: m.name || email.split('@')[0],
+              email: m.email || email,
+              phoneNumber: m.phoneNumber || '',
+              role: m.role || 'student',
+              status: m.status || 'approved',
+              joinedAt: m.joinedAt || m.joined_at || cls.createdAt,
+              classes: [{ id: cls.id, name: cls.name, classIdentifier: cls.classIdentifier, role: m.role || 'student' }]
+            });
+          } else {
+            const existing = userMap.get(email);
+            if (!existing.classes.some(c => c.id === cls.id)) {
+              existing.classes.push({ id: cls.id, name: cls.name, classIdentifier: cls.classIdentifier, role: m.role || 'student' });
+            }
+            if (!existing.phoneNumber && m.phoneNumber) {
+              existing.phoneNumber = m.phoneNumber;
+            }
           }
         });
       });
+
+      const userList = Array.from(userMap.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
       // 2. Platform totals for tasks, files, schedules
       const [tasksRes, filesRes, schRes] = await Promise.allSettled([
@@ -1748,6 +1769,7 @@ export const dbService = {
 
       return {
         classes: classList,
+        users: userList,
         totalClasses,
         activeClasses,
         blockedClasses,
