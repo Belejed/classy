@@ -218,13 +218,23 @@ export const authService = {
 export const parseLecturerInfo = (rawLecturer = '', rawNotes = '', explicitPhone = '') => {
   const text = `${rawLecturer || ''} ${rawNotes || ''} ${explicitPhone || ''}`;
   
-  // Extract phone number (starts with +628, 628, 08, or 8 followed by 8-12 digits)
-  const phoneMatch = (explicitPhone || text).match(/(?:\+?62|0)?(8\d{8,12})/);
+  // Normalize if someone accidentally typed 625x... (missing the 8 for Indosat 085x)
+  const typoMatch = text.match(/(?:\+?62)(5\d{8,11})/);
+  let normalizedText = text;
+  if (typoMatch) {
+    normalizedText = text.replace(/(?:\+?62)5/, '6285');
+  }
+
+  // Extract phone number (starts with +628, 628, 08, 625 typo, or 8 followed by 8-12 digits)
+  const phoneMatch = (explicitPhone || normalizedText).match(/(?:\+?62|0)?(8\d{8,12})/);
   let phone = '';
   let cleanPhone = '';
   if (phoneMatch) {
     phone = phoneMatch[0];
     cleanPhone = '62' + phoneMatch[1];
+  } else if (typoMatch) {
+    phone = typoMatch[0];
+    cleanPhone = '628' + typoMatch[1];
   }
 
   // Extract role if in parentheses, but exclude if it only contains phone numbers
@@ -241,14 +251,16 @@ export const parseLecturerInfo = (rawLecturer = '', rawNotes = '', explicitPhone
   }
 
   // Clean lecturer name:
-  // 1. Remove phone in parentheses like (08128315124) or ( 0812... )
-  // 2. Remove standalone phone numbers
-  // 3. Remove role in parentheses if found
-  // 4. Remove empty or whitespace-only parentheses `()`
+  // 1. Remove typo format like 625...
+  // 2. Remove phone in parentheses like (08128315124) or ( 0812... )
+  // 3. Remove raw phone digits
+  // 4. Remove role in parentheses if found
+  // 5. Remove empty or whitespace-only parentheses `()`
   let name = (rawLecturer || '')
-    .replace(/\(\s*(?:\+?62|0)?8\d{8,12}\s*\)/g, '') // remove phone in parentheses
-    .replace(/(?:\+?62|0)?8\d{8,12}/g, '')          // remove raw phone digits
-    .replace(/\(\s*\)/g, '');                       // remove empty parentheses
+    .replace(/(?:\+?62)?5\d{8,11}/g, '')
+    .replace(/\(\s*(?:\+?62|0)?8\d{8,12}\s*\)/g, '')
+    .replace(/(?:\+?62|0)?8\d{8,12}/g, '')
+    .replace(/\(\s*\)/g, '');
 
   if (role) {
     name = name.replace(new RegExp(`\\(\\s*${escapeRegExp(role)}\\s*\\)`, 'g'), '');
@@ -1260,7 +1272,8 @@ export const dbService = {
             isSubmission: true,
             isGroup: Boolean(s.isGroup),
             groupMembers: s.groupMembers || [],
-            taskId: t.id
+            taskId: t.id,
+            userId: s.userId
           });
         });
 

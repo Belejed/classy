@@ -108,26 +108,35 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { fileName, mimeType, fileData, folderName, workspaceName } = req.body || {};
-
-    if (!fileName || !fileData) {
-      return res.status(400).json({ error: 'fileName and fileData are required' });
-    }
+    const { fileName, mimeType, fileData, folderName, workspaceName, resolveOnly, folderId } = req.body || {};
 
     const targetWorkspace = (workspaceName || '').trim() || 'Umum';
     const targetSubfolder = (folderName || '').trim() || 'Materi Kuliah';
 
-    let resolvedFolderId = null;
+    let resolvedFolderId = folderId || null;
 
-    try {
-      const drive = getDriveClient();
-      // 1. Get or create Workspace Folder inside ROOT_FOLDER_ID
-      const workspaceFolderId = await getOrCreateDriveFolder(drive, targetWorkspace, ROOT_FOLDER_ID);
+    if (!resolvedFolderId) {
+      try {
+        const drive = getDriveClient();
+        // 1. Get or create Workspace Folder inside ROOT_FOLDER_ID
+        const workspaceFolderId = await getOrCreateDriveFolder(drive, targetWorkspace, ROOT_FOLDER_ID);
 
-      // 2. Get or create Subfolder inside Workspace Folder
-      resolvedFolderId = await getOrCreateDriveFolder(drive, targetSubfolder, workspaceFolderId);
-    } catch (folderErr) {
-      console.warn('Could not resolve nested Drive folder via Google API, falling back:', folderErr);
+        // 2. Get or create Subfolder inside Workspace Folder
+        resolvedFolderId = await getOrCreateDriveFolder(drive, targetSubfolder, workspaceFolderId);
+      } catch (folderErr) {
+        console.warn('Could not resolve nested Drive folder via Google API, falling back:', folderErr);
+      }
+    }
+
+    if (resolveOnly) {
+      return res.status(200).json({
+        success: true,
+        folderId: resolvedFolderId
+      });
+    }
+
+    if (!fileName || !fileData) {
+      return res.status(400).json({ error: 'fileName and fileData are required' });
     }
 
     // Forward to Google Apps Script Web App

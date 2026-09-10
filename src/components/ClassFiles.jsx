@@ -61,10 +61,26 @@ export default function ClassFiles({
   const role = currentClass?.userRole;
   const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
 
+  // Filter files so regular students cannot see other students' submissions in the Files tab
+  const visibleFiles = useMemo(() => {
+    if (isManager) return files;
+    return files.filter(f => {
+      const isSubmission = f.isSubmission || f.category === 'Submission' || (f.folder && f.folder.startsWith('Tugas:'));
+      // Non-submission files (materials, guides, announcements, questions) are public to everyone
+      if (!isSubmission) return true;
+
+      // Submission files: only visible if currentUser is the author or in the groupMembers
+      const isOwner = (f.userId && f.userId === currentUser?.uid) || 
+                      (f.uploadedBy && f.uploadedBy.toLowerCase() === (currentUser?.displayName || '').toLowerCase());
+      const isGroupMember = Array.isArray(f.groupMembers) && f.groupMembers.some(m => m.userId === currentUser?.uid);
+      return isOwner || isGroupMember;
+    });
+  }, [files, isManager, currentUser?.uid, currentUser?.displayName]);
+
   // Group files by Folder
   const folderStats = useMemo(() => {
     const map = new Map();
-    files.forEach(f => {
+    visibleFiles.forEach(f => {
       const folderName = f.folder || f.groupName || (f.category === 'Submission' ? 'Tugas Perkuliahan' : 'Materi Kuliah');
       if (!map.has(folderName)) {
         map.set(folderName, {
@@ -83,11 +99,11 @@ export default function ClassFiles({
       }
     });
     return Array.from(map.values());
-  }, [files]);
+  }, [visibleFiles]);
 
   // Filtered files based on active folder, category, and search query
   const filteredFiles = useMemo(() => {
-    return files.filter(f => {
+    return visibleFiles.filter(f => {
       const folderName = f.folder || f.groupName || (f.category === 'Submission' ? 'Tugas Perkuliahan' : 'Materi Kuliah');
       
       // If viewing inside a specific folder
@@ -106,7 +122,7 @@ export default function ClassFiles({
 
       return matchesCategory && matchesSearch;
     });
-  }, [files, activeFolder, selectedCategory, searchQuery]);
+  }, [visibleFiles, activeFolder, selectedCategory, searchQuery]);
 
   const getFileExtension = (name = '', type = '') => {
     return (name.split('.').pop() || type || '').toLowerCase();
@@ -150,7 +166,7 @@ export default function ClassFiles({
             file: selectedFileObj,
             name: uploadName.trim(),
             folderName: targetFolder,
-            workspaceName: currentClass?.name || 'Umum'
+            workspaceName: currentClass?.name || 'M.Log B'
           });
           fileUrl = driveRes.webViewLink || driveRes.previewUrl;
           driveFileId = driveRes.fileId || null;
@@ -439,7 +455,7 @@ export default function ClassFiles({
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold tracking-tight text-[#0F172A]">Class Files & Library</h2>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-              {files.length} Berkas
+              {visibleFiles.length} Berkas
             </span>
           </div>
           <p className="text-xs text-[#64748B]">

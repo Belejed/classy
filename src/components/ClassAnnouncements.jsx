@@ -213,7 +213,7 @@ export default function ClassAnnouncements({
               mimeType: selectedPhoto?.type || 'image/jpeg',
               fileData: photoPreview,
               folderName: 'Lampiran Pengumuman',
-              workspaceName: currentClass?.name || 'Umum'
+              workspaceName: currentClass?.name || 'M.Log B'
             })
           });
           if (driveRes.ok) {

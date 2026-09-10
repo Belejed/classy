@@ -3,6 +3,61 @@
  */
 const DIRECT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwi3vHYbWBRva2OhDZVefspXZsr_dOid3hdtQ7rwxWtCoiRsS-24gU4l4A167mNVHEeww/exec';
 
+const folderCache = new Map();
+
+/**
+ * Pre-resolves Google Drive nested folder ID (Workspace > Subfolder)
+ * using lightweight metadata call without transmitting large file payloads
+ */
+export async function resolveDriveFolderId(workspaceName, folderName) {
+  const targetWorkspace = (workspaceName || '').trim() || 'Umum';
+  const targetFolder = (folderName || '').trim() || 'Materi Kuliah';
+  const cacheKey = `fld_${targetWorkspace}_${targetFolder}`;
+
+  if (folderCache.has(cacheKey)) {
+    return folderCache.get(cacheKey);
+  }
+
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        folderCache.set(cacheKey, cached);
+        return cached;
+      }
+    }
+  } catch {}
+
+  try {
+    const res = await fetch('/api/upload-drive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resolveOnly: true,
+        workspaceName: targetWorkspace,
+        folderName: targetFolder
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.folderId) {
+        folderCache.set(cacheKey, data.folderId);
+        try {
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem(cacheKey, data.folderId);
+          }
+        } catch {}
+        return data.folderId;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not resolve Drive folder ID:', err);
+  }
+
+  return null;
+}
+
 export async function uploadToGoogleDrive({ file, name, folderName, workspaceName }) {
   if (!file) throw new Error('File tidak ditemukan');
 
@@ -18,42 +73,56 @@ export async function uploadToGoogleDrive({ file, name, folderName, workspaceNam
   const targetFolder = folderName || 'Materi Kuliah';
   const targetWorkspace = (workspaceName || '').trim() || 'Umum';
 
-  // 1. Try via Vercel serverless / dev proxy endpoint
-  try {
-    const res = await fetch('/api/upload-drive', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        fileName,
-        mimeType,
-        fileData,
-        folderName: targetFolder,
-        workspaceName: targetWorkspace
-      })
-    });
+  // Pre-resolve nested folder ID to guarantee placement in Workspace > Subfolder
+  const resolvedFolderId = await resolveDriveFolderId(targetWorkspace, targetFolder);
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success) return data;
+  // 1. For smaller files (< 3 MB), try via Vercel serverless / dev proxy endpoint
+  if (file.size <= 3 * 1024 * 1024) {
+    try {
+      const res = await fetch('/api/upload-drive', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fileName,
+          mimeType,
+          fileData,
+          folderName: targetFolder,
+          workspaceName: targetWorkspace,
+          folderId: resolvedFolderId
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) return data;
+      }
+    } catch (apiErr) {
+      console.warn('/api/upload-drive endpoint failed, trying direct Google Script...', apiErr);
     }
-  } catch (apiErr) {
-    console.warn('/api/upload-drive endpoint failed, trying direct Google Script...', apiErr);
   }
 
-  // 2. Direct fallback to Google Apps Script Web App
+  // 2. Direct upload to Google Apps Script Web App (handles any file size up to 50MB)
+  const scriptPayload = {
+    fileName,
+    mimeType,
+    fileData
+  };
+
+  if (resolvedFolderId) {
+    scriptPayload.folderId = resolvedFolderId;
+  } else {
+    scriptPayload.folderName = `${targetWorkspace} - ${targetFolder}`;
+  }
+
   const directRes = await fetch(DIRECT_SCRIPT_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'text/plain;charset=utf-8'
     },
-    body: JSON.stringify({
-      fileName,
-      mimeType,
-      fileData,
-      folderName: `${targetWorkspace} - ${targetFolder}`
-    })
+    body: JSON.stringify(scriptPayload),
+    signal: AbortSignal.timeout(180000)
   });
 
   const directData = await directRes.json();

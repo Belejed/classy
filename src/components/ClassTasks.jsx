@@ -30,7 +30,9 @@ import {
   Eye,
   Image as ImageIcon,
   Maximize2,
-  Edit2
+  Edit2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
@@ -212,6 +214,8 @@ export default function ClassTasks({
   // File upload state for submission
   const [isSubmittingFile, setIsSubmittingFile] = useState(false);
   const fileInputRef = useRef(null);
+  const [backgroundUploads, setBackgroundUploads] = useState([]);
+  const [isWidgetExpanded, setIsWidgetExpanded] = useState(true);
 
   // Google Drive Crosscheck state
   const [driveStatusMap, setDriveStatusMap] = useState({});
@@ -344,18 +348,30 @@ export default function ClassTasks({
     const submittedMap = new Map();
     submissions.forEach(s => {
       if (s.userId) {
-        submittedMap.set(s.userId, s);
+        submittedMap.set(s.userId, {
+          ...s,
+          isGroupMember: !!(s.isGroup && s.groupMembers?.length > 1),
+          isSubmitter: true,
+          memberName: s.userName,
+          groupLeaderName: s.userName,
+          groupMembers: s.groupMembers
+        });
       }
       if (Array.isArray(s.groupMembers)) {
         s.groupMembers.forEach(gm => {
-          if (gm.userId) {
-            submittedMap.set(gm.userId, {
+          const gmId = gm.userId || gm.uid || gm.id;
+          if (gmId) {
+            const isSub = gmId === s.userId;
+            const gmData = {
               ...s,
               isGroupMember: true,
-              isSubmitter: gm.userId === s.userId,
+              isSubmitter: isSub,
+              memberName: gm.userName || gm.name || (isSub ? s.userName : ''),
               groupLeaderName: s.userName,
               groupMembers: s.groupMembers
-            });
+            };
+            submittedMap.set(gmId, gmData);
+            if (gm.email) submittedMap.set(gm.email.toLowerCase(), gmData);
           }
         });
       }
@@ -366,7 +382,7 @@ export default function ClassTasks({
 
     eligibleMembers.forEach(member => {
       const mId = member.userId || member.uid || member.id;
-      const sub = submittedMap.get(mId);
+      const sub = submittedMap.get(mId) || (member.email ? submittedMap.get(member.email.toLowerCase()) : null);
       if (sub && !isSubmissionFileMissing(sub)) {
         submittedList.push({ member, submission: sub });
       } else {
@@ -374,15 +390,61 @@ export default function ClassTasks({
       }
     });
 
-    // Capture any submissions from accounts not yet in eligibleMembers array
+    // Capture any submissions or group members from accounts not yet in eligibleMembers array
     submissions.forEach(s => {
-      const exists = eligibleMembers.some(m => (m.userId || m.uid || m.id) === s.userId);
+      const sId = s.userId;
+      const exists = eligibleMembers.some(m => (m.userId || m.uid || m.id) === sId || (m.email && m.email.toLowerCase() === (s.userEmail || '').toLowerCase())) ||
+                     submittedList.some(item => (item.member?.userId || item.member?.uid || item.member?.id) === sId);
       if (!exists && !isSubmissionFileMissing(s)) {
         submittedList.push({ 
           member: { userId: s.userId, name: s.userName, email: '' }, 
-          submission: s 
+          submission: {
+            ...s,
+            isGroupMember: !!(s.isGroup && s.groupMembers?.length > 1),
+            isSubmitter: true,
+            memberName: s.userName,
+            groupLeaderName: s.userName
+          } 
         });
       }
+
+      if (Array.isArray(s.groupMembers)) {
+        s.groupMembers.forEach(gm => {
+          const gmId = gm.userId || gm.uid || gm.id;
+          if (!gmId) return;
+          const gmExists = eligibleMembers.some(m => (m.userId || m.uid || m.id) === gmId || (m.email && gm.email && m.email.toLowerCase() === gm.email.toLowerCase())) ||
+                           submittedList.some(item => (item.member?.userId || item.member?.uid || item.member?.id) === gmId);
+          if (!gmExists && !isSubmissionFileMissing(s)) {
+            submittedList.push({
+              member: { userId: gmId, name: gm.userName || gm.name, email: gm.email || '' },
+              submission: {
+                ...s,
+                isGroupMember: true,
+                isSubmitter: gmId === s.userId,
+                memberName: gm.userName || gm.name,
+                groupLeaderName: s.userName,
+                groupMembers: s.groupMembers
+              }
+            });
+          }
+        });
+      }
+    });
+
+    // Group-aware sort:
+    // Group members of the same submission are placed together, with the leader (uploader) first,
+    // followed by other members sorted alphabetically by their individual names.
+    submittedList.sort((a, b) => {
+      const subA = a.submission;
+      const subB = b.submission;
+      if (subA.id !== subB.id) {
+        return (subB.submittedAt || '').localeCompare(subA.submittedAt || '');
+      }
+      if (subA.isSubmitter && !subB.isSubmitter) return -1;
+      if (!subA.isSubmitter && subB.isSubmitter) return 1;
+      const nameA = a.member?.name || subA.memberName || '';
+      const nameB = b.member?.name || subB.memberName || '';
+      return nameA.localeCompare(nameB);
     });
 
     return {
@@ -534,7 +596,7 @@ export default function ClassTasks({
             file,
             name: file.name,
             folderName: targetFolder,
-            workspaceName: currentClass?.name || 'Umum'
+            workspaceName: currentClass?.name || 'M.Log B'
           });
           fileUrl = driveRes.webViewLink || driveRes.previewUrl;
           fileId = driveRes.fileId;
@@ -682,7 +744,7 @@ export default function ClassTasks({
             file,
             name: file.name,
             folderName: targetFolder,
-            workspaceName: currentClass?.name || 'Umum'
+            workspaceName: currentClass?.name || 'M.Log B'
           });
           fileUrl = driveRes.webViewLink || driveRes.previewUrl;
           fileId = driveRes.fileId;
@@ -774,119 +836,207 @@ export default function ClassTasks({
     }
   };
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !selectedTask) return;
+  const runBackgroundUpload = async (job, taskObj, taskFolder) => {
+    const { id, file, fileName, taskId, taskTitle, groupMembersList, isGroupSubmission, rawSize } = job;
 
-    const isGroupTask = selectedTask.submissionType === 'group';
-    const isGroupSubmission = isGroupTask || selectedGroupMemberIds.length > 0;
+    // Simulate steady progress increments while network request is flying
+    const progressTimer = setInterval(() => {
+      setBackgroundUploads(prev => prev.map(u => {
+        if (u.id !== id || u.status !== 'uploading') return u;
+        const inc = rawSize > 10 * 1024 * 1024 ? 2 : 6;
+        const next = Math.min(u.progress + inc, 93);
+        return { ...u, progress: next };
+      }));
+    }, 1200);
 
-    setIsSubmittingFile(true);
     try {
-      const prefixUser = isGroupSubmission 
-        ? `${currentUser?.displayName || 'Kelompok'}_dkk`
-        : (currentUser?.displayName || 'Mahasiswa');
+      const driveRes = await uploadToGoogleDrive({
+        file,
+        name: fileName,
+        folderName: taskFolder,
+        workspaceName: currentClass?.name || taskObj?.course || 'M.Log B'
+      });
 
-      const submissionFileName = autoRenameEnabled 
-        ? generateSubmissionFileName(prefixUser, selectedTask.title, file.name)
-        : `${prefixUser} - ${file.name}`;
+      clearInterval(progressTimer);
 
-      const taskFolder = `Tugas: ${selectedTask.title}`;
-      let fileUrl = '';
-      let fileSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+      const fileUrl = driveRes.webViewLink || driveRes.previewUrl;
+      const finalFileSize = driveRes.fileSize || `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
 
-      try {
-        toast.loading('Mengunggah berkas tugas ke Google Drive...', { id: 'task-upload' });
-        const driveRes = await uploadToGoogleDrive({
-          file,
-          name: submissionFileName,
-          folderName: taskFolder,
-          workspaceName: currentClass?.name || 'Umum'
-        });
-        fileUrl = driveRes.webViewLink || driveRes.previewUrl;
-        fileSize = driveRes.fileSize || fileSize;
-        toast.success('Tugas tersimpan di Google Drive!', { id: 'task-upload' });
-      } catch (driveErr) {
-        console.warn('Google Drive error, falling back to local encoding:', driveErr);
-        toast.error(`Drive error: ${driveErr.message}. Menyimpan lokal...`, { id: 'task-upload' });
-        const reader = new FileReader();
-        fileUrl = await new Promise((resolve) => {
-          reader.onload = () => resolve(reader.result);
-          reader.readAsDataURL(file);
-        });
-      }
-
-      const groupMembersList = isGroupSubmission
-        ? [
-            { userId: currentUser.uid, userName: currentUser.displayName || 'Mahasiswa', email: currentUser.email || '' },
-            ...eligibleMembers
-              .filter(m => selectedGroupMemberIds.includes(m.userId || m.uid || m.id))
-              .map(m => ({ 
-                userId: m.userId || m.uid || m.id, 
-                userName: m.name || m.userName || m.email || 'Mahasiswa', 
-                email: m.email || '' 
-              }))
-          ]
-        : [];
-
-      await onSubmitAssignment(selectedTask.id, {
+      await onSubmitAssignment(taskId, {
         userId: currentUser.uid,
         userName: currentUser.displayName || 'Student',
-        fileName: submissionFileName,
-        fileUrl: fileUrl,
-        fileSize: fileSize,
+        fileName,
+        fileUrl,
+        fileSize: finalFileSize,
         isGroup: isGroupSubmission,
         groupMembers: groupMembersList
       });
 
-      toast.success(
-        isGroupSubmission 
-          ? `Tugas kelompok berhasil dikumpulkan untuk ${groupMembersList.length} anggota!` 
-          : 'Tugas berhasil dikumpulkan!'
-      );
-      
-      // Update driveStatusMap immediately for the new file if uploaded to Drive
       const newFileId = extractDriveFileId(fileUrl);
       if (newFileId) {
         setDriveStatusMap(prev => ({
           ...prev,
-          [newFileId]: { exists: true, name: submissionFileName, webViewLink: fileUrl }
+          [newFileId]: { exists: true, name: fileName, webViewLink: fileUrl }
         }));
       }
 
-      // Refresh selected task
+      // Update selectedTask if currently opened
       const newSubItem = {
         userId: currentUser.uid,
         userName: currentUser.displayName || 'Student',
-        fileName: submissionFileName,
-        fileUrl: fileUrl,
-        fileSize: fileSize,
+        fileName,
+        fileUrl,
+        fileSize: finalFileSize,
         isGroup: isGroupSubmission,
         groupMembers: groupMembersList,
         submittedAt: new Date().toISOString()
       };
 
-      const memberIds = new Set([currentUser.uid, ...selectedGroupMemberIds]);
+      const memberIds = new Set([currentUser.uid, ...(groupMembersList || []).map(m => m.userId)]);
 
-      setSelectedTask(prev => ({
-        ...prev,
-        submissions: [
-          ...(prev.submissions || []).filter(s => {
-            if (memberIds.has(s.userId)) return false;
-            if (s.groupMembers?.some(m => memberIds.has(m.userId))) return false;
-            return true;
-          }),
-          newSubItem
-        ]
+      setSelectedTask(prev => {
+        if (!prev || prev.id !== taskId) return prev;
+        return {
+          ...prev,
+          submissions: [
+            ...(prev.submissions || []).filter(s => {
+              if (memberIds.has(s.userId)) return false;
+              if (s.groupMembers?.some(m => memberIds.has(m.userId))) return false;
+              return true;
+            }),
+            newSubItem
+          ]
+        };
+      });
+
+      setBackgroundUploads(prev => prev.map(u => {
+        if (u.id !== id) return u;
+        return {
+          ...u,
+          status: 'completed',
+          progress: 100,
+          statusMessage: 'Tersimpan di Google Drive!',
+          fileUrl,
+          completedAt: Date.now()
+        };
       }));
+
+      toast.success(`Tugas "${taskTitle}" berhasil dikumpulkan ke Google Drive!`, {
+        duration: 5000,
+        icon: '✅'
+      });
+
+      // Automatically dismiss completed task from widget after 6 seconds
+      setTimeout(() => {
+        setBackgroundUploads(prev => prev.filter(u => u.id !== id));
+      }, 6000);
+
     } catch (err) {
-      toast.error(err.message || 'Gagal mengunggah file pengumpulan');
-    } finally {
-      setIsSubmittingFile(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      clearInterval(progressTimer);
+      console.error('Background upload failed:', err);
+
+      setBackgroundUploads(prev => prev.map(u => {
+        if (u.id !== id) return u;
+        return {
+          ...u,
+          status: 'error',
+          error: err.message || 'Koneksi ke Google Drive gagal atau waktu habis.',
+          statusMessage: 'Gagal mengunggah'
+        };
+      }));
+
+      toast.error(`Gagal mengunggah tugas "${taskTitle}": ${err.message || 'Error koneksi'}`, {
+        duration: 5000
+      });
     }
+  };
+
+  const handleRetryUpload = (job) => {
+    const taskObj = tasks?.find(t => t.id === job.taskId) || { id: job.taskId, title: job.taskTitle };
+    const taskFolder = `Tugas: ${job.taskTitle}`;
+    setBackgroundUploads(prev => prev.map(u => u.id === job.id ? { ...u, status: 'uploading', progress: 20, error: null } : u));
+    runBackgroundUpload(job, taskObj, taskFolder);
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedTask) return;
+
+    // 1. Validation check
+    const maxBytes = 25 * 1024 * 1024; // 25 MB
+    if (file.size > maxBytes) {
+      toast.error(`Ukuran file (${(file.size / (1024 * 1024)).toFixed(1)} MB) melebihi batas maksimal 25 MB. Mohon kompres berkas terlebih dahulu.`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    const isGroupTask = selectedTask.submissionType === 'group';
+    const isGroupSubmission = isGroupTask || selectedGroupMemberIds.length > 0;
+    const taskToSubmit = selectedTask;
+    const currentTaskId = taskToSubmit.id;
+    const currentTaskTitle = taskToSubmit.title;
+
+    const prefixUser = isGroupSubmission 
+      ? `${currentUser?.displayName || 'Kelompok'}_dkk`
+      : (currentUser?.displayName || 'Mahasiswa');
+
+    const submissionFileName = autoRenameEnabled 
+      ? generateSubmissionFileName(prefixUser, taskToSubmit.title, file.name)
+      : `${prefixUser} - ${file.name}`;
+
+    const taskFolder = `Tugas: ${taskToSubmit.title}`;
+    const initialFileSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+
+    const groupMembersList = isGroupSubmission
+      ? [
+          { userId: currentUser.uid, userName: currentUser.displayName || 'Mahasiswa', email: currentUser.email || '' },
+          ...eligibleMembers
+            .filter(m => selectedGroupMemberIds.includes(m.userId || m.uid || m.id))
+            .map(m => ({ 
+              userId: m.userId || m.uid || m.id, 
+              userName: m.name || m.userName || m.email || 'Mahasiswa', 
+              email: m.email || '' 
+            }))
+        ]
+      : [];
+
+    const uploadJobId = 'upl_' + Date.now();
+
+    const uploadJob = {
+      id: uploadJobId,
+      taskId: currentTaskId,
+      taskTitle: currentTaskTitle,
+      fileName: submissionFileName,
+      rawFileName: file.name,
+      fileSize: initialFileSize,
+      rawSize: file.size,
+      progress: 15,
+      status: 'uploading',
+      statusMessage: file.size > 8 * 1024 * 1024 
+        ? 'Mengunggah berkas besar ke Drive di latar belakang...' 
+        : 'Mengunggah ke Google Drive...',
+      error: null,
+      file,
+      groupMembersList,
+      isGroupSubmission
+    };
+
+    // Add to background uploads queue
+    setBackgroundUploads(prev => [uploadJob, ...prev.filter(u => u.taskId !== currentTaskId)]);
+    setIsWidgetExpanded(true);
+
+    // Close the blocking modal immediately so the user can continue freely
+    setIsSubmittingFile(false);
+    setSelectedTask(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    toast.success(
+      '🚀 Berkas tugas sedang diunggah di latar belakang! Anda dapat melanjutkan aktivitas lain.',
+      { duration: 4500, icon: '📤' }
+    );
+
+    // Run the upload in background
+    runBackgroundUpload(uploadJob, taskToSubmit, taskFolder);
   };
 
   const handleConfirmDeleteTask = async () => {
@@ -2158,26 +2308,40 @@ export default function ClassTasks({
                           <p className="text-[11px] text-slate-500 mt-0.5">Daftar pengumpulan akan muncul di sini saat mahasiswa mengunggah file.</p>
                         </div>
                       ) : (
-                        status.submittedList.map(({ member, submission }) => {
+                        status.submittedList.map(({ member, submission }, idx) => {
                           const subMissing = isSubmissionFileMissing(submission);
                           const isLate = isSubmissionLate(selectedTask.dueDate, selectedTask.dueTime, submission.submittedAt);
+                          const isGroup = submission.isGroup || (submission.groupMembers?.length > 1);
+                          const isSubmitter = submission.isSubmitter !== false && (submission.userId === (member?.userId || member?.uid || member?.id));
+                          const groupLeader = submission.groupLeaderName || submission.userName || 'Perwakilan';
+
+                          // Student name: always prioritize the specific student's individual name!
+                          // If this member is NOT the uploader, strictly use their own name (member.name, submission.memberName, or member.email).
+                          // NEVER fall back to submission.userName (which is the group leader/uploader's name).
+                          const studentName = member?.name || 
+                                              submission.memberName || 
+                                              member?.email || 
+                                              (isSubmitter ? submission.userName : 'Anggota Kelompok') || 
+                                              `Mahasiswa #${idx + 1}`;
+                          const initial = studentName.charAt(0).toUpperCase();
+
                           return (
                             <div
-                              key={submission.id || submission.userId}
+                              key={member?.userId || member?.uid || member?.id || submission.id || idx}
                               className={`p-2 sm:p-2.5 rounded-xl border flex items-center justify-between text-xs gap-2 transition-colors ${
                                 subMissing ? 'bg-rose-50/70 border-rose-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
-                                  {(submission.userName || member?.name || 'M').charAt(0).toUpperCase()}
+                                  {initial}
                                 </div>
                                 <div className="truncate flex-1">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-bold text-[#0F172A] truncate block max-w-[140px] xs:max-w-[190px] sm:max-w-none">
-                                      {submission.userName || member?.name}
+                                      {studentName}
                                     </span>
-                                    {submission.isGroup && (
+                                    {isGroup && (
                                       <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-violet-100 text-violet-800 border border-violet-200 shrink-0 flex items-center gap-0.5">
                                         <Users size={9} />
                                         <span>Kelompok ({submission.groupMembers?.length || 1})</span>
@@ -2192,11 +2356,11 @@ export default function ClassTasks({
                                   <span className="text-[10px] text-[#64748B] block truncate font-mono">
                                     {submission.fileName}
                                   </span>
-                                  {submission.isGroup && submission.groupMembers?.length > 1 && (
+                                  {isGroup && submission.groupMembers?.length > 1 && (
                                     <span className="text-[9px] text-violet-700 block truncate">
-                                      {submission.isGroupMember && !submission.isSubmitter 
-                                        ? `Diunggah oleh ${submission.groupLeaderName}` 
-                                        : `Anggota: ${submission.groupMembers.map(m => m.userName).join(', ')}`}
+                                      {isSubmitter 
+                                        ? `Anggota: ${submission.groupMembers.map(m => m.userName || m.name).join(', ')}` 
+                                        : `Diunggah oleh ${groupLeader}`}
                                     </span>
                                   )}
                                 </div>
@@ -2880,6 +3044,141 @@ export default function ClassTasks({
             </div>
           </div>
         </ModalPortal>
+      )}
+
+      {/* FLOATING BACKGROUND UPLOADS WIDGET */}
+      {backgroundUploads.length > 0 && (
+        <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end max-w-sm w-[92vw] sm:w-[380px] select-none pointer-events-auto transition-all duration-300">
+          <div className="w-full bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-2xl overflow-hidden">
+            {/* Widget Header */}
+            <div 
+              onClick={() => setIsWidgetExpanded(prev => !prev)}
+              className="flex items-center justify-between px-4 py-3 bg-slate-800/80 cursor-pointer hover:bg-slate-800 transition-colors border-b border-slate-700/50"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                {backgroundUploads.some(u => u.status === 'uploading') ? (
+                  <RefreshCw size={15} className="animate-spin text-indigo-400 shrink-0" />
+                ) : backgroundUploads.some(u => u.status === 'error') ? (
+                  <AlertCircle size={15} className="text-rose-400 shrink-0" />
+                ) : (
+                  <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+                )}
+                <span className="text-xs font-semibold truncate">
+                  {backgroundUploads.some(u => u.status === 'uploading')
+                    ? `Mengunggah (${backgroundUploads.filter(u => u.status === 'uploading').length} tugas)`
+                    : 'Pengunggahan Selesai'}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  {backgroundUploads.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsWidgetExpanded(prev => !prev);
+                  }}
+                  className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700/50 transition-colors"
+                  title={isWidgetExpanded ? 'Ciutkan' : 'Perluas'}
+                >
+                  {isWidgetExpanded ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                </button>
+                {backgroundUploads.every(u => u.status !== 'uploading') && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBackgroundUploads([]);
+                    }}
+                    className="p-1 text-slate-400 hover:text-rose-300 rounded-lg hover:bg-slate-700/50 transition-colors ml-1"
+                    title="Tutup & Bersihkan"
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Widget Body */}
+            {isWidgetExpanded && (
+              <div className="p-3 space-y-2.5 max-h-72 overflow-y-auto divide-y divide-slate-800/80">
+                {backgroundUploads.map(job => (
+                  <div key={job.id} className="pt-2.5 first:pt-0 space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-slate-100 truncate" title={job.taskTitle}>
+                          {job.taskTitle}
+                        </p>
+                        <p className="text-[11px] text-slate-400 truncate" title={job.fileName}>
+                          {job.rawFileName || job.fileName}
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400 shrink-0 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                        {job.fileSize}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 rounded-full ${
+                          job.status === 'completed'
+                            ? 'bg-emerald-500'
+                            : job.status === 'error'
+                            ? 'bg-rose-500'
+                            : 'bg-gradient-to-r from-indigo-500 to-cyan-400'
+                        }`}
+                        style={{ width: `${job.progress}%` }}
+                      />
+                    </div>
+
+                    {/* Status & Actions */}
+                    <div className="flex items-center justify-between text-[11px] pt-0.5">
+                      <span className={`truncate ${
+                        job.status === 'completed'
+                          ? 'text-emerald-400 font-medium'
+                          : job.status === 'error'
+                          ? 'text-rose-400 font-medium'
+                          : 'text-indigo-300'
+                      }`}>
+                        {job.status === 'completed' ? (
+                          <span className="flex items-center gap-1">
+                            <Check size={12} /> Tersimpan di Drive
+                          </span>
+                        ) : job.status === 'error' ? (
+                          <span className="truncate">{job.error || 'Gagal mengunggah'}</span>
+                        ) : (
+                          <span>{job.statusMessage || `Mengunggah... ${job.progress}%`}</span>
+                        )}
+                      </span>
+
+                      {job.status === 'error' && (
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <button
+                            type="button"
+                            onClick={() => handleRetryUpload(job)}
+                            className="px-2 py-0.5 text-[10px] font-semibold bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 rounded border border-rose-500/30 flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <RefreshCw size={10} /> Coba Lagi
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBackgroundUploads(prev => prev.filter(u => u.id !== job.id))}
+                            className="p-0.5 text-slate-400 hover:text-white rounded"
+                            title="Hapus"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
