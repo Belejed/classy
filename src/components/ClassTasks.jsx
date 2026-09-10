@@ -311,12 +311,14 @@ export default function ClassTasks({
     return false;
   };
 
-  // Helper: Generate standardized submission file name: namauser_namatugasnya_tanggal.ext
-  const generateSubmissionFileName = (userName, taskTitle, originalFileName) => {
+  // Helper: Generate standardized submission file name: namakelompok_namatugasnya_tanggal.ext or namauser_namatugasnya_tanggal.ext
+  const generateSubmissionFileName = (userName, taskTitle, originalFileName, groupName = null) => {
     const lastDotIndex = (originalFileName || '').lastIndexOf('.');
     const ext = lastDotIndex !== -1 ? originalFileName.substring(lastDotIndex) : '';
 
-    const cleanUser = (userName || 'Mahasiswa')
+    const prefixSource = (groupName && groupName.trim()) ? groupName.trim() : (userName || 'Mahasiswa');
+
+    const cleanPrefix = prefixSource
       .trim()
       .replace(/[^a-zA-Z0-9]/g, '_')
       .replace(/_+/g, '_')
@@ -330,7 +332,7 @@ export default function ClassTasks({
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    return `${cleanUser}_${cleanTask}_${todayStr}${ext}`;
+    return `${cleanPrefix}_${cleanTask}_${todayStr}${ext}`;
   };
 
   // Eligible class members who are expected to submit (students and other registered members, excluding lecturers)
@@ -458,6 +460,7 @@ export default function ClassTasks({
   // Candidates for group selection (excluding current logged-in user)
   const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState([]);
   const [groupSearchQuery, setGroupSearchQuery] = useState('');
+  const [submissionGroupName, setSubmissionGroupName] = useState('');
 
   const filteredGroupCandidates = useMemo(() => {
     return eligibleMembers.filter(m => {
@@ -480,10 +483,11 @@ export default function ClassTasks({
     });
   };
 
-  // Reset group member selection when selectedTask changes
+  // Reset group member selection and group name when selectedTask changes
   useEffect(() => {
     setSelectedGroupMemberIds([]);
     setGroupSearchQuery('');
+    setSubmissionGroupName('');
   }, [selectedTask?.id]);
 
   // Copy recap of unsubmitted students formatted for WhatsApp class group
@@ -837,7 +841,7 @@ export default function ClassTasks({
   };
 
   const runBackgroundUpload = async (job, taskObj, taskFolder) => {
-    const { id, file, fileName, taskId, taskTitle, groupMembersList, isGroupSubmission, rawSize } = job;
+    const { id, file, fileName, taskId, taskTitle, groupMembersList, isGroupSubmission, groupName, rawSize } = job;
 
     // Simulate steady progress increments while network request is flying
     const progressTimer = setInterval(() => {
@@ -869,6 +873,7 @@ export default function ClassTasks({
         fileUrl,
         fileSize: finalFileSize,
         isGroup: isGroupSubmission,
+        groupName: groupName || null,
         groupMembers: groupMembersList
       });
 
@@ -888,6 +893,7 @@ export default function ClassTasks({
         fileUrl,
         fileSize: finalFileSize,
         isGroup: isGroupSubmission,
+        groupName: groupName || null,
         groupMembers: groupMembersList,
         submittedAt: new Date().toISOString()
       };
@@ -975,14 +981,15 @@ export default function ClassTasks({
     const taskToSubmit = selectedTask;
     const currentTaskId = taskToSubmit.id;
     const currentTaskTitle = taskToSubmit.title;
+    const cleanGroupName = (submissionGroupName || '').trim();
 
     const prefixUser = isGroupSubmission 
-      ? `${currentUser?.displayName || 'Kelompok'}_dkk`
+      ? (cleanGroupName || `${currentUser?.displayName || 'Kelompok'}_dkk`)
       : (currentUser?.displayName || 'Mahasiswa');
 
     const submissionFileName = autoRenameEnabled 
-      ? generateSubmissionFileName(prefixUser, taskToSubmit.title, file.name)
-      : `${prefixUser} - ${file.name}`;
+      ? generateSubmissionFileName(currentUser?.displayName, taskToSubmit.title, file.name, isGroupSubmission ? (cleanGroupName || `${currentUser?.displayName || 'Kelompok'}_dkk`) : null)
+      : (cleanGroupName ? `${cleanGroupName} - ${file.name}` : `${prefixUser} - ${file.name}`);
 
     const taskFolder = `Tugas: ${taskToSubmit.title}`;
     const initialFileSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
@@ -1018,7 +1025,8 @@ export default function ClassTasks({
       error: null,
       file,
       groupMembersList,
-      isGroupSubmission
+      isGroupSubmission,
+      groupName: cleanGroupName || null
     };
 
     // Add to background uploads queue
@@ -1028,6 +1036,7 @@ export default function ClassTasks({
     // Close the blocking modal immediately so the user can continue freely
     setIsSubmittingFile(false);
     setSelectedTask(null);
+    setSubmissionGroupName('');
     if (fileInputRef.current) fileInputRef.current.value = '';
 
     toast.success(
@@ -1745,15 +1754,29 @@ export default function ClassTasks({
                             <div>
                               <div className="flex items-center gap-1.5">
                                 <Users size={14} className="text-violet-700" />
-                                <span className="text-xs font-bold text-violet-950">Pilih Anggota Kelompok Anda</span>
+                                <span className="text-xs font-bold text-violet-950">Informasi & Anggota Kelompok</span>
                               </div>
                               <p className="text-[11px] text-violet-800/90 mt-0.5">
-                                Cukup 1 perwakilan yang mengunggah berkas. Centang teman kelompok Anda di bawah agar otomatis tercatat sudah mengumpulkan:
+                                Cukup 1 perwakilan yang mengunggah berkas. Masukkan nama kelompok dan centang teman kelompok Anda di bawah:
                               </p>
                             </div>
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-200 text-violet-900 shrink-0">
                               {selectedGroupMemberIds.length + 1} Anggota
                             </span>
+                          </div>
+
+                          {/* Group Name Input */}
+                          <div className="space-y-1">
+                            <label className="block text-[11px] font-bold text-violet-950">
+                              Nama Kelompok <span className="text-violet-600 font-normal">(akan digunakan sebagai nama berkas auto-rename)</span>
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Contoh: Kelompok 1, Kelompok Alpha, Tim Sukses..."
+                              value={submissionGroupName}
+                              onChange={(e) => setSubmissionGroupName(e.target.value)}
+                              className="w-full px-3 py-1.5 rounded-xl border border-violet-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 font-medium"
+                            />
                           </div>
 
                           {/* Search Filter for Classmates */}
@@ -1866,9 +1889,10 @@ export default function ClassTasks({
                           {autoRenameEnabled ? (
                             <span className="text-emerald-700 font-semibold block">
                               Format: {generateSubmissionFileName(
-                                isGroupTask ? `${currentUser?.displayName || 'Kelompok'}_dkk` : currentUser?.displayName,
+                                currentUser?.displayName,
                                 selectedTask?.title,
-                                'dokumen.pdf'
+                                'dokumen.pdf',
+                                isGroupTask ? (submissionGroupName.trim() || `${currentUser?.displayName || 'Kelompok'}_dkk`) : null
                               )}
                             </span>
                           ) : (
@@ -2006,9 +2030,16 @@ export default function ClassTasks({
                     {/* Group Details Card if group submission */}
                     {userSub.isGroup && (
                       <div className="p-2.5 rounded-xl bg-violet-50/70 border border-violet-200 space-y-1.5 text-xs">
-                        <p className="text-[11px] text-violet-900 font-medium">
-                          Diserahkan oleh: <strong className="font-bold">{userSub.userName}</strong> {isSubmitter ? '(Anda)' : ''}
-                        </p>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <p className="text-[11px] text-violet-900 font-medium">
+                            Diserahkan oleh: <strong className="font-bold">{userSub.userName}</strong> {isSubmitter ? '(Anda)' : ''}
+                          </p>
+                          {userSub.groupName && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-200 text-violet-900 shrink-0">
+                              👥 {userSub.groupName}
+                            </span>
+                          )}
+                        </div>
                         {Array.isArray(userSub.groupMembers) && userSub.groupMembers.length > 0 && (
                           <div className="flex items-center gap-1 flex-wrap pt-0.5">
                             <span className="text-[10px] font-bold text-violet-800">Anggota ({userSub.groupMembers.length}):</span>
@@ -2344,7 +2375,7 @@ export default function ClassTasks({
                                     {isGroup && (
                                       <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-violet-100 text-violet-800 border border-violet-200 shrink-0 flex items-center gap-0.5">
                                         <Users size={9} />
-                                        <span>Kelompok ({submission.groupMembers?.length || 1})</span>
+                                        <span>{submission.groupName ? submission.groupName : `Kelompok (${submission.groupMembers?.length || 1})`}</span>
                                       </span>
                                     )}
                                     {isLate && (
@@ -2358,6 +2389,7 @@ export default function ClassTasks({
                                   </span>
                                   {isGroup && submission.groupMembers?.length > 1 && (
                                     <span className="text-[9px] text-violet-700 block truncate">
+                                      {submission.groupName ? `[${submission.groupName}] ` : ''}
                                       {isSubmitter 
                                         ? `Anggota: ${submission.groupMembers.map(m => m.userName || m.name).join(', ')}` 
                                         : `Diunggah oleh ${groupLeader}`}

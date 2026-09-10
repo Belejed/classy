@@ -369,16 +369,17 @@ export default function App() {
     try {
       const targetTask = refreshed.find(t => t.id === taskId);
       const isGroup = Boolean(submissionData.isGroup);
+      const groupName = (submissionData.groupName || '').trim();
       const groupList = Array.isArray(submissionData.groupMembers) && submissionData.groupMembers.length > 0
         ? submissionData.groupMembers.map(m => m.userName || m.name).filter(Boolean).join(', ')
         : '';
 
       const logTitle = isGroup
-        ? `${submissionData.userName} mengumpulkan tugas kelompok`
+        ? `${submissionData.userName} mengumpulkan tugas ${groupName ? `[${groupName}]` : 'kelompok'}`
         : `${submissionData.userName} mengumpulkan tugas`;
 
       const logDetails = isGroup
-        ? `${submissionData.userName} mengumpulkan berkas kelompok "${submissionData.fileName}" bersama: ${groupList} untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`
+        ? `${submissionData.userName} mengumpulkan berkas kelompok ${groupName ? `"${groupName}" ` : ''}("${submissionData.fileName}")${groupList ? ` bersama: ${groupList}` : ''} untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`
         : `${submissionData.userName} mengumpulkan berkas "${submissionData.fileName}" untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`;
 
       await dbService.logs.create(currentClass.id, {

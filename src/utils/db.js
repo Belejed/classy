@@ -1074,7 +1074,7 @@ export const dbService = {
       };
     },
 
-    submit: async (taskId, { userId, userName, fileName, fileUrl, fileSize, isGroup = false, groupMembers = [] }) => {
+    submit: async (taskId, { userId, userName, fileName, fileUrl, fileSize, isGroup = false, groupMembers = [], groupName = null }) => {
       const { data: existing, error: getErr } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
       if (getErr || !existing) throw new Error('Tugas tidak ditemukan.');
 
@@ -1094,6 +1094,7 @@ export const dbService = {
         fileUrl: fileUrl || '',
         fileSize: fileSize || '',
         isGroup: Boolean(isGroup),
+        groupName: groupName || null,
         groupMembers: Array.isArray(groupMembers) ? groupMembers : [],
         submittedAt: new Date().toISOString()
       };
