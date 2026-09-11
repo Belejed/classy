@@ -1337,9 +1337,9 @@ export default function ClassTasks({
                           <span>Terkumpul (Terlambat)</span>
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shrink-0">
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shrink-0" title={userSub.isGroup && userSub.userId !== currentUser?.uid ? `Submitted by ${userSub.userName}` : 'Submitted'}>
                           <Check size={10} />
-                          <span>Submitted</span>
+                          <span>{userSub.isGroup && userSub.userId !== currentUser?.uid ? `Submitted by ${userSub.userName.split(' ')[0]}` : 'Submitted'}</span>
                         </span>
                       )
                     ) : isOverdue ? (
@@ -1815,41 +1815,68 @@ export default function ClassTasks({
                                 const mId = member.userId || member.uid || member.id;
                                 const isSelected = selectedGroupMemberIds.includes(mId);
                                 const name = member.name || member.userName || member.email || 'Mahasiswa';
+                                const alreadySub = selectedTask?.submissions?.find(s =>
+                                  s.userId === mId || s.groupMembers?.some(gm => (gm.userId || gm.uid || gm.id) === mId)
+                                );
+                                const isAlreadyInOtherGroup = alreadySub && alreadySub.userId !== currentUser?.uid;
+
                                 return (
                                   <div
                                     key={mId}
                                     role="checkbox"
                                     aria-checked={isSelected}
                                     tabIndex={0}
-                                    onClick={() => toggleGroupMember(mId)}
+                                    onClick={() => {
+                                      if (isAlreadyInOtherGroup) {
+                                        toast.info(`${name} sudah tercatat di ${alreadySub.groupName || 'kelompok lain'} (Submitted by ${alreadySub.userName})`);
+                                        return;
+                                      }
+                                      toggleGroupMember(mId);
+                                    }}
                                     onKeyDown={(e) => {
                                       if (e.key === ' ' || e.key === 'Enter') {
                                         e.preventDefault();
+                                        if (isAlreadyInOtherGroup) {
+                                          toast.info(`${name} sudah tercatat di ${alreadySub.groupName || 'kelompok lain'} (Submitted by ${alreadySub.userName})`);
+                                          return;
+                                        }
                                         toggleGroupMember(mId);
                                       }
                                     }}
-                                    className={`p-2 rounded-xl border flex items-center justify-between gap-2 text-xs cursor-pointer select-none transition-all ${
-                                      isSelected 
-                                        ? 'bg-violet-100/90 border-violet-400 text-violet-950 font-semibold shadow-2xs' 
-                                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                                    className={`p-2 rounded-xl border flex items-center justify-between gap-2 text-xs select-none transition-all ${
+                                      isAlreadyInOtherGroup
+                                        ? 'bg-amber-50/70 border-amber-200 text-amber-900 cursor-not-allowed opacity-90'
+                                        : isSelected 
+                                          ? 'bg-violet-100/90 border-violet-400 text-violet-950 font-semibold shadow-2xs cursor-pointer' 
+                                          : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer'
                                     }`}
                                   >
                                     <div className="flex items-center gap-2.5 min-w-0 flex-1 pointer-events-none">
                                       <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors shrink-0 ${
-                                        isSelected
-                                          ? 'bg-violet-600 border-violet-600 text-white'
-                                          : 'bg-white border-slate-300'
+                                        isAlreadyInOtherGroup
+                                          ? 'bg-amber-200 border-amber-300 text-amber-800 font-bold text-[9px]'
+                                          : isSelected
+                                            ? 'bg-violet-600 border-violet-600 text-white'
+                                            : 'bg-white border-slate-300'
                                       }`}>
-                                        {isSelected && <Check size={11} strokeWidth={3} />}
+                                        {isAlreadyInOtherGroup ? '!' : isSelected && <Check size={11} strokeWidth={3} />}
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <span className="truncate block font-medium">{name}</span>
-                                        {member.email && (
+                                        {isAlreadyInOtherGroup ? (
+                                          <span className="text-[10px] text-amber-700 font-semibold truncate block">
+                                            Sudah di {alreadySub.groupName || 'Kelompok'} • Submitted by {alreadySub.userName}
+                                          </span>
+                                        ) : member.email ? (
                                           <span className="text-[10px] text-slate-500 font-normal truncate block">{member.email}</span>
-                                        )}
+                                        ) : null}
                                       </div>
                                     </div>
-                                    {isSelected ? (
+                                    {isAlreadyInOtherGroup ? (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900 shrink-0">
+                                        Submitted by {alreadySub.userName.split(' ')[0]}
+                                      </span>
+                                    ) : isSelected ? (
                                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-200 text-violet-800 shrink-0">
                                         Terpilih
                                       </span>
@@ -2007,7 +2034,11 @@ export default function ClassTasks({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
                           <Check size={14} className="text-emerald-600 shrink-0" />
-                          <span>Tugas Berhasil Dikumpulkan</span>
+                          <span>
+                            {userSub.isGroup && !isSubmitter
+                              ? `Tugas Dikumpulkan (Submitted by ${userSub.userName})`
+                              : 'Tugas Berhasil Dikumpulkan'}
+                          </span>
                         </span>
                         {userSub.isGroup && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200 flex items-center gap-1">
@@ -2032,7 +2063,7 @@ export default function ClassTasks({
                       <div className="p-2.5 rounded-xl bg-violet-50/70 border border-violet-200 space-y-1.5 text-xs">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <p className="text-[11px] text-violet-900 font-medium">
-                            Diserahkan oleh: <strong className="font-bold">{userSub.userName}</strong> {isSubmitter ? '(Anda)' : ''}
+                            Submitted by: <strong className="font-bold">{userSub.userName}</strong> {isSubmitter ? '(Anda / Pengunggah)' : '(Perwakilan Kelompok)'}
                           </p>
                           {userSub.groupName && (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-200 text-violet-900 shrink-0">
@@ -2378,6 +2409,11 @@ export default function ClassTasks({
                                         <span>{submission.groupName ? submission.groupName : `Kelompok (${submission.groupMembers?.length || 1})`}</span>
                                       </span>
                                     )}
+                                    {isGroup && !isSubmitter && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                                        Submitted by: {groupLeader}
+                                      </span>
+                                    )}
                                     {isLate && (
                                       <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
                                         Terlambat
@@ -2392,7 +2428,7 @@ export default function ClassTasks({
                                       {submission.groupName ? `[${submission.groupName}] ` : ''}
                                       {isSubmitter 
                                         ? `Anggota: ${submission.groupMembers.map(m => m.userName || m.name).join(', ')}` 
-                                        : `Diunggah oleh ${groupLeader}`}
+                                        : `Submitted by: ${groupLeader}`}
                                     </span>
                                   )}
                                 </div>
