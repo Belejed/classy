@@ -67,9 +67,11 @@ export default function CustomDatePicker({
   placeholder = 'Pilih tanggal deadline...',
   className = '',
   showRelativeTag = true,
-  showQuickPresets = true
+  showQuickPresets = true,
+  align = 'left' // 'left' | 'right' | 'auto'
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [resolvedAlign, setResolvedAlign] = useState(align);
   const containerRef = useRef(null);
 
   const initialDate = useMemo(() => {
@@ -117,6 +119,21 @@ export default function CustomDatePicker({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      if (align === 'auto') {
+        const rect = containerRef.current.getBoundingClientRect();
+        if (window.innerWidth - rect.left < 320 && rect.right >= 320) {
+          setResolvedAlign('right');
+        } else {
+          setResolvedAlign('left');
+        }
+      } else {
+        setResolvedAlign(align);
+      }
+    }
+  }, [isOpen, align]);
 
   const prevMonth = () => {
     setViewMonth(prev => {
@@ -246,7 +263,7 @@ export default function CustomDatePicker({
       />
 
       {isOpen && (
-        <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-full sm:w-[320px] bg-white border border-[#CBD5E1] shadow-2xl rounded-2xl p-3.5 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+        <div className={`absolute ${resolvedAlign === 'right' ? 'right-0' : 'left-0'} top-full mt-2 z-50 w-[295px] sm:w-[315px] bg-white border border-[#CBD5E1] shadow-2xl rounded-2xl p-3 sm:p-3.5 space-y-3 animate-in fade-in zoom-in-95 duration-150`}>
           <div className="flex items-center justify-between gap-1">
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-xs sm:text-sm text-[#0F172A]">

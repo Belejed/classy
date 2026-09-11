@@ -3013,7 +3013,7 @@ export default function ClassTasks({
 
       {/* MODAL 2: CREATE TASK MODAL (Coordinator) */}
       {showCreateModal && (
-        <ModalPortal onClose={() => setShowCreateModal(false)} maxWidth="max-w-md">
+        <ModalPortal onClose={() => setShowCreateModal(false)} maxWidth="max-w-lg">
           <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between p-4 sm:p-6 pb-3 border-b border-[#F1F5F9] shrink-0">
               <h3 className="font-bold text-base text-[#0F172A]">Tambah Penugasan Baru</h3>
@@ -3344,7 +3344,7 @@ export default function ClassTasks({
 
       {/* MODAL 3: EDIT TASK MODAL (Managers) */}
       {editingTask && (
-        <ModalPortal onClose={() => !isSavingEdit && setEditingTask(null)} maxWidth="max-w-md">
+        <ModalPortal onClose={() => !isSavingEdit && setEditingTask(null)} maxWidth="max-w-lg">
           <div className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl w-full shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between p-4 sm:p-6 pb-3 border-b border-[#F1F5F9] shrink-0">
               <div className="flex items-center gap-2">
