@@ -2,22 +2,112 @@
 import { 
   Sparkles, 
   CheckCircle2, 
-  Cloud, 
   UploadCloud, 
   Users, 
   Clock, 
   ShieldCheck, 
   X, 
-  ChevronRight,
   FolderSync
 } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 
+/**
+ * Current release changelog information
+ */
+export const CURRENT_CHANGELOG = {
+  version: 'v1.5.0',
+  title: 'Pembaruan Versi 1.5.0',
+  releaseDate: '2026-09-11', // Format YYYY-MM-DD
+};
+
+/**
+ * Returns ISO week string, e.g. "2026-W37"
+ */
+export function getIsoWeekKey(dateInput = new Date()) {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return 'unknown';
+  const target = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNr = (target.getUTCDay() + 6) % 7;
+  target.setUTCDate(target.getUTCDate() - dayNr + 3);
+  const firstThursday = target.getTime();
+  target.setUTCMonth(0, 1);
+  if (target.getUTCDay() !== 4) {
+    target.setUTCMonth(0, 1 + ((4 - target.getUTCDay()) + 7) % 7);
+  }
+  const weekNumber = 1 + Math.ceil((firstThursday - target.getTime()) / 604800000);
+  return `${d.getUTCFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
+}
+
+/**
+ * Determines whether the changelog modal should automatically pop up:
+ * 1. Must have an update released in the current week (within last 7 days).
+ * 2. Must not have already seen/dismissed an update in the current week (max 1x a week).
+ * 3. Must not have already seen this specific version.
+ */
+export function shouldShowChangelogAuto() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const now = new Date();
+    const currentWeekKey = getIsoWeekKey(now);
+    const updateReleaseDate = new Date(CURRENT_CHANGELOG.releaseDate);
+    const updateWeekKey = getIsoWeekKey(updateReleaseDate);
+
+    // 1. Check if there is an update in the current week (calendar week or within 7 days)
+    const diffDays = (now.getTime() - updateReleaseDate.getTime()) / (1000 * 60 * 60 * 24);
+    const isUpdateThisWeek = (currentWeekKey === updateWeekKey) || (diffDays >= 0 && diffDays <= 7);
+    if (!isUpdateThisWeek) {
+      // Tidak ada update di minggu ini -> jangan muncul
+      return false;
+    }
+
+    // 2. Has this specific version already been seen?
+    const seenVersion = localStorage.getItem('classy_changelog_seen_version');
+    if (seenVersion === CURRENT_CHANGELOG.version) {
+      return false;
+    }
+
+    // 3. Has the user already dismissed an update in this week? (Only 1x per week)
+    const seenWeek = localStorage.getItem('classy_changelog_seen_week');
+    if (seenWeek === currentWeekKey) {
+      return false;
+    }
+
+    // 4. Frequency throttle (minimum 7 days cooldown)
+    const lastSeenTimestamp = parseInt(localStorage.getItem('classy_changelog_last_seen_at') || '0', 10);
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    if (lastSeenTimestamp && (now.getTime() - lastSeenTimestamp < sevenDaysMs)) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Record that the user has seen/dismissed the changelog
+ */
+export function markChangelogSeen() {
+  if (typeof window === 'undefined') return;
+  try {
+    const currentWeekKey = getIsoWeekKey(new Date());
+    localStorage.setItem('classy_changelog_seen_version', CURRENT_CHANGELOG.version);
+    localStorage.setItem('classy_changelog_seen_week', currentWeekKey);
+    localStorage.setItem('classy_changelog_last_seen_at', Date.now().toString());
+  } catch {}
+}
+
 export default function ChangelogModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
+  const handleDismiss = () => {
+    markChangelogSeen();
+    onClose?.();
+  };
+
   return (
-    <ModalPortal onClose={onClose} maxWidth="max-w-xl">
+    <ModalPortal onClose={handleDismiss} maxWidth="max-w-xl">
       <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden font-sans text-slate-800 flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header with decorative background */}
@@ -30,19 +120,19 @@ export default function ChangelogModal({ isOpen, onClose }) {
             <div className="space-y-1.5">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[11px] font-bold text-sky-200 shadow-2xs">
                 <Sparkles size={13} className="text-amber-300 animate-pulse" />
-                <span>Pembaruan Versi 1.5.0</span>
+                <span>Pembaruan Minggu Ini • {CURRENT_CHANGELOG.version}</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
                 Apa yang Baru di Classy?
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md">
-                Pembaruan fitur baru, perbaikan stabilitas pengunggahan berkas, dan peningkatan antarmuka.
+                Ringkasan fitur baru, stabilitas pengunggahan berkas, dan penyempurnaan sistem minggu ini.
               </p>
             </div>
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleDismiss}
               className="p-2 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-all cursor-pointer shrink-0"
               title="Tutup jendela pembaruan"
             >
@@ -147,12 +237,12 @@ export default function ChangelogModal({ isOpen, onClose }) {
 
         {/* Footer with confirmation button */}
         <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-          <p className="text-[11px] text-slate-500 text-center sm:text-left">
-            Pemberitahuan ini hanya muncul sekali dan tidak akan mengganggu Anda lagi.
+          <p className="text-[11px] text-slate-500 text-center sm:text-left leading-tight">
+            Pemberitahuan ini hanya muncul maksimal seminggu sekali jika terdapat update di minggu tersebut.
           </p>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleDismiss}
             className="w-full sm:w-auto px-6 py-2.5 rounded-2xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow active:scale-98 cursor-pointer min-h-[42px]"
           >
             <CheckCircle2 size={16} className="text-emerald-400" />
