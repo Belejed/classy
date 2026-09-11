@@ -347,14 +347,28 @@ export default function App() {
   };
 
   const handleSubmitAssignment = async (taskId, submissionData) => {
-    // If student previously submitted a file with a different URL, move the old one to Trash in Drive
+    // If student previously submitted files with different URLs, move the old ones to Trash in Drive
     const currentTask = tasks?.find(t => t.id === taskId);
     const existingSub = currentTask?.submissions?.find(s => s.userId === submissionData.userId || s.groupMembers?.some(m => m.userId === submissionData.userId));
-    if (existingSub?.fileUrl && existingSub.fileUrl !== submissionData.fileUrl) {
-      try {
-        await moveFileToDriveTrash(existingSub.fileUrl);
-      } catch (trashErr) {
-        console.warn('Gagal memindahkan berkas tugas lama ke folder Trash di Drive:', trashErr);
+    
+    if (existingSub) {
+      const oldUrls = [
+        ...(existingSub.files?.map(f => f.url) || []),
+        existingSub.fileUrl
+      ].filter(Boolean);
+
+      const newUrls = new Set([
+        ...(submissionData.files?.map(f => f.url) || []),
+        submissionData.fileUrl
+      ].filter(Boolean));
+
+      const urlsToTrash = oldUrls.filter(u => !newUrls.has(u));
+      if (urlsToTrash.length > 0) {
+        try {
+          await moveFilesToDriveTrash(urlsToTrash);
+        } catch (trashErr) {
+          console.warn('Gagal memindahkan berkas tugas lama ke folder Trash di Drive:', trashErr);
+        }
       }
     }
 
@@ -371,19 +385,22 @@ export default function App() {
     try {
       const targetTask = refreshed.find(t => t.id === taskId);
       const isGroup = Boolean(submissionData.isGroup);
-      const isPaper = !submissionData.fileUrl;
+      const isPaper = !submissionData.fileUrl && (!submissionData.files || submissionData.files.length === 0);
       const groupName = (submissionData.groupName || '').trim();
       const groupList = Array.isArray(submissionData.groupMembers) && submissionData.groupMembers.length > 0
         ? submissionData.groupMembers.map(m => m.userName || m.name).filter(Boolean).join(', ')
         : '';
+      const fileCountInfo = Array.isArray(submissionData.files) && submissionData.files.length > 1
+        ? `${submissionData.files.length} berkas`
+        : submissionData.fileName;
 
       const logTitle = isGroup
         ? `${submissionData.userName} ${isPaper ? 'menandai tugas kelompok selesai' : 'mengumpulkan tugas kelompok'} ${groupName ? `[${groupName}]` : ''}`
         : `${submissionData.userName} ${isPaper ? 'menandai tugas selesai' : 'mengumpulkan tugas'}`;
 
       const logDetails = isGroup
-        ? `${submissionData.userName} ${isPaper ? 'menandai tugas fisik (paper/kertas)' : 'mengumpulkan berkas'} kelompok ${groupName ? `"${groupName}" ` : ''}${submissionData.fileName ? `("${submissionData.fileName}")` : ''}${groupList ? ` bersama: ${groupList}` : ''} untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`
-        : `${submissionData.userName} ${isPaper ? 'menandai tugas fisik (paper/kertas) selesai dikerjakan' : `mengumpulkan berkas "${submissionData.fileName}"`} untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`;
+        ? `${submissionData.userName} ${isPaper ? 'menandai tugas fisik (paper/kertas)' : 'mengumpulkan berkas'} kelompok ${groupName ? `"${groupName}" ` : ''}${fileCountInfo ? `("${fileCountInfo}")` : ''}${groupList ? ` bersama: ${groupList}` : ''} untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`
+        : `${submissionData.userName} ${isPaper ? 'menandai tugas fisik (paper/kertas) selesai dikerjakan' : `mengumpulkan berkas "${fileCountInfo}"`} untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`;
 
       await dbService.logs.create(currentClass.id, {
         actionType: 'task_submit',
@@ -401,10 +418,15 @@ export default function App() {
 
   const handleDeleteSubmission = async (taskId, userId) => {
     const currentTask = tasks?.find(t => t.id === taskId);
-    const existingSub = currentTask?.submissions?.find(s => s.userId === userId);
-    if (existingSub?.fileUrl) {
+    const existingSub = currentTask?.submissions?.find(s => s.userId === userId || s.groupMembers?.some(m => m.userId === userId));
+    const urlsToTrash = [
+      ...(existingSub?.files?.map(f => f.url) || []),
+      existingSub?.fileUrl
+    ].filter(Boolean);
+
+    if (urlsToTrash.length > 0) {
       try {
-        await moveFileToDriveTrash(existingSub.fileUrl);
+        await moveFilesToDriveTrash(urlsToTrash);
       } catch (trashErr) {
         console.warn('Gagal memindahkan berkas tugas ke folder Trash di Drive:', trashErr);
       }
@@ -437,7 +459,15 @@ export default function App() {
 
     // If this task has submissions with Google Drive URLs, move them to Trash in Drive
     if (taskToDelete?.submissions && taskToDelete.submissions.length > 0) {
-      const subUrls = taskToDelete.submissions.map(s => s.fileUrl).filter(Boolean);
+      const subUrls = [];
+      taskToDelete.submissions.forEach(s => {
+        if (Array.isArray(s.files)) {
+          s.files.forEach(f => f.url && !subUrls.includes(f.url) && subUrls.push(f.url));
+        }
+        if (s.fileUrl && !subUrls.includes(s.fileUrl)) {
+          subUrls.push(s.fileUrl);
+        }
+      });
       if (subUrls.length > 0) {
         try {
           await moveFilesToDriveTrash(subUrls);

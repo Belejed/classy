@@ -1074,7 +1074,7 @@ export const dbService = {
       };
     },
 
-    submit: async (taskId, { userId, userName, fileName, fileUrl, fileSize, isGroup = false, groupMembers = [], groupName = null }) => {
+    submit: async (taskId, { userId, userName, fileName, fileUrl, fileSize, files = [], isGroup = false, groupMembers = [], groupName = null }) => {
       const { data: existing, error: getErr } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
       if (getErr || !existing) throw new Error('Tugas tidak ditemukan.');
 
@@ -1086,13 +1086,27 @@ export const dbService = {
       }
 
       const submissions = meta.submissions || [];
+      const normalizedFiles = Array.isArray(files) && files.length > 0
+        ? files
+        : (fileUrl ? [{ name: fileName || 'Berkas Tugas', url: fileUrl, size: fileSize || '' }] : []);
+
+      const primaryFileName = normalizedFiles.length > 1
+        ? `${normalizedFiles.length} Berkas: ${normalizedFiles.map(f => f.name).join(', ')}`
+        : (normalizedFiles[0]?.name || fileName || 'Tugas');
+
+      const primaryFileUrl = normalizedFiles[0]?.url || fileUrl || '';
+      const primaryFileSize = normalizedFiles.length > 1
+        ? `${normalizedFiles.length} berkas`
+        : (normalizedFiles[0]?.size || fileSize || '');
+
       const newSubmission = {
         id: 'sub_' + Math.random().toString(36).substr(2, 9),
         userId,
         userName,
-        fileName,
-        fileUrl: fileUrl || '',
-        fileSize: fileSize || '',
+        fileName: primaryFileName,
+        fileUrl: primaryFileUrl,
+        fileSize: primaryFileSize,
+        files: normalizedFiles,
         isGroup: Boolean(isGroup),
         groupName: groupName || null,
         groupMembers: Array.isArray(groupMembers) ? groupMembers : [],
@@ -1257,24 +1271,32 @@ export const dbService = {
           const groupNames = Array.isArray(s.groupMembers) && s.groupMembers.length > 0
             ? s.groupMembers.map(m => m.userName || m.name).filter(Boolean).join(', ')
             : '';
-          submissionFiles.push({
-            id: 'sub_' + (s.id || `${s.userId}_${t.id}`),
-            classId: t.workspace_id,
-            name: s.fileName || `${s.userName} - Submission`,
-            category: 'Submission',
-            folder: `Tugas: ${t.title}`,
-            course: t.subject || '',
-            groupName: groupNames ? `Kelompok: ${groupNames}` : t.title,
-            uploadedBy: s.userName || 'Mahasiswa',
-            fileSize: s.fileSize || '1.2 MB',
-            fileType: (s.fileName || '').split('.').pop()?.toLowerCase() || 'pdf',
-            storageUrl: s.fileUrl || '',
-            createdAt: s.submittedAt || t.created_at,
-            isSubmission: true,
-            isGroup: Boolean(s.isGroup),
-            groupMembers: s.groupMembers || [],
-            taskId: t.id,
-            userId: s.userId
+
+          const subFilesList = Array.isArray(s.files) && s.files.length > 0
+            ? s.files
+            : (s.fileUrl ? [{ name: s.fileName, url: s.fileUrl, size: s.fileSize }] : []);
+
+          subFilesList.forEach((fileItem, fileIdx) => {
+            if (!fileItem.url) return; // ignore paper/empty fileUrl
+            submissionFiles.push({
+              id: 'sub_' + (s.id || `${s.userId}_${t.id}`) + (fileIdx > 0 ? `_${fileIdx}` : ''),
+              classId: t.workspace_id,
+              name: fileItem.name || s.fileName || `${s.userName} - Submission`,
+              category: 'Submission',
+              folder: `Tugas: ${t.title}`,
+              course: t.subject || '',
+              groupName: groupNames ? `Kelompok: ${groupNames}` : t.title,
+              uploadedBy: s.userName || 'Mahasiswa',
+              fileSize: fileItem.size || s.fileSize || '1.2 MB',
+              fileType: (fileItem.name || s.fileName || '').split('.').pop()?.toLowerCase() || 'pdf',
+              storageUrl: fileItem.url || s.fileUrl || '',
+              createdAt: s.submittedAt || t.created_at,
+              isSubmission: true,
+              isGroup: Boolean(s.isGroup),
+              groupMembers: s.groupMembers || [],
+              taskId: t.id,
+              userId: s.userId
+            });
           });
         });
 

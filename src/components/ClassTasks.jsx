@@ -240,10 +240,17 @@ export default function ClassTasks({
     const fileIdsToCheck = [];
     (customTasks || []).forEach(t => {
       (t.submissions || []).forEach(s => {
-        const fileId = extractDriveFileId(s.fileUrl);
-        if (fileId && !fileIdsToCheck.includes(fileId)) {
-          fileIdsToCheck.push(fileId);
-        }
+        const urls = [
+          ...(s.files?.map(f => f.url) || []),
+          s.fileUrl
+        ].filter(Boolean);
+
+        urls.forEach(u => {
+          const fileId = extractDriveFileId(u);
+          if (fileId && !fileIdsToCheck.includes(fileId)) {
+            fileIdsToCheck.push(fileId);
+          }
+        });
       });
     });
 
@@ -276,9 +283,17 @@ export default function ClassTasks({
   // When a task is selected/opened, immediately verify its submission files
   useEffect(() => {
     if (selectedTask?.submissions?.length) {
-      const fileIds = selectedTask.submissions
-        .map(s => extractDriveFileId(s.fileUrl))
-        .filter(Boolean);
+      const fileIds = [];
+      selectedTask.submissions.forEach(s => {
+        const urls = [
+          ...(s.files?.map(f => f.url) || []),
+          s.fileUrl
+        ].filter(Boolean);
+        urls.forEach(u => {
+          const id = extractDriveFileId(u);
+          if (id && !fileIds.includes(id)) fileIds.push(id);
+        });
+      });
       if (fileIds.length > 0) {
         checkDriveFiles(fileIds).then(results => {
           setDriveStatusMap(prev => ({ ...prev, ...results }));
@@ -303,18 +318,26 @@ export default function ClassTasks({
 
   // Helper to determine if submission file is missing from Drive
   const isSubmissionFileMissing = (submission) => {
-    if (!submission?.fileUrl) return false;
-    const fileId = extractDriveFileId(submission.fileUrl);
-    if (!fileId) return false;
-    const status = driveStatusMap[fileId];
-    if (status && status.exists === false) return true;
-    return false;
+    if (!submission) return false;
+    const urls = [
+      ...(submission.files?.map(f => f.url) || []),
+      submission.fileUrl
+    ].filter(Boolean);
+
+    if (urls.length === 0) return false;
+    return urls.some(u => {
+      const fileId = extractDriveFileId(u);
+      if (!fileId) return false;
+      const status = driveStatusMap[fileId];
+      return status && status.exists === false;
+    });
   };
 
   // Helper: Generate standardized submission file name: namakelompok_namatugasnya_tanggal.ext or namauser_namatugasnya_tanggal.ext
-  const generateSubmissionFileName = (userName, taskTitle, originalFileName, groupName = null) => {
+  const generateSubmissionFileName = (userName, taskTitle, originalFileName, groupName = null, fileIndex = null, totalFiles = 1) => {
     const lastDotIndex = (originalFileName || '').lastIndexOf('.');
     const ext = lastDotIndex !== -1 ? originalFileName.substring(lastDotIndex) : '';
+    const baseName = lastDotIndex !== -1 ? originalFileName.substring(0, lastDotIndex) : (originalFileName || 'file');
 
     const prefixSource = (groupName && groupName.trim()) ? groupName.trim() : (userName || 'Mahasiswa');
 
@@ -330,7 +353,17 @@ export default function ClassTasks({
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '');
 
+    const cleanBase = baseName
+      .trim()
+      .replace(/[^a-zA-Z0-9]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+
     const todayStr = new Date().toISOString().split('T')[0];
+
+    if (totalFiles > 1 && fileIndex !== null) {
+      return `${cleanPrefix}_${cleanTask}_${todayStr}_${fileIndex + 1}_${cleanBase}${ext}`;
+    }
 
     return `${cleanPrefix}_${cleanTask}_${todayStr}${ext}`;
   };
@@ -534,6 +567,13 @@ export default function ClassTasks({
   const [previewAttachmentImage, setPreviewAttachmentImage] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isMarkingDone, setIsMarkingDone] = useState(false);
+  const [stagedSubmissionFiles, setStagedSubmissionFiles] = useState([]); // array of File objects
+  const [isResubmittingMode, setIsResubmittingMode] = useState(false);
+
+  useEffect(() => {
+    setStagedSubmissionFiles([]);
+    setIsResubmittingMode(false);
+  }, [selectedTask?.id]);
 
   const role = currentClass?.userRole;
   const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
@@ -848,57 +888,108 @@ export default function ClassTasks({
   };
 
   const runBackgroundUpload = async (job, taskObj, taskFolder) => {
-    const { id, file, fileName, taskId, taskTitle, groupMembersList, isGroupSubmission, groupName, rawSize } = job;
+    const { id, file, files, fileNames, fileName, taskId, taskTitle, groupMembersList, isGroupSubmission, groupName, rawSize } = job;
+
+    const filesToUpload = (Array.isArray(files) && files.length > 0) ? files : (file ? [file] : []);
+    const totalFiles = filesToUpload.length;
+    const namesToUse = (Array.isArray(fileNames) && fileNames.length === totalFiles)
+      ? fileNames
+      : filesToUpload.map((f) => fileName || f.name);
 
     // Simulate steady progress increments while network request is flying
+    let currentFileIdx = 0;
     const progressTimer = setInterval(() => {
       setBackgroundUploads(prev => prev.map(u => {
         if (u.id !== id || u.status !== 'uploading') return u;
-        const inc = rawSize > 10 * 1024 * 1024 ? 2 : 6;
-        const next = Math.min(u.progress + inc, 93);
-        return { ...u, progress: next };
+        const basePerFile = 90 / Math.max(totalFiles, 1);
+        const currentBase = currentFileIdx * basePerFile;
+        const inc = 2;
+        const next = Math.min(u.progress + inc, Math.floor(currentBase + basePerFile - 2));
+        return { ...u, progress: Math.max(u.progress, next) };
       }));
-    }, 1200);
+    }, 1000);
 
     try {
-      const driveRes = await uploadToGoogleDrive({
-        file,
-        name: fileName,
-        folderName: taskFolder,
-        workspaceName: currentClass?.name || taskObj?.course || 'M.Log B'
-      });
+      const uploadedFiles = [];
+
+      for (let i = 0; i < totalFiles; i++) {
+        currentFileIdx = i;
+        const currentFile = filesToUpload[i];
+        const currentName = namesToUse[i];
+
+        setBackgroundUploads(prev => prev.map(u => {
+          if (u.id !== id) return u;
+          const fileProgress = Math.floor((i / totalFiles) * 90);
+          return {
+            ...u,
+            progress: Math.max(u.progress, fileProgress),
+            statusMessage: totalFiles > 1 
+              ? `Mengunggah (${i + 1}/${totalFiles}) ${currentFile.name}...` 
+              : (currentFile.size > 8 * 1024 * 1024 
+                  ? 'Mengunggah berkas besar ke Drive di latar belakang...' 
+                  : 'Mengunggah ke Google Drive...')
+          };
+        }));
+
+        const driveRes = await uploadToGoogleDrive({
+          file: currentFile,
+          name: currentName,
+          folderName: taskFolder,
+          workspaceName: currentClass?.name || taskObj?.course || 'M.Log B'
+        });
+
+        const fileUrl = driveRes.webViewLink || driveRes.previewUrl;
+        const finalFileSize = driveRes.fileSize || `${(currentFile.size / (1024 * 1024)).toFixed(2)} MB`;
+        const fileId = extractDriveFileId(fileUrl);
+
+        uploadedFiles.push({
+          name: currentName,
+          url: fileUrl,
+          size: finalFileSize,
+          fileId
+        });
+      }
 
       clearInterval(progressTimer);
 
-      const fileUrl = driveRes.webViewLink || driveRes.previewUrl;
-      const finalFileSize = driveRes.fileSize || `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+      const primaryFile = uploadedFiles[0] || {};
+      const primaryFileName = primaryFile.name || fileName || '';
+      const primaryFileUrl = primaryFile.url || '';
+      const primaryFileSize = uploadedFiles.length > 1
+        ? `${uploadedFiles.length} berkas (${((rawSize || 0) / (1024 * 1024)).toFixed(2)} MB)`
+        : (primaryFile.size || `${((rawSize || 0) / (1024 * 1024)).toFixed(2)} MB`);
 
       await onSubmitAssignment(taskId, {
         userId: currentUser.uid,
         userName: currentUser.displayName || 'Student',
-        fileName,
-        fileUrl,
-        fileSize: finalFileSize,
+        fileName: primaryFileName,
+        fileUrl: primaryFileUrl,
+        fileSize: primaryFileSize,
+        files: uploadedFiles,
         isGroup: isGroupSubmission,
         groupName: groupName || null,
         groupMembers: groupMembersList
       });
 
-      const newFileId = extractDriveFileId(fileUrl);
-      if (newFileId) {
-        setDriveStatusMap(prev => ({
-          ...prev,
-          [newFileId]: { exists: true, name: fileName, webViewLink: fileUrl }
-        }));
+      // Update local driveStatusMap for all uploaded files
+      const newStatusEntries = {};
+      uploadedFiles.forEach(f => {
+        if (f.fileId) {
+          newStatusEntries[f.fileId] = { exists: true, name: f.name, webViewLink: f.url };
+        }
+      });
+      if (Object.keys(newStatusEntries).length > 0) {
+        setDriveStatusMap(prev => ({ ...prev, ...newStatusEntries }));
       }
 
       // Update selectedTask if currently opened
       const newSubItem = {
         userId: currentUser.uid,
         userName: currentUser.displayName || 'Student',
-        fileName,
-        fileUrl,
-        fileSize: finalFileSize,
+        fileName: primaryFileName,
+        fileUrl: primaryFileUrl,
+        fileSize: primaryFileSize,
+        files: uploadedFiles,
         isGroup: isGroupSubmission,
         groupName: groupName || null,
         groupMembers: groupMembersList,
@@ -928,16 +1019,20 @@ export default function ClassTasks({
           ...u,
           status: 'completed',
           progress: 100,
-          statusMessage: 'Tersimpan di Google Drive!',
-          fileUrl,
+          statusMessage: uploadedFiles.length > 1 
+            ? `${uploadedFiles.length} berkas tersimpan di Google Drive!` 
+            : 'Tersimpan di Google Drive!',
+          fileUrl: primaryFileUrl,
           completedAt: Date.now()
         };
       }));
 
-      toast.success(`Tugas "${taskTitle}" berhasil dikumpulkan ke Google Drive!`, {
-        duration: 5000,
-        icon: '✅'
-      });
+      toast.success(
+        uploadedFiles.length > 1
+          ? `Tugas "${taskTitle}" (${uploadedFiles.length} berkas) berhasil dikumpulkan ke Google Drive!`
+          : `Tugas "${taskTitle}" berhasil dikumpulkan ke Google Drive!`,
+        { duration: 5000, icon: '✅' }
+      );
 
       // Automatically dismiss completed task from widget after 6 seconds
       setTimeout(() => {
@@ -1044,17 +1139,46 @@ export default function ClassTasks({
     }
   };
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !selectedTask) return;
+  const handleStageFiles = (e) => {
+    const selected = Array.from(e.target.files || []);
+    if (!selected.length) return;
 
-    // 1. Validation check
     const maxBytes = 25 * 1024 * 1024; // 25 MB
-    if (file.size > maxBytes) {
-      toast.error(`Ukuran file (${(file.size / (1024 * 1024)).toFixed(1)} MB) melebihi batas maksimal 25 MB. Mohon kompres berkas terlebih dahulu.`);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
+    const valid = [];
+    let oversizedCount = 0;
+
+    selected.forEach(file => {
+      if (file.size > maxBytes) {
+        oversizedCount++;
+      } else {
+        valid.push(file);
+      }
+    });
+
+    if (oversizedCount > 0) {
+      toast.error(`${oversizedCount} berkas melebihi batas 25 MB dan tidak ditambahkan.`);
     }
+
+    if (valid.length > 0) {
+      setStagedSubmissionFiles(prev => {
+        const existingKeys = new Set(prev.map(f => `${f.name}_${f.size}`));
+        const newUnique = valid.filter(f => !existingKeys.has(`${f.name}_${f.size}`));
+        if (newUnique.length < valid.length) {
+          toast('Beberapa file duplikat dilewati.', { icon: 'ℹ️' });
+        }
+        return [...prev, ...newUnique];
+      });
+    }
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoveStagedFile = (indexToRemove) => {
+    setStagedSubmissionFiles(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleSubmitStagedFiles = () => {
+    if (!selectedTask || stagedSubmissionFiles.length === 0) return;
 
     const isGroupTask = selectedTask.submissionType === 'group';
     const isGroupSubmission = isGroupTask || selectedGroupMemberIds.length > 0;
@@ -1067,12 +1191,27 @@ export default function ClassTasks({
       ? (cleanGroupName || `${currentUser?.displayName || 'Kelompok'}_dkk`)
       : (currentUser?.displayName || 'Mahasiswa');
 
-    const submissionFileName = autoRenameEnabled 
-      ? generateSubmissionFileName(currentUser?.displayName, taskToSubmit.title, file.name, isGroupSubmission ? (cleanGroupName || `${currentUser?.displayName || 'Kelompok'}_dkk`) : null)
-      : (cleanGroupName ? `${cleanGroupName} - ${file.name}` : `${prefixUser} - ${file.name}`);
+    const filesToUpload = stagedSubmissionFiles;
+    const fileNames = filesToUpload.map((f, idx) => {
+      if (autoRenameEnabled) {
+        return generateSubmissionFileName(
+          currentUser?.displayName,
+          taskToSubmit.title,
+          f.name,
+          isGroupSubmission ? (cleanGroupName || `${currentUser?.displayName || 'Kelompok'}_dkk`) : null,
+          idx,
+          filesToUpload.length
+        );
+      }
+      return cleanGroupName ? `${cleanGroupName} - ${f.name}` : `${prefixUser} - ${f.name}`;
+    });
+
+    const totalBytes = filesToUpload.reduce((sum, f) => sum + f.size, 0);
+    const initialFileSize = filesToUpload.length > 1
+      ? `${filesToUpload.length} berkas (${(totalBytes / (1024 * 1024)).toFixed(2)} MB)`
+      : `${(totalBytes / (1024 * 1024)).toFixed(2)} MB`;
 
     const taskFolder = `Tugas: ${taskToSubmit.title}`;
-    const initialFileSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
 
     const groupMembersList = isGroupSubmission
       ? [
@@ -1093,17 +1232,21 @@ export default function ClassTasks({
       id: uploadJobId,
       taskId: currentTaskId,
       taskTitle: currentTaskTitle,
-      fileName: submissionFileName,
-      rawFileName: file.name,
+      fileName: fileNames[0] || 'Tugas',
+      fileNames,
+      rawFileName: filesToUpload[0].name,
       fileSize: initialFileSize,
-      rawSize: file.size,
-      progress: 15,
+      rawSize: totalBytes,
+      progress: 10,
       status: 'uploading',
-      statusMessage: file.size > 8 * 1024 * 1024 
-        ? 'Mengunggah berkas besar ke Drive di latar belakang...' 
-        : 'Mengunggah ke Google Drive...',
+      statusMessage: filesToUpload.length > 1 
+        ? `Menyiapkan pengunggahan ${filesToUpload.length} berkas...` 
+        : (filesToUpload[0].size > 8 * 1024 * 1024 
+            ? 'Mengunggah berkas besar ke Drive di latar belakang...' 
+            : 'Mengunggah ke Google Drive...'),
       error: null,
-      file,
+      files: filesToUpload,
+      file: filesToUpload[0],
       groupMembersList,
       isGroupSubmission,
       groupName: cleanGroupName || null
@@ -1113,14 +1256,19 @@ export default function ClassTasks({
     setBackgroundUploads(prev => [uploadJob, ...prev.filter(u => u.taskId !== currentTaskId)]);
     setIsWidgetExpanded(true);
 
-    // Close the blocking modal immediately so the user can continue freely
+    // Reset staged files & modal state
+    setStagedSubmissionFiles([]);
+    setIsResubmittingMode(false);
     setIsSubmittingFile(false);
     setSelectedTask(null);
     setSubmissionGroupName('');
+    setSelectedGroupMemberIds([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
 
     toast.success(
-      '🚀 Berkas tugas sedang diunggah di latar belakang! Anda dapat melanjutkan aktivitas lain.',
+      filesToUpload.length > 1
+        ? `🚀 ${filesToUpload.length} berkas tugas sedang diunggah di latar belakang! Anda dapat melanjutkan aktivitas lain.`
+        : '🚀 Berkas tugas sedang diunggah di latar belakang! Anda dapat melanjutkan aktivitas lain.',
       { duration: 4500, icon: '📤' }
     );
 
@@ -1143,20 +1291,24 @@ export default function ClassTasks({
     }
   };
 
-  const handleCancelSubmission = async () => {
-    if (!selectedTask || !currentUser) return;
+  const handleConfirmCancelSubmission = async () => {
+    if (!selectedTask) return;
     setIsCancelingSubmission(true);
     try {
-      if (onDeleteSubmission) {
-        await onDeleteSubmission(selectedTask.id, currentUser.uid);
-      }
+      await onDeleteSubmission(selectedTask.id);
+
       setSelectedTask(prev => {
-        if (!prev) return null;
+        if (!prev) return prev;
         return {
           ...prev,
-          submissions: (prev.submissions || []).filter(s => s.userId !== currentUser.uid)
+          submissions: (prev.submissions || []).filter(s => {
+            if (s.userId === currentUser.uid) return false;
+            if (s.groupMembers?.some(m => (m.userId || m.uid || m.id) === currentUser.uid)) return false;
+            return true;
+          })
         };
       });
+
       setShowCancelSubmissionConfirm(false);
       toast.success('Pengumpulan berhasil dibatalkan dan file telah dihapus.');
     } catch (err) {
@@ -1169,9 +1321,17 @@ export default function ClassTasks({
 
   const handleManualCheckDrive = async () => {
     if (!selectedTask?.submissions?.length) return;
-    const fileIds = selectedTask.submissions
-      .map(s => extractDriveFileId(s.fileUrl))
-      .filter(Boolean);
+    const fileIds = [];
+    selectedTask.submissions.forEach(s => {
+      const urls = [
+        ...(s.files?.map(f => f.url) || []),
+        s.fileUrl
+      ].filter(Boolean);
+      urls.forEach(u => {
+        const id = extractDriveFileId(u);
+        if (id && !fileIds.includes(id)) fileIds.push(id);
+      });
+    });
     if (fileIds.length === 0) return;
 
     setIsCrosschecking(true);
@@ -1193,7 +1353,8 @@ export default function ClassTasks({
       <input
         type="file"
         ref={fileInputRef}
-        onChange={handleFileUpload}
+        onChange={handleStageFiles}
+        multiple
         className="hidden"
         style={{ display: 'none' }}
         aria-hidden="true"
@@ -1818,13 +1979,32 @@ export default function ClassTasks({
               <h4 className="font-bold text-xs text-[#0F172A]">Pengumpulan Berkas Tugas</h4>
 
               {(() => {
-                const userSub = selectedTask.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => m.userId === currentUser?.uid));
+                const userSub = selectedTask.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => (m.userId || m.uid || m.id) === currentUser?.uid));
                 const isOverdue = isTaskOverdue(selectedTask.dueDate, selectedTask.dueTime);
                 const isGroupTask = selectedTask.submissionType === 'group';
                 
-                if (!userSub) {
+                if (!userSub || isResubmittingMode) {
                   return (
                     <div className="space-y-3">
+                      {isResubmittingMode && (
+                        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 text-xs text-amber-900 font-bold">
+                            <RefreshCw size={14} className="text-amber-700 shrink-0" />
+                            <span>Mode Kirim Ulang Berkas (File sebelumnya akan digantikan dengan berkas baru)</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsResubmittingMode(false);
+                              setStagedSubmissionFiles([]);
+                            }}
+                            className="text-xs text-amber-800 hover:text-amber-950 font-bold underline cursor-pointer shrink-0"
+                          >
+                            Batal Resubmit
+                          </button>
+                        </div>
+                      )}
+
                       {isOverdue && (
                         <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
                           <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
@@ -2047,9 +2227,12 @@ export default function ClassTasks({
                                   Format: {generateSubmissionFileName(
                                     currentUser?.displayName,
                                     selectedTask?.title,
-                                    'dokumen.pdf',
-                                    isGroupTask ? (submissionGroupName.trim() || `${currentUser?.displayName || 'Kelompok'}_dkk`) : null
+                                    stagedSubmissionFiles[0]?.name || 'dokumen.pdf',
+                                    isGroupTask ? (submissionGroupName.trim() || `${currentUser?.displayName || 'Kelompok'}_dkk`) : null,
+                                    stagedSubmissionFiles.length > 1 ? 0 : null,
+                                    stagedSubmissionFiles.length
                                   )}
+                                  {stagedSubmissionFiles.length > 1 && ` (+${stagedSubmissionFiles.length - 1} berkas lainnya)`}
                                 </span>
                               ) : (
                                 <span className="text-[#64748B]">Nama file asli akan tetap digunakan tanpa perubahan.</span>
@@ -2057,40 +2240,134 @@ export default function ClassTasks({
                             </p>
                           </div>
 
-                          <div className="p-4 sm:p-6 rounded-2xl border-2 border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex flex-col items-center justify-center text-center space-y-2.5">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-[#64748B]">
-                              <Upload size={18} />
-                            </div>
-                            <div>
-                              <p className="text-xs sm:text-sm font-bold text-[#0F172A]">
-                                {isGroupTask ? 'Unggah Berkas Tugas Kelompok' : 'Unggah Berkas Tugas Kamu'}
+                          {stagedSubmissionFiles.length === 0 ? (
+                            <div className="p-4 sm:p-6 rounded-2xl border-2 border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex flex-col items-center justify-center text-center space-y-2.5">
+                              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-[#64748B]">
+                                <Upload size={18} />
+                              </div>
+                              <div>
+                                <p className="text-xs sm:text-sm font-bold text-[#0F172A]">
+                                  {isGroupTask ? 'Pilih Berkas Tugas Kelompok' : 'Pilih Berkas Tugas Kamu'}
+                                </p>
+                                <p className="text-[11px] text-[#64748B]">
+                                  {isGroupTask 
+                                    ? `Bisa pilih lebih dari 1 file sekaligus (PDF, DOCX, ZIP, gambar, dll). Akan dikumpulkan atas nama Anda dan ${selectedGroupMemberIds.length} teman.` 
+                                    : 'Bisa pilih lebih dari 1 file sekaligus (PDF, DOCX, ZIP, gambar, dll).'}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={isSubmittingFile}
+                                onClick={() => {
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.value = '';
+                                    fileInputRef.current.click();
+                                  }
+                                }}
+                                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs cursor-pointer disabled:opacity-50 min-h-[42px]"
+                              >
+                                <Upload size={13} className={isSubmittingFile ? "animate-bounce" : ""} />
+                                <span>Pilih Berkas (Bisa Lebih Dari 1 File)</span>
+                              </button>
+                              <p className="text-[10px] text-[#94A3B8]">
+                                Berkas otomatis diunggah di latar belakang & tersinkron ke Google Drive
                               </p>
-                              <p className="text-[11px] text-[#64748B]">
-                                {isGroupTask 
-                                  ? `Akan dikumpulkan atas nama Anda dan ${selectedGroupMemberIds.length} teman kelompok yang dicentang.` 
-                                  : 'PDF, DOCX, ZIP, gambar, atau berkas lainnya.'}
-                              </p>
                             </div>
-                            <button
-                              type="button"
-                              disabled={isSubmittingFile}
-                              onClick={() => {
-                                if (fileInputRef.current) {
-                                  fileInputRef.current.value = '';
-                                  fileInputRef.current.click();
-                                }
-                              }}
-                              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs cursor-pointer disabled:opacity-50 min-h-[42px]"
-                            >
-                              <Upload size={13} className={isSubmittingFile ? "animate-bounce" : ""} />
-                              <span>{isSubmittingFile ? 'Mengunggah...' : isGroupTask ? 'Kumpulkan Tugas Kelompok' : 'Pilih File & Upload'}</span>
-                            </button>
-                            <p className="text-[10px] text-[#94A3B8]">
-                              Tugas otomatis tersinkron ke Google Drive dosen & komti
-                            </p>
+                          ) : (
+                            <div className="p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-3 text-left">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  <Paperclip size={14} className="text-[#0F172A]" />
+                                  <span className="text-xs font-bold text-[#0F172A]">
+                                    Berkas Siap Dikumpulkan ({stagedSubmissionFiles.length})
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-medium">
+                                    ({(stagedSubmissionFiles.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024)).toFixed(2)} MB)
+                                  </span>
+                                </div>
+                                <button
+                                type="button"
+                                onClick={() => {
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.value = '';
+                                    fileInputRef.current.click();
+                                  }
+                                }}
+                                className="text-xs font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <Plus size={12} />
+                                <span>+ Tambah File Lain</span>
+                              </button>
+                            </div>
+
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                              {stagedSubmissionFiles.map((file, idx) => {
+                                const projectedName = autoRenameEnabled
+                                  ? generateSubmissionFileName(
+                                      currentUser?.displayName,
+                                      selectedTask?.title,
+                                      file.name,
+                                      isGroupTask ? (submissionGroupName.trim() || `${currentUser?.displayName || 'Kelompok'}_dkk`) : null,
+                                      idx,
+                                      stagedSubmissionFiles.length
+                                    )
+                                  : (submissionGroupName.trim() ? `${submissionGroupName.trim()} - ${file.name}` : `${currentUser?.displayName || 'Mahasiswa'} - ${file.name}`);
+
+                                return (
+                                  <div key={`${file.name}_${idx}`} className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between gap-2 text-xs shadow-2xs">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-semibold text-[#0F172A] truncate block">
+                                          {file.name}
+                                        </span>
+                                        <span className="text-[10px] text-slate-500 shrink-0">
+                                          ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                                        </span>
+                                      </div>
+                                      {autoRenameEnabled && (
+                                        <span className="text-[10px] text-emerald-700 font-mono block truncate">
+                                          ↳ Rename: {projectedName}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveStagedFile(idx)}
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                                      title="Hapus file ini dari daftar"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            <div className="pt-2 flex flex-col sm:flex-row items-center gap-2 border-t border-slate-200/80">
+                              <button
+                                type="button"
+                                onClick={() => setStagedSubmissionFiles([])}
+                                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold text-xs transition-colors cursor-pointer"
+                              >
+                                Hapus Semua Pilihan
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleSubmitStagedFiles}
+                                className="w-full sm:flex-1 px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer min-h-[42px]"
+                              >
+                                <Upload size={14} />
+                                <span>
+                                  {isGroupTask 
+                                    ? `Kumpulkan Tugas Kelompok (${stagedSubmissionFiles.length} Berkas)` 
+                                    : `Kumpulkan Tugas (${stagedSubmissionFiles.length} Berkas)`}
+                                </span>
+                              </button>
+                            </div>
                           </div>
-                        </>
-                      )}
+                        )}
+                      </>
+                    )}
                     </div>
                   );
                 }
@@ -2143,6 +2420,8 @@ export default function ClassTasks({
                             type="button"
                             disabled={isSubmittingFile}
                             onClick={() => {
+                              setIsResubmittingMode(true);
+                              setStagedSubmissionFiles([]);
                               if (fileInputRef.current) {
                                 fileInputRef.current.value = '';
                                 fileInputRef.current.click();
@@ -2246,6 +2525,40 @@ export default function ClassTasks({
                           📝 Paper
                         </span>
                       </div>
+                    ) : Array.isArray(userSub.files) && userSub.files.length > 1 ? (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] text-emerald-900 font-bold px-0.5">
+                          <span>📁 {userSub.files.length} Berkas Dikumpulkan:</span>
+                          <span className="text-[10px] text-slate-500 font-normal">{userSub.fileSize}</span>
+                        </div>
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {userSub.files.map((f, idx) => (
+                            <div key={idx} className="p-2 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-between gap-2 text-xs">
+                              <div className="min-w-0 flex-1">
+                                <span className="font-mono text-[11px] text-[#0F172A] block truncate" title={f.name}>
+                                  📄 {f.name}
+                                </span>
+                                {f.size && (
+                                  <span className="text-[10px] text-slate-500 block">
+                                    {f.size}
+                                  </span>
+                                )}
+                              </div>
+                              {f.url && f.url.includes('drive.google.com') && (
+                                <a
+                                  href={f.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1 shrink-0 px-2 py-0.5 rounded bg-white border border-sky-200"
+                                >
+                                  <ExternalLink size={10} />
+                                  <span>Drive</span>
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     ) : (
                       <p className="font-mono text-xs text-[#0F172A] break-all bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100">
                         📄 {userSub.fileName}
@@ -2264,7 +2577,7 @@ export default function ClassTasks({
                                 className="text-xs font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1"
                               >
                                 <ExternalLink size={12} />
-                                <span>Buka di Google Drive</span>
+                                <span>{Array.isArray(userSub.files) && userSub.files.length > 1 ? 'Buka Berkas Utama di Drive' : 'Buka di Google Drive'}</span>
                               </a>
                             ) : (
                               <span className="text-[10px] text-[#64748B]">Tersimpan di Sistem</span>
@@ -2295,6 +2608,8 @@ export default function ClassTasks({
                                 type="button"
                                 disabled={isSubmittingFile}
                                 onClick={() => {
+                                  setIsResubmittingMode(true);
+                                  setStagedSubmissionFiles([]);
                                   if (fileInputRef.current) {
                                     fileInputRef.current.value = '';
                                     fileInputRef.current.click();
@@ -2591,7 +2906,9 @@ export default function ClassTasks({
                                     )}
                                   </div>
                                   <span className="text-[10px] text-[#64748B] block truncate font-mono">
-                                    {submission.fileName}
+                                    {Array.isArray(submission.files) && submission.files.length > 1
+                                      ? `📁 ${submission.files.length} berkas: ${submission.files.map(f => f.name).join(', ')}`
+                                      : submission.fileName}
                                   </span>
                                   {isGroup && submission.groupMembers?.length > 1 && (
                                     <span className="text-[9px] text-violet-700 block truncate">
@@ -2610,6 +2927,22 @@ export default function ClassTasks({
                                     <AlertTriangle size={10} />
                                     <span>File Hilang</span>
                                   </span>
+                                ) : Array.isArray(submission.files) && submission.files.length > 1 ? (
+                                  <div className="flex items-center gap-1 flex-wrap justify-end">
+                                    {submission.files.map((f, fIdx) => (
+                                      <a
+                                        key={fIdx}
+                                        href={f.url || submission.fileUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 hover:bg-sky-100 font-semibold text-[10px] flex items-center gap-0.5 border border-sky-200 transition-colors"
+                                        title={f.name}
+                                      >
+                                        <ExternalLink size={9} />
+                                        <span>Drive #{fIdx + 1}</span>
+                                      </a>
+                                    ))}
+                                  </div>
                                 ) : submission.fileUrl ? (
                                   <a
                                     href={submission.fileUrl}
