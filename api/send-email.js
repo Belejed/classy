@@ -4,7 +4,7 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://klnemjadmcuetdpul
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_OhvNh6I3jjbj4vLvFNmEWQ_t0GwP5O1';
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const RESEND_BATCH_URL = 'https://api.resend.com/emails/batch';
-const DEFAULT_RESEND_KEY = process.env.RESEND_API_KEY || 're_49d3iMFv_QCsHWiJpaJ8GnGtcQ5y2c8NN';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Classy Academic Hub <notifikasi@classy.exars.my.id>';
 const DEFAULT_CC = process.env.RESEND_CC_EMAIL || 'exars.012@gmail.com';
 const PORTAL_URL = 'https://classy.exars.my.id';
@@ -152,8 +152,24 @@ function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], 
 
 export default async function handler(req, res) {
   // CORS Headers
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://classy.exars.my.id',
+    'https://noted-by-blazed.vercel.app'
+  ];
+  const isAllowed = !origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.startsWith('http://localhost:');
+
+  if (origin && !isAllowed) {
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
+
+  if (isAllowed && origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else if (!origin) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
@@ -170,7 +186,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const apiKey = process.env.RESEND_API_KEY || DEFAULT_RESEND_KEY;
+    const apiKey = process.env.RESEND_API_KEY || RESEND_API_KEY;
     if (!apiKey) {
       return res.status(500).json({ error: 'RESEND_API_KEY is not configured' });
     }

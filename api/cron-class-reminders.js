@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://klnemjadmcuetdpulzkf.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_OhvNh6I3jjbj4vLvFNmEWQ_t0GwP5O1';
 const RESEND_BATCH_URL = 'https://api.resend.com/emails/batch';
-const DEFAULT_RESEND_KEY = process.env.RESEND_API_KEY || 're_49d3iMFv_QCsHWiJpaJ8GnGtcQ5y2c8NN';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Classy Academic Hub <notifikasi@classy.exars.my.id>';
 const DEFAULT_CC = process.env.RESEND_CC_EMAIL || 'exars.012@gmail.com';
 const PORTAL_URL = 'https://classy.exars.my.id';
@@ -417,7 +417,7 @@ export default async function handler(req, res) {
         const batchRes = await fetch(RESEND_BATCH_URL, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${DEFAULT_RESEND_KEY}`,
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(batchItems)
