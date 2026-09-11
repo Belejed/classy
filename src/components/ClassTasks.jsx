@@ -241,7 +241,7 @@ export default function ClassTasks({
     (customTasks || []).forEach(t => {
       (t.submissions || []).forEach(s => {
         const urls = [
-          ...(s.files?.map(f => f.url) || []),
+          ...(s.files?.map(f => (typeof f === 'string' ? f : f?.url)) || []),
           s.fileUrl
         ].filter(Boolean);
 
@@ -286,7 +286,7 @@ export default function ClassTasks({
       const fileIds = [];
       selectedTask.submissions.forEach(s => {
         const urls = [
-          ...(s.files?.map(f => f.url) || []),
+          ...(s.files?.map(f => (typeof f === 'string' ? f : f?.url)) || []),
           s.fileUrl
         ].filter(Boolean);
         urls.forEach(u => {
@@ -320,7 +320,7 @@ export default function ClassTasks({
   const isSubmissionFileMissing = (submission) => {
     if (!submission) return false;
     const urls = [
-      ...(submission.files?.map(f => f.url) || []),
+      ...(submission.files?.map(f => (typeof f === 'string' ? f : f?.url)) || []),
       submission.fileUrl
     ].filter(Boolean);
 
@@ -1326,7 +1326,7 @@ export default function ClassTasks({
     const fileIds = [];
     selectedTask.submissions.forEach(s => {
       const urls = [
-        ...(s.files?.map(f => f.url) || []),
+        ...(s.files?.map(f => (typeof f === 'string' ? f : f?.url)) || []),
         s.fileUrl
       ].filter(Boolean);
       urls.forEach(u => {
