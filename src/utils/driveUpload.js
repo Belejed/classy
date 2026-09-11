@@ -166,26 +166,33 @@ export function extractDriveFileId(url) {
  * Crosscheck Google Drive file statuses in batch
  */
 export async function checkDriveFiles(fileIds = []) {
-  const validIds = fileIds.filter(Boolean);
+  const validIds = Array.from(new Set(fileIds.filter(Boolean)));
   if (!validIds.length) return {};
 
-  try {
-    const res = await fetch('/api/check-drive-file', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ fileIds: validIds })
-    });
+  const allResults = {};
+  const chunkSize = 30;
 
-    if (res.ok) {
-      const data = await res.json();
-      return data.results || {};
+  for (let i = 0; i < validIds.length; i += chunkSize) {
+    const chunk = validIds.slice(i, i + chunkSize);
+    try {
+      const res = await fetch('/api/check-drive-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ fileIds: chunk })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        Object.assign(allResults, data.results || {});
+      }
+    } catch (err) {
+      console.warn('Google Drive file check failed for chunk:', err);
     }
-  } catch (err) {
-    console.warn('Google Drive file check failed:', err);
   }
-  return {};
+
+  return allResults;
 }
 
 /**

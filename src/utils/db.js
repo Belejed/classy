@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../supabase';
+import { extractDriveFileId } from './driveUpload';
 
 // Generate 6-character clean unique join code like 'A7K29P'
 export const generateJoinCode = () => {
@@ -1411,6 +1412,90 @@ export const dbService = {
       } else {
         await supabase.from('notes').delete().eq('id', fileId);
       }
+    },
+
+    syncDriveFileNames: async (classId, updatesByDriveId) => {
+      if (!classId || !updatesByDriveId || Object.keys(updatesByDriveId).length === 0) return 0;
+      let updatedCount = 0;
+
+      // 1. Update task submissions and attachments in database
+      const { data: tasks, error: taskErr } = await supabase.from('tasks').select('*').eq('workspace_id', classId);
+      if (!taskErr && tasks) {
+        for (const t of tasks) {
+          let meta = {};
+          try {
+            meta = typeof t.description === 'string' && t.description.startsWith('{') ? JSON.parse(t.description) : {};
+          } catch {
+            continue;
+          }
+
+          let taskModified = false;
+          const subs = meta.submissions || [];
+          subs.forEach(s => {
+            if (Array.isArray(s.files) && s.files.length > 0) {
+              s.files.forEach(f => {
+                const driveId = extractDriveFileId(f.url);
+                if (driveId && updatesByDriveId[driveId] && updatesByDriveId[driveId] !== f.name) {
+                  f.name = updatesByDriveId[driveId];
+                  taskModified = true;
+                  updatedCount++;
+                }
+              });
+              if (s.files.length === 1 && s.files[0].name && s.fileName !== s.files[0].name) {
+                s.fileName = s.files[0].name;
+              }
+            } else if (s.fileUrl) {
+              const driveId = extractDriveFileId(s.fileUrl);
+              if (driveId && updatesByDriveId[driveId] && updatesByDriveId[driveId] !== s.fileName) {
+                s.fileName = updatesByDriveId[driveId];
+                taskModified = true;
+                updatedCount++;
+              }
+            }
+          });
+
+          if (Array.isArray(meta.attachments)) {
+            meta.attachments.forEach(att => {
+              const driveId = att.fileId || att.driveFileId || extractDriveFileId(att.url || att.storageUrl);
+              if (driveId && updatesByDriveId[driveId] && updatesByDriveId[driveId] !== att.name) {
+                att.name = updatesByDriveId[driveId];
+                taskModified = true;
+                updatedCount++;
+              }
+            });
+          }
+
+          if (taskModified) {
+            await supabase.from('tasks').update({
+              description: JSON.stringify(meta),
+              updated_at: new Date().toISOString()
+            }).eq('id', t.id);
+          }
+        }
+      }
+
+      // 2. Update library notes (files)
+      const { data: notes, error: notesErr } = await supabase.from('notes').select('*').eq('workspace_id', classId).eq('category', 'file');
+      if (!notesErr && notes) {
+        for (const n of notes) {
+          let meta = {};
+          try {
+            meta = typeof n.content === 'string' && n.content.startsWith('{') ? JSON.parse(n.content) : {};
+          } catch {
+            continue;
+          }
+          const driveId = meta.driveFileId || extractDriveFileId(meta.storageUrl);
+          if (driveId && updatesByDriveId[driveId] && updatesByDriveId[driveId] !== n.title) {
+            await supabase.from('notes').update({
+              title: updatesByDriveId[driveId],
+              updated_at: new Date().toISOString()
+            }).eq('id', n.id);
+            updatedCount++;
+          }
+        }
+      }
+
+      return updatedCount;
     }
   },
 

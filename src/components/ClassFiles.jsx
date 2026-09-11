@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   Folder, 
   Search, 
@@ -19,10 +19,12 @@ import {
   Check, 
   Filter,
   Layers,
-  FolderOpen
+  FolderOpen,
+  RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { uploadToGoogleDrive } from '../utils/driveUpload';
+import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
+import { dbService } from '../utils/db';
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
@@ -34,10 +36,12 @@ export default function ClassFiles({
   currentUser,
   files = [],
   onUploadFile,
-  onDeleteFile
+  onDeleteFile,
+  onRefreshFiles
 }) {
   const [viewMode, setViewMode] = useState('folders'); // 'folders' | 'all'
   const [activeFolder, setActiveFolder] = useState(null); // null = root, string = folder name
+  const [isSyncing, setIsSyncing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -259,6 +263,76 @@ export default function ClassFiles({
       toast.error('Gagal membuka berkas di tab baru.');
     }
   };
+
+  // Synchronize file names with Google Drive
+  const handleSyncDriveFiles = async (silent = false) => {
+    if (!currentClass?.id || isSyncing) return;
+
+    // Filter target files to check: if inside activeFolder, check files in active folder; otherwise all visibleFiles
+    const targetFiles = activeFolder
+      ? visibleFiles.filter(f => {
+          const folderName = f.folder || f.groupName || (f.category === 'Submission' ? 'Tugas Perkuliahan' : 'Materi Kuliah');
+          return folderName === activeFolder;
+        })
+      : visibleFiles;
+
+    const fileMap = {};
+    targetFiles.forEach(f => {
+      const driveId = f.driveFileId || extractDriveFileId(f.storageUrl);
+      if (driveId) {
+        fileMap[driveId] = f;
+      }
+    });
+
+    const fileIds = Object.keys(fileMap);
+    if (fileIds.length === 0) {
+      if (!silent) toast('Tidak ada berkas Google Drive untuk disinkronkan.', { icon: 'ℹ️' });
+      return;
+    }
+
+    if (!silent) setIsSyncing(true);
+
+    try {
+      const driveResults = await checkDriveFiles(fileIds);
+      const updates = {};
+      let changedCount = 0;
+
+      fileIds.forEach(id => {
+        const info = driveResults[id];
+        const localFile = fileMap[id];
+        if (info && info.name && localFile && info.name.trim() !== (localFile.name || '').trim()) {
+          updates[id] = info.name.trim();
+          changedCount++;
+        }
+      });
+
+      if (changedCount > 0) {
+        await dbService.files.syncDriveFileNames(currentClass.id, updates);
+        if (onRefreshFiles) {
+          await onRefreshFiles();
+        }
+        toast.success(`${changedCount} nama berkas berhasil disinkronkan dari Google Drive!`);
+      } else {
+        if (!silent) {
+          toast.success('Semua nama berkas sudah sinkron dengan Google Drive.');
+        }
+      }
+    } catch (err) {
+      console.error('Gagal sinkronisasi nama berkas Drive:', err);
+      if (!silent) {
+        toast.error('Gagal menyinkronkan nama berkas dengan Google Drive.');
+      }
+    } finally {
+      if (!silent) setIsSyncing(false);
+    }
+  };
+
+  // Auto-sync silently when opening a folder
+  useEffect(() => {
+    if (activeFolder) {
+      handleSyncDriveFiles(true);
+    }
+  }, [activeFolder]);
 
   const handleDownload = (file) => {
     if (!file?.storageUrl) {
@@ -493,6 +567,16 @@ export default function ClassFiles({
           </div>
 
           <button
+            onClick={() => handleSyncDriveFiles(false)}
+            disabled={isSyncing}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[#0F172A] text-xs font-semibold shadow-2xs transition-colors shrink-0 disabled:opacity-50 min-h-[38px] cursor-pointer"
+            title="Sinkronkan nama berkas jika baru saja di-rename di Google Drive"
+          >
+            <RefreshCw size={13} className={isSyncing ? 'animate-spin text-indigo-600' : 'text-slate-600'} />
+            <span className="hidden sm:inline">{isSyncing ? 'Menyinkronkan...' : 'Sinkronkan Drive'}</span>
+          </button>
+
+          <button
             onClick={() => setShowUploadModal(true)}
             className="flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[38px]"
           >
@@ -504,31 +588,43 @@ export default function ClassFiles({
 
       {/* Breadcrumbs Navigation when inside a folder */}
       {activeFolder && (
-        <div className="flex items-center justify-between p-3 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs">
-          <div className="flex items-center gap-2 text-xs">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-3 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs gap-2">
+          <div className="flex items-center gap-2 text-xs min-w-0">
             <button
               onClick={() => setActiveFolder(null)}
-              className="text-[#64748B] hover:text-[#0F172A] font-semibold flex items-center gap-1"
+              className="text-[#64748B] hover:text-[#0F172A] font-semibold flex items-center gap-1 shrink-0"
             >
               <ArrowLeft size={14} />
               <span>Semua Folder</span>
             </button>
-            <ChevronRight size={13} className="text-[#CBD5E1]" />
-            <span className="font-bold text-[#0F172A] flex items-center gap-1.5">
-              <FolderOpen size={15} className="text-amber-500" />
-              <span>{activeFolder}</span>
+            <ChevronRight size={13} className="text-[#CBD5E1] shrink-0" />
+            <span className="font-bold text-[#0F172A] flex items-center gap-1.5 truncate">
+              <FolderOpen size={15} className="text-amber-500 shrink-0" />
+              <span className="truncate">{activeFolder}</span>
             </span>
-            <span className="text-[10px] text-[#94A3B8] font-mono">
+            <span className="text-[10px] text-[#94A3B8] font-mono shrink-0">
               ({filteredFiles.length} berkas)
             </span>
           </div>
 
-          <button
-            onClick={() => setActiveFolder(null)}
-            className="text-[11px] font-semibold text-[#0F172A] hover:underline"
-          >
-            Tutup Folder
-          </button>
+          <div className="flex items-center justify-end gap-2 shrink-0">
+            <button
+              onClick={() => handleSyncDriveFiles(false)}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
+              title="Periksa dan perbarui nama berkas jika baru saja di-rename langsung di Google Drive"
+            >
+              <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
+              <span>{isSyncing ? 'Menyinkronkan...' : 'Sinkronkan Drive'}</span>
+            </button>
+
+            <button
+              onClick={() => setActiveFolder(null)}
+              className="text-[11px] font-semibold text-[#0F172A] hover:underline px-1 py-1 cursor-pointer"
+            >
+              Tutup Folder
+            </button>
+          </div>
         </div>
       )}
 

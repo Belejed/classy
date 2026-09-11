@@ -550,6 +550,21 @@ export default function App() {
     } catch {}
   };
 
+  const handleRefreshFiles = async () => {
+    if (!currentClass?.id) return;
+    try {
+      const [freshFiles, freshTasks] = await Promise.all([
+        dbService.files.list(currentClass.id),
+        dbService.tasks.list(currentClass.id)
+      ]);
+      setFiles(freshFiles);
+      setTasks(freshTasks);
+      return freshFiles;
+    } catch (err) {
+      console.error('Error refreshing files:', err);
+    }
+  };
+
   const handleCreateAnnouncement = async (item) => {
     const created = await dbService.announcements.create(currentClass.id, item);
     setAnnouncements(prev => [created, ...prev]);
@@ -1260,6 +1275,7 @@ function ClassWorkspace({
                 files={files}
                 onUploadFile={handleUploadFile}
                 onDeleteFile={handleDeleteFile}
+                onRefreshFiles={handleRefreshFiles}
               />
             )}
 
