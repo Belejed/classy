@@ -130,6 +130,23 @@ export async function uploadToGoogleDrive({ file, name, folderName, workspaceNam
     throw new Error(directData.error || 'Gagal mengunggah ke Google Drive');
   }
 
+  // Ensure the file is placed directly inside Workspace > Subfolder (not in Root)
+  try {
+    await fetch('/api/upload-drive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        moveOnly: true,
+        fileId: directData.fileId,
+        folderId: resolvedFolderId,
+        workspaceName: targetWorkspace,
+        folderName: targetFolder
+      })
+    });
+  } catch (moveErr) {
+    console.warn('Post-upload subfolder placement warning:', moveErr);
+  }
+
   return {
     success: true,
     fileId: directData.fileId,

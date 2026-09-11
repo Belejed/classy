@@ -108,7 +108,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { fileName, mimeType, fileData, folderName, workspaceName, resolveOnly, folderId } = req.body || {};
+    const { fileName, mimeType, fileData, folderName, workspaceName, resolveOnly, folderId, moveOnly, fileId } = req.body || {};
 
     const targetWorkspace = (workspaceName || '').trim() || 'Umum';
     const targetSubfolder = (folderName || '').trim() || 'Materi Kuliah';
@@ -133,6 +133,36 @@ export default async function handler(req, res) {
         success: true,
         folderId: resolvedFolderId
       });
+    }
+
+    // Move an existing file into the target subfolder (used post direct-script upload)
+    if (moveOnly && fileId && resolvedFolderId) {
+      try {
+        const drive = getDriveClient();
+        const fileInfo = await drive.files.get({
+          fileId,
+          fields: 'id, parents',
+          supportsAllDrives: true
+        });
+        const currentParents = (fileInfo.data.parents || []).join(',');
+        if (!fileInfo.data.parents || !fileInfo.data.parents.includes(resolvedFolderId)) {
+          await drive.files.update({
+            fileId,
+            addParents: resolvedFolderId,
+            removeParents: currentParents || ROOT_FOLDER_ID,
+            fields: 'id, parents',
+            supportsAllDrives: true
+          });
+        }
+        return res.status(200).json({
+          success: true,
+          fileId,
+          folderId: resolvedFolderId
+        });
+      } catch (moveErr) {
+        console.error('moveOnly error:', moveErr);
+        return res.status(500).json({ error: moveErr.message });
+      }
     }
 
     if (!fileName || !fileData) {
