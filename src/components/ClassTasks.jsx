@@ -39,6 +39,7 @@ import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../uti
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
+import CustomDatePicker from './CustomDatePicker';
 import { isClassBlocked } from '../utils/db';
 
 // Helper to check if a task deadline has passed
@@ -3166,22 +3167,49 @@ export default function ClassTasks({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-[#334155]">Batas Tanggal (Due Date)</label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={taskDueDate}
-                    onChange={(e) => setTaskDueDate(e.target.value)}
+                    onChange={setTaskDueDate}
                     required
-                    className="w-full px-3 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
+                    placeholder="Pilih batas tanggal..."
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#334155]">Batas Jam (Due Time)</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-[#334155]">Batas Jam (Due Time)</label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setTaskDueTime('23:59')}
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors ${
+                          taskDueTime === '23:59'
+                            ? 'bg-slate-900 text-white border-slate-900'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                        title="Tengah malam"
+                      >
+                        23:59
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTaskDueTime('17:00')}
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors ${
+                          taskDueTime === '17:00'
+                            ? 'bg-slate-900 text-white border-slate-900'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                        title="Sore hari"
+                      >
+                        17:00
+                      </button>
+                    </div>
+                  </div>
                   <input
                     type="time"
                     value={taskDueTime}
                     onChange={(e) => setTaskDueTime(e.target.value)}
                     required
-                    className="w-full px-3 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[42px]"
                   />
                 </div>
               </div>
@@ -3478,22 +3506,49 @@ export default function ClassTasks({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-[#334155]">Batas Tanggal (Due Date)</label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={editDueDate}
-                    onChange={(e) => setEditDueDate(e.target.value)}
+                    onChange={setEditDueDate}
                     required
-                    className="w-full px-3 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
+                    placeholder="Pilih batas tanggal..."
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#334155]">Batas Jam (Due Time)</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-[#334155]">Batas Jam (Due Time)</label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditDueTime('23:59')}
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors ${
+                          editDueTime === '23:59'
+                            ? 'bg-slate-900 text-white border-slate-900'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                        title="Tengah malam"
+                      >
+                        23:59
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditDueTime('17:00')}
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors ${
+                          editDueTime === '17:00'
+                            ? 'bg-slate-900 text-white border-slate-900'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                        title="Sore hari"
+                      >
+                        17:00
+                      </button>
+                    </div>
+                  </div>
                   <input
                     type="time"
                     value={editDueTime}
                     onChange={(e) => setEditDueTime(e.target.value)}
                     required
-                    className="w-full px-3 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[40px]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all min-h-[42px]"
                   />
                 </div>
               </div>
