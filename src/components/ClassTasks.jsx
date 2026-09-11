@@ -220,6 +220,70 @@ export default function ClassTasks({
   const [backgroundUploads, setBackgroundUploads] = useState([]);
   const [isWidgetExpanded, setIsWidgetExpanded] = useState(true);
 
+  // Interrupted upload tracking (handles case where user accidentally refreshed/closed tab mid-upload)
+  const pendingUploadStorageKey = currentUser?.uid ? `classy_pending_upload_${currentUser.uid}` : null;
+  const [interruptedUpload, setInterruptedUpload] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const key = currentUser?.uid ? `classy_pending_upload_${currentUser.uid}` : null;
+      if (!key) return null;
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      // Valid within last 4 hours
+      if (Date.now() - (parsed.startedAt || 0) < 4 * 60 * 60 * 1000) {
+        return parsed;
+      } else {
+        localStorage.removeItem(key);
+      }
+    } catch {}
+    return null;
+  });
+
+  // If tasks load and show that the submission actually succeeded, clear interrupted upload alert
+  useEffect(() => {
+    if (!interruptedUpload || !tasks || tasks.length === 0 || !currentUser?.uid) return;
+    const task = tasks.find(t => t.id === interruptedUpload.taskId);
+    if (task) {
+      const userSub = task.submissions?.find(s => 
+        s.userId === currentUser.uid || 
+        s.groupMembers?.some(m => (m.userId || m.uid || m.id) === currentUser.uid)
+      );
+      if (userSub) {
+        if (pendingUploadStorageKey) localStorage.removeItem(pendingUploadStorageKey);
+        setInterruptedUpload(null);
+      }
+    }
+  }, [tasks, interruptedUpload, currentUser?.uid, pendingUploadStorageKey]);
+
+  // Alert user on initial load if an interrupted upload was detected
+  useEffect(() => {
+    if (interruptedUpload) {
+      toast.error(
+        `Pengunggahan tugas "${interruptedUpload.taskTitle}" sebelumnya terputus karena browser direfresh. Berkas belum tersimpan di Google Drive!`,
+        { duration: 8000, id: 'interrupted-upload-alert' }
+      );
+    }
+  }, []);
+
+  // Prevent accidental browser reload / tab close when uploading or when staged files exist
+  useEffect(() => {
+    const isUploading = backgroundUploads.some(u => u.status === 'uploading');
+    if (!isUploading) return;
+
+    const handleBeforeUnload = (e) => {
+      const msg = 'Pengunggahan berkas tugas sedang berjalan ke Google Drive! Jika halaman direfresh atau ditutup sekarang, berkas akan gagal tersimpan.';
+      e.preventDefault();
+      e.returnValue = msg;
+      return msg;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [backgroundUploads]);
+
   // Google Drive Crosscheck state
   const [driveStatusMap, setDriveStatusMap] = useState({});
   const [isCrosschecking, setIsCrosschecking] = useState(false);
@@ -990,6 +1054,14 @@ export default function ClassTasks({
         groupMembers: groupMembersList
       });
 
+      // Clear pending upload from localStorage since it succeeded
+      if (pendingUploadStorageKey) {
+        try {
+          localStorage.removeItem(pendingUploadStorageKey);
+        } catch {}
+      }
+      setInterruptedUpload(null);
+
       // Update local driveStatusMap for all uploaded files
       const newStatusEntries = {};
       uploadedFiles.forEach(f => {
@@ -1062,6 +1134,12 @@ export default function ClassTasks({
       clearInterval(progressTimer);
       console.error('Background upload failed:', err);
 
+      if (pendingUploadStorageKey) {
+        try {
+          localStorage.removeItem(pendingUploadStorageKey);
+        } catch {}
+      }
+
       setBackgroundUploads(prev => prev.map(u => {
         if (u.id !== id) return u;
         return {
@@ -1081,6 +1159,19 @@ export default function ClassTasks({
   const handleRetryUpload = (job) => {
     const taskObj = tasks?.find(t => t.id === job.taskId) || { id: job.taskId, title: job.taskTitle };
     const taskFolder = `Tugas: ${job.taskTitle}`;
+    if (pendingUploadStorageKey) {
+      try {
+        localStorage.setItem(pendingUploadStorageKey, JSON.stringify({
+          jobId: job.id,
+          taskId: job.taskId,
+          taskTitle: job.taskTitle,
+          fileNames: job.fileNames || [job.fileName],
+          fileCount: job.files?.length || 1,
+          isGroup: job.isGroupSubmission,
+          startedAt: Date.now()
+        }));
+      } catch {}
+    }
     setBackgroundUploads(prev => prev.map(u => u.id === job.id ? { ...u, status: 'uploading', progress: 20, error: null } : u));
     runBackgroundUpload(job, taskObj, taskFolder);
   };
@@ -1275,19 +1366,33 @@ export default function ClassTasks({
     setBackgroundUploads(prev => [uploadJob, ...prev.filter(u => u.taskId !== currentTaskId)]);
     setIsWidgetExpanded(true);
 
-    // Reset staged files & modal state
+    // Save pending upload to localStorage to detect if user refreshes mid-upload
+    if (pendingUploadStorageKey) {
+      try {
+        localStorage.setItem(pendingUploadStorageKey, JSON.stringify({
+          jobId: uploadJobId,
+          taskId: currentTaskId,
+          taskTitle: currentTaskTitle,
+          fileNames,
+          fileCount: filesToUpload.length,
+          isGroup: isGroupSubmission,
+          startedAt: Date.now()
+        }));
+      } catch {}
+    }
+
+    // Reset staged files & submission inputs
     setStagedSubmissionFiles([]);
     setIsResubmittingMode(false);
     setIsSubmittingFile(false);
-    setSelectedTask(null);
     setSubmissionGroupName('');
     setSelectedGroupMemberIds([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
 
     toast.success(
       filesToUpload.length > 1
-        ? `🚀 ${filesToUpload.length} berkas tugas sedang diunggah di latar belakang! Anda dapat melanjutkan aktivitas lain.`
-        : '🚀 Berkas tugas sedang diunggah di latar belakang! Anda dapat melanjutkan aktivitas lain.',
+        ? `🚀 ${filesToUpload.length} berkas tugas sedang diunggah ke Google Drive!`
+        : '🚀 Berkas tugas sedang diunggah ke Google Drive!',
       { duration: 4500, icon: '📤' }
     );
 
@@ -1402,6 +1507,55 @@ export default function ClassTasks({
           </button>
         )}
       </div>
+
+      {/* Interrupted Upload Alert Banner */}
+      {interruptedUpload && !selectedTask && (
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="p-2 rounded-xl bg-rose-100 text-rose-600 shrink-0 mt-0.5 sm:mt-0">
+              <AlertTriangle size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-bold text-rose-950 flex items-center gap-1.5 flex-wrap">
+                <span>Pengunggahan Berkas Terputus (Halaman Sempat Direfresh)</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-200 text-rose-900">
+                  Gagal Tersimpan
+                </span>
+              </p>
+              <p className="text-xs text-rose-800 mt-0.5">
+                Tugas <strong>"{interruptedUpload.taskTitle}"</strong> ({interruptedUpload.fileNames?.join(', ') || `${interruptedUpload.fileCount} berkas`}) belum tersimpan ke Google Drive karena browser direfresh sebelum proses upload selesai.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={() => {
+                const target = tasks?.find(t => t.id === interruptedUpload.taskId);
+                if (target) {
+                  setSelectedTask(target);
+                } else {
+                  toast.info(`Membuka tugas "${interruptedUpload.taskTitle}"`);
+                }
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+            >
+              Unggah Ulang Sekarang
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (pendingUploadStorageKey) localStorage.removeItem(pendingUploadStorageKey);
+                setInterruptedUpload(null);
+              }}
+              className="p-1.5 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer"
+              title="Tutup & abaikan peringatan"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="space-y-2.5">
@@ -2003,10 +2157,138 @@ export default function ClassTasks({
                 const userSub = selectedTask.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => (m.userId || m.uid || m.id) === currentUser?.uid));
                 const isOverdue = isTaskOverdue(selectedTask.dueDate, selectedTask.dueTime);
                 const isGroupTask = selectedTask.submissionType === 'group';
-                
+                const activeUpload = backgroundUploads.find(u => u.taskId === selectedTask.id);
+                const isInterruptedThisTask = interruptedUpload && interruptedUpload.taskId === selectedTask.id && !userSub;
+
+                // 1. If this task is actively uploading in background, show live progress card
+                if (activeUpload && activeUpload.status === 'uploading') {
+                  return (
+                    <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-left space-y-3.5 shadow-2xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <RefreshCw size={16} className="animate-spin text-indigo-600 shrink-0" />
+                          <div className="min-w-0">
+                            <h5 className="text-xs font-bold text-indigo-950 truncate">
+                              Berkas Sedang Diunggah ke Google Drive...
+                            </h5>
+                            <p className="text-[11px] text-indigo-700 truncate mt-0.5 font-medium">
+                              {activeUpload.statusMessage || 'Menyimpan berkas tugas ke folder Google Drive kelas...'}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-lg border border-indigo-200 shadow-2xs shrink-0">
+                          {activeUpload.progress}%
+                        </span>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="w-full bg-indigo-100 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-indigo-600 to-sky-500 rounded-full transition-all duration-300"
+                          style={{ width: `${activeUpload.progress}%` }}
+                        />
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2 text-[11px] text-amber-900 leading-relaxed">
+                        <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <strong>PENTING: Jangan me-refresh atau menutup halaman!</strong>
+                          <p className="text-[10px] text-amber-800 mt-0.5">
+                            Jika halaman direfresh saat proses ini berjalan, pengunggahan ke Google Drive akan terputus dan berkas gagal tersimpan.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {activeUpload.fileSize}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTask(null)}
+                          className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline cursor-pointer"
+                        >
+                          Biarkan Unggah di Latar Belakang (Tutup Modal)
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // 2. If upload error occurred for this task
+                if (activeUpload && activeUpload.status === 'error') {
+                  return (
+                    <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-left space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle size={16} className="text-rose-600 shrink-0" />
+                          <h5 className="text-xs font-bold text-rose-950">
+                            Pengunggahan ke Google Drive Gagal
+                          </h5>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-200 text-rose-900">
+                          Gagal
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-rose-800 leading-relaxed">
+                        {activeUpload.error || 'Terjadi gangguan koneksi internet atau waktu habis saat mengunggah berkas.'}
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleRetryUpload(activeUpload)}
+                          className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        >
+                          <RefreshCw size={13} />
+                          <span>Coba Unggah Lagi</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBackgroundUploads(prev => prev.filter(u => u.id !== activeUpload.id));
+                          }}
+                          className="px-3 py-2 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-100 font-semibold text-xs transition-colors cursor-pointer"
+                        >
+                          Pilih File Baru
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 if (!userSub || isResubmittingMode) {
                   return (
                     <div className="space-y-3">
+                      {isInterruptedThisTask && (
+                        <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 space-y-2 text-left animate-in fade-in">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle size={16} className="text-rose-600 shrink-0" />
+                              <span className="text-xs font-bold text-rose-950">
+                                Pengunggahan Sebelumnya Terputus (Halaman Sempat Direfresh)
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (pendingUploadStorageKey) localStorage.removeItem(pendingUploadStorageKey);
+                                setInterruptedUpload(null);
+                              }}
+                              className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                              title="Tutup pemberitahuan"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-rose-800 leading-relaxed">
+                            Pengunggahan berkas tugas sebelumnya (<strong>{interruptedUpload.fileNames?.join(', ') || `${interruptedUpload.fileCount} berkas`}</strong>) <strong>belum berhasil tersimpan di Google Drive</strong> karena browser direfresh atau tertutup sebelum proses selesai.
+                          </p>
+                          <div className="p-2.5 rounded-xl bg-white/90 border border-rose-200 text-[11px] text-rose-900 flex items-center gap-1.5 font-medium">
+                            <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                            <span>Silakan pilih dan kumpulkan kembali berkas tugas Anda di bawah ini:</span>
+                          </div>
+                        </div>
+                      )}
                       {isResubmittingMode && (
                         <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 text-xs text-amber-900 font-bold">
@@ -3812,7 +4094,14 @@ export default function ClassTasks({
                   <div key={job.id} className="pt-2.5 first:pt-0 space-y-1.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-[#0F172A] truncate" title={job.taskTitle}>
+                        <p 
+                          onClick={() => {
+                            const target = tasks?.find(t => t.id === job.taskId);
+                            if (target) setSelectedTask(target);
+                          }}
+                          className="text-xs font-bold text-[#0F172A] hover:text-indigo-600 truncate cursor-pointer transition-colors" 
+                          title={`${job.taskTitle} (Klik untuk buka tugas)`}
+                        >
                           {job.taskTitle}
                         </p>
                         <p className="text-[11px] text-[#64748B] truncate font-mono" title={job.fileName}>
