@@ -214,7 +214,7 @@ export default function CustomDatePicker({
       <button
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
-        className={`w-full px-3.5 py-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer shadow-2xs min-h-[40px] bg-white ${
+        className={`w-full h-[42px] min-h-[42px] px-3.5 py-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer shadow-2xs bg-white ${
           isOpen 
             ? 'border-[#0F172A] ring-2 ring-[#0F172A]/10' 
             : 'border-[#CBD5E1] hover:border-slate-400'
