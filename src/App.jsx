@@ -23,6 +23,7 @@ import UserProfileModal from './components/UserProfileModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import ClassTopHeader from './components/ClassTopHeader';
 import SuperadminDashboardModal from './components/SuperadminDashboardModal';
+import ChangelogModal from './components/ChangelogModal';
 import { DashboardSkeleton, TasksSkeleton, ScheduleSkeleton } from './components/SkeletonLoader';
 
 export default function App() {
@@ -45,6 +46,25 @@ export default function App() {
 
   // Modals
   const [showProfileModal, setShowProfileModal] = useState(false);
+
+  // App Update Changelog Modal (shows once per version when dismissed)
+  const CURRENT_CHANGELOG_VERSION = 'v1.5.0';
+  const [showChangelogModal, setShowChangelogModal] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const seen = localStorage.getItem('classy_changelog_seen_version');
+      return seen !== CURRENT_CHANGELOG_VERSION;
+    } catch {
+      return false;
+    }
+  });
+
+  const handleCloseChangelog = () => {
+    try {
+      localStorage.setItem('classy_changelog_seen_version', CURRENT_CHANGELOG_VERSION);
+    } catch {}
+    setShowChangelogModal(false);
+  };
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -966,6 +986,15 @@ export default function App() {
           onClose={() => setShowProfileModal(false)}
           onLogout={handleLogout}
           onUpdateUser={(updated) => setUser(updated)}
+          onOpenChangelog={() => setShowChangelogModal(true)}
+        />
+      )}
+
+      {/* Global Changelog / What's New Modal (shows once per version when dismissed) */}
+      {user && showChangelogModal && (
+        <ChangelogModal
+          isOpen={showChangelogModal}
+          onClose={handleCloseChangelog}
         />
       )}
     </>

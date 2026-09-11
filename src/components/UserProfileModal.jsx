@@ -13,7 +13,8 @@ import {
   AlertCircle,
   CheckCircle2,
   RefreshCw,
-  Send
+  Send,
+  Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authService, dbService, isSuperAdmin, DEFAULT_NOTIFICATION_PREFERENCES } from '../utils/db';
@@ -24,7 +25,8 @@ export default function UserProfileModal({
   currentClass,
   onClose,
   onLogout,
-  onUpdateUser
+  onUpdateUser,
+  onOpenChangelog
 }) {
   const [fullName, setFullName] = useState(currentUser?.displayName || '');
   const [phoneNumber, setPhoneNumber] = useState(currentUser?.phoneNumber || '+62 ');
@@ -483,6 +485,22 @@ export default function UserProfileModal({
               <Lock size={12} />
               <span>Ganti Kata Sandi</span>
             </button>
+            {onOpenChangelog && (
+              <>
+                <span className="text-slate-300">·</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenChangelog();
+                  }}
+                  className="text-xs font-bold text-sky-600 hover:text-sky-800 cursor-pointer flex items-center gap-1"
+                >
+                  <Sparkles size={12} className="text-amber-500" />
+                  <span>Apa yang Baru?</span>
+                </button>
+              </>
+            )}
           </div>
 
           <button
