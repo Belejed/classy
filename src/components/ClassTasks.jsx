@@ -527,11 +527,13 @@ export default function ClassTasks({
   const [taskDesc, setTaskDesc] = useState('');
   const [taskInstructions, setTaskInstructions] = useState('');
   const [taskSubmissionType, setTaskSubmissionType] = useState('individual'); // 'individual' | 'group'
+  const [taskSubmissionRequired, setTaskSubmissionRequired] = useState(true); // true: upload file ke Drive, false: paper/kertas
   const [taskAttachments, setTaskAttachments] = useState([]); // [{ id, name, size, type, url, fileId, isImage }]
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const attachmentInputRef = useRef(null);
   const [previewAttachmentImage, setPreviewAttachmentImage] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isMarkingDone, setIsMarkingDone] = useState(false);
 
   const role = currentClass?.userRole;
   const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
@@ -662,7 +664,7 @@ export default function ClassTasks({
         dueTime: taskDueTime,
         description: taskDesc.trim(),
         instructions: taskInstructions.trim(),
-        submissionRequired: true,
+        submissionRequired: taskSubmissionRequired,
         submissionType: taskSubmissionType,
         attachments: taskAttachments,
         sendEmailNotification
@@ -677,6 +679,7 @@ export default function ClassTasks({
       setTaskDesc('');
       setTaskInstructions('');
       setTaskSubmissionType('individual');
+      setTaskSubmissionRequired(true);
       setTaskAttachments([]);
     } catch (err) {
       toast.error(err.message || 'Gagal membuat tugas');
@@ -696,6 +699,7 @@ export default function ClassTasks({
   const [editDesc, setEditDesc] = useState('');
   const [editInstructions, setEditInstructions] = useState('');
   const [editSubmissionType, setEditSubmissionType] = useState('individual');
+  const [editSubmissionRequired, setEditSubmissionRequired] = useState(true);
   const [editAttachments, setEditAttachments] = useState([]);
   const [isUploadingEditAttachment, setIsUploadingEditAttachment] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -713,6 +717,7 @@ export default function ClassTasks({
     setEditDesc(getCleanDescription(task.description) || '');
     setEditInstructions(getCleanInstructions(task.instructions) || '');
     setEditSubmissionType(task.submissionType || 'individual');
+    setEditSubmissionRequired(task.submissionRequired !== false);
     setEditAttachments(Array.isArray(task.attachments) ? [...task.attachments] : []);
   };
 
@@ -810,6 +815,7 @@ export default function ClassTasks({
         dueTime: editDueTime,
         description: editDesc.trim(),
         instructions: editInstructions.trim(),
+        submissionRequired: editSubmissionRequired,
         submissionType: editSubmissionType,
         attachments: editAttachments
       });
@@ -826,6 +832,7 @@ export default function ClassTasks({
           dueTime: editDueTime,
           description: editDesc.trim(),
           instructions: editInstructions.trim(),
+          submissionRequired: editSubmissionRequired,
           submissionType: editSubmissionType,
           attachments: editAttachments
         }));
@@ -962,6 +969,79 @@ export default function ClassTasks({
     const taskFolder = `Tugas: ${job.taskTitle}`;
     setBackgroundUploads(prev => prev.map(u => u.id === job.id ? { ...u, status: 'uploading', progress: 20, error: null } : u));
     runBackgroundUpload(job, taskObj, taskFolder);
+  };
+
+  const handleMarkPaperTaskDone = async () => {
+    if (!selectedTask) return;
+    const isGroupTask = selectedTask.submissionType === 'group';
+    const isGroupSubmission = isGroupTask || selectedGroupMemberIds.length > 0;
+    const cleanGroupName = (submissionGroupName || '').trim();
+
+    const groupMembersList = isGroupSubmission
+      ? [
+          { userId: currentUser.uid, userName: currentUser.displayName || 'Mahasiswa', email: currentUser.email || '' },
+          ...eligibleMembers
+            .filter(m => selectedGroupMemberIds.includes(m.userId || m.uid || m.id))
+            .map(m => ({ 
+              userId: m.userId || m.uid || m.id, 
+              userName: m.name || m.userName || m.email || 'Mahasiswa', 
+              email: m.email || '' 
+            }))
+        ]
+      : [];
+
+    setIsMarkingDone(true);
+    const toastId = toast.loading('Menandai tugas selesai dikerjakan...');
+    try {
+      const newSubData = {
+        userId: currentUser.uid,
+        userName: currentUser.displayName || 'Mahasiswa',
+        fileName: 'Tugas Fisik (Paper / Kertas)',
+        fileUrl: '',
+        fileSize: 'Paper / Fisik',
+        isGroup: isGroupSubmission,
+        groupName: cleanGroupName || null,
+        groupMembers: groupMembersList
+      };
+
+      await onSubmitAssignment(selectedTask.id, newSubData);
+
+      // Optimistically update selectedTask in local state so modal updates immediately
+      const newSubItem = {
+        ...newSubData,
+        submittedAt: new Date().toISOString()
+      };
+
+      const memberIds = new Set([currentUser.uid, ...(groupMembersList || []).map(m => m.userId)]);
+
+      setSelectedTask(prev => {
+        if (!prev || prev.id !== selectedTask.id) return prev;
+        return {
+          ...prev,
+          submissions: [
+            ...(prev.submissions || []).filter(s => {
+              if (memberIds.has(s.userId)) return false;
+              if (s.groupMembers?.some(m => memberIds.has(m.userId))) return false;
+              return true;
+            }),
+            newSubItem
+          ]
+        };
+      });
+
+      toast.success(
+        isGroupSubmission 
+          ? `🎉 Tugas kelompok berhasil ditandai sudah dikerjakan untuk ${groupMembersList.length} anggota!` 
+          : '🎉 Tugas berhasil ditandai sudah dikerjakan!',
+        { id: toastId }
+      );
+      setSubmissionGroupName('');
+      setSelectedGroupMemberIds([]);
+    } catch (err) {
+      toast.error(err.message || 'Gagal menandai tugas selesai', { id: toastId });
+    } finally {
+      setIsMarkingDone(false);
+    }
   };
 
   const handleFileUpload = async (e) => {
@@ -1323,6 +1403,11 @@ export default function ClassTasks({
                           <span>Kelompok</span>
                         </span>
                       )}
+                      {task.submissionRequired === false && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1 shrink-0" title="Tugas dikerjakan fisik di kelas (kertas/paper), tidak perlu upload berkas Drive">
+                          <span>📝 Paper / Kertas</span>
+                        </span>
+                      )}
                     </div>
 
                     {isFileMissing ? (
@@ -1452,6 +1537,11 @@ export default function ClassTasks({
                   ) : (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
                       <span>Tugas Individu</span>
+                    </span>
+                  )}
+                  {selectedTask.submissionRequired === false && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                      <span>📝 Paper / Kertas</span>
                     </span>
                   )}
                 </div>
@@ -1893,73 +1983,114 @@ export default function ClassTasks({
                         </div>
                       )}
 
-                      {/* Auto-rename toggle and preview info */}
-                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-left">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-bold text-[#0F172A]">Auto-Rename Berkas</span>
-                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                              Format Standar
-                            </span>
+                      {selectedTask.submissionRequired === false ? (
+                        /* Paper / Hardcopy Mode: Mahasiswa cukup klik tombol Sudah Mengerjakan */
+                        <div className="p-4 sm:p-6 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/40 flex flex-col items-center justify-center text-center space-y-3">
+                          <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700 shadow-2xs">
+                            <FileText size={22} />
                           </div>
-                          <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                            <input 
-                              type="checkbox" 
-                              checked={autoRenameEnabled} 
-                              onChange={(e) => setAutoRenameEnabled(e.target.checked)}
-                              className="sr-only peer" 
-                            />
-                            <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#0F172A]"></div>
-                          </label>
-                        </div>
-                        <p className="text-[10px] text-[#64748B] font-mono leading-relaxed break-all">
-                          {autoRenameEnabled ? (
-                            <span className="text-emerald-700 font-semibold block">
-                              Format: {generateSubmissionFileName(
-                                currentUser?.displayName,
-                                selectedTask?.title,
-                                'dokumen.pdf',
-                                isGroupTask ? (submissionGroupName.trim() || `${currentUser?.displayName || 'Kelompok'}_dkk`) : null
-                              )}
-                            </span>
-                          ) : (
-                            <span className="text-[#64748B]">Nama file asli akan tetap digunakan tanpa perubahan.</span>
-                          )}
-                        </p>
-                      </div>
+                          <div className="space-y-1 max-w-md">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 text-[11px] font-bold">
+                              <span>📝 Tugas Fisik / Paper di Kertas</span>
+                            </div>
+                            <p className="text-xs sm:text-sm font-bold text-[#0F172A]">
+                              {isGroupTask ? 'Konfirmasi Pengerjaan Tugas Kelompok' : 'Konfirmasi Pengerjaan Tugas'}
+                            </p>
+                            <p className="text-[11px] text-[#64748B] leading-relaxed">
+                              {isGroupTask 
+                                ? `Tugas ini dikerjakan di lembar kertas / paper fisik di kelas. Anda tidak perlu upload file ke Drive. Klik tombol di bawah untuk mencatat bahwa Anda dan ${selectedGroupMemberIds.length} teman kelompok sudah selesai mengerjakan.`
+                                : 'Tugas ini dikerjakan di lembar kertas / paper fisik di kelas. Anda tidak perlu upload file ke Google Drive. Klik tombol di bawah untuk menandai bahwa Anda sudah selesai mengerjakan.'}
+                            </p>
+                          </div>
 
-                      <div className="p-4 sm:p-6 rounded-2xl border-2 border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex flex-col items-center justify-center text-center space-y-2.5">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-[#64748B]">
-                          <Upload size={18} />
+                          <button
+                            type="button"
+                            disabled={isMarkingDone}
+                            onClick={handleMarkPaperTaskDone}
+                            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-50 min-h-[44px]"
+                          >
+                            <CheckCircle2 size={16} className={isMarkingDone ? "animate-spin" : ""} />
+                            <span>
+                              {isMarkingDone 
+                                ? 'Menandai Selesai...' 
+                                : isGroupTask 
+                                  ? 'Tandai Kelompok Sudah Mengerjakan' 
+                                  : 'Sudah Mengerjakan'}
+                            </span>
+                          </button>
                         </div>
-                        <div>
-                          <p className="text-xs sm:text-sm font-bold text-[#0F172A]">
-                            {isGroupTask ? 'Unggah Berkas Tugas Kelompok' : 'Unggah Berkas Tugas Kamu'}
-                          </p>
-                          <p className="text-[11px] text-[#64748B]">
-                            {isGroupTask 
-                              ? `Akan dikumpulkan atas nama Anda dan ${selectedGroupMemberIds.length} teman kelompok yang dicentang.` 
-                              : 'PDF, DOCX, ZIP, gambar, atau berkas lainnya.'}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={isSubmittingFile}
-                          onClick={() => {
-                            if (fileInputRef.current) {
-                              fileInputRef.current.value = '';
-                              fileInputRef.current.click();
-                            }
-                          }}
-                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs cursor-pointer disabled:opacity-50 min-h-[42px]"
-                        >
-                          <Upload size={13} className={isSubmittingFile ? "animate-bounce" : ""} />
-                          <span>{isSubmittingFile ? 'Mengunggah...' : isGroupTask ? 'Kumpulkan Tugas Kelompok' : 'Pilih File & Upload'}</span>
-                        </button>
-                        <p className="text-[10px] text-[#94A3B8]">
-                          Tugas otomatis tersinkron ke Google Drive dosen & komti
-                        </p>
-                      </div>
+                      ) : (
+                        /* Standard Drive Upload Mode */
+                        <>
+                          {/* Auto-rename toggle and preview info */}
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-left">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-bold text-[#0F172A]">Auto-Rename Berkas</span>
+                                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                  Format Standar
+                                </span>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input 
+                                  type="checkbox" 
+                                  checked={autoRenameEnabled} 
+                                  onChange={(e) => setAutoRenameEnabled(e.target.checked)}
+                                  className="sr-only peer" 
+                                />
+                                <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#0F172A]"></div>
+                              </label>
+                            </div>
+                            <p className="text-[10px] text-[#64748B] font-mono leading-relaxed break-all">
+                              {autoRenameEnabled ? (
+                                <span className="text-emerald-700 font-semibold block">
+                                  Format: {generateSubmissionFileName(
+                                    currentUser?.displayName,
+                                    selectedTask?.title,
+                                    'dokumen.pdf',
+                                    isGroupTask ? (submissionGroupName.trim() || `${currentUser?.displayName || 'Kelompok'}_dkk`) : null
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-[#64748B]">Nama file asli akan tetap digunakan tanpa perubahan.</span>
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="p-4 sm:p-6 rounded-2xl border-2 border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex flex-col items-center justify-center text-center space-y-2.5">
+                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-[#64748B]">
+                              <Upload size={18} />
+                            </div>
+                            <div>
+                              <p className="text-xs sm:text-sm font-bold text-[#0F172A]">
+                                {isGroupTask ? 'Unggah Berkas Tugas Kelompok' : 'Unggah Berkas Tugas Kamu'}
+                              </p>
+                              <p className="text-[11px] text-[#64748B]">
+                                {isGroupTask 
+                                  ? `Akan dikumpulkan atas nama Anda dan ${selectedGroupMemberIds.length} teman kelompok yang dicentang.` 
+                                  : 'PDF, DOCX, ZIP, gambar, atau berkas lainnya.'}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={isSubmittingFile}
+                              onClick={() => {
+                                if (fileInputRef.current) {
+                                  fileInputRef.current.value = '';
+                                  fileInputRef.current.click();
+                                }
+                              }}
+                              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs cursor-pointer disabled:opacity-50 min-h-[42px]"
+                            >
+                              <Upload size={13} className={isSubmittingFile ? "animate-bounce" : ""} />
+                              <span>{isSubmittingFile ? 'Mengunggah...' : isGroupTask ? 'Kumpulkan Tugas Kelompok' : 'Pilih File & Upload'}</span>
+                            </button>
+                            <p className="text-[10px] text-[#94A3B8]">
+                              Tugas otomatis tersinkron ke Google Drive dosen & komti
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 }
@@ -2035,11 +2166,20 @@ export default function ClassTasks({
                         <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
                           <Check size={14} className="text-emerald-600 shrink-0" />
                           <span>
-                            {userSub.isGroup && !isSubmitter
-                              ? `Tugas Dikumpulkan (Submitted by ${userSub.userName})`
-                              : 'Tugas Berhasil Dikumpulkan'}
+                            {!userSub.fileUrl
+                              ? (userSub.isGroup && !isSubmitter
+                                  ? `Tugas Ditandai Selesai (oleh ${userSub.userName})`
+                                  : 'Tugas Sudah Dikerjakan')
+                              : (userSub.isGroup && !isSubmitter
+                                  ? `Tugas Dikumpulkan (Submitted by ${userSub.userName})`
+                                  : 'Tugas Berhasil Dikumpulkan')}
                           </span>
                         </span>
+                        {!userSub.fileUrl && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+                            <span>📝 Paper / Kertas</span>
+                          </span>
+                        )}
                         {userSub.isGroup && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200 flex items-center gap-1">
                             <Users size={10} />
@@ -2063,7 +2203,7 @@ export default function ClassTasks({
                       <div className="p-2.5 rounded-xl bg-violet-50/70 border border-violet-200 space-y-1.5 text-xs">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <p className="text-[11px] text-violet-900 font-medium">
-                            Submitted by: <strong className="font-bold">{userSub.userName}</strong> {isSubmitter ? '(Anda / Pengunggah)' : '(Perwakilan Kelompok)'}
+                            Submitted by: <strong className="font-bold">{userSub.userName}</strong> {isSubmitter ? '(Anda)' : '(Perwakilan Kelompok)'}
                           </p>
                           {userSub.groupName && (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-200 text-violet-900 shrink-0">
@@ -2091,65 +2231,95 @@ export default function ClassTasks({
                       </div>
                     )}
 
-                    <p className="font-mono text-xs text-[#0F172A] break-all bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100">
-                      📄 {userSub.fileName}
-                    </p>
+                    {!userSub.fileUrl ? (
+                      <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-8 h-8 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-800 shrink-0">
+                            <FileText size={16} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="font-bold text-amber-950 text-xs block truncate">Tugas Fisik (Paper / Kertas)</span>
+                            <span className="text-[10px] text-amber-700 block">Dikerjakan & dikumpulkan secara fisik di kelas langsung ke dosen/komti</span>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 shrink-0">
+                          📝 Paper
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="font-mono text-xs text-[#0F172A] break-all bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100">
+                        📄 {userSub.fileName}
+                      </p>
+                    )}
 
                     <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-emerald-100">
                       <div className="flex items-center gap-3 flex-wrap">
-                        {userSub.fileUrl?.includes('drive.google.com') ? (
-                          <a
-                            href={userSub.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1"
-                          >
-                            <ExternalLink size={12} />
-                            <span>Buka di Google Drive</span>
-                          </a>
+                        {userSub.fileUrl ? (
+                          <>
+                            {userSub.fileUrl?.includes('drive.google.com') ? (
+                              <a
+                                href={userSub.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1"
+                              >
+                                <ExternalLink size={12} />
+                                <span>Buka di Google Drive</span>
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-[#64748B]">Tersimpan di Sistem</span>
+                            )}
+                            <button
+                              type="button"
+                              disabled={isCrosschecking}
+                              onClick={handleManualCheckDrive}
+                              className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+                              title="Periksa keberadaan file di Google Drive"
+                            >
+                              <RefreshCw size={11} className={isCrosschecking ? "animate-spin text-sky-600" : ""} />
+                              <span>{isCrosschecking ? 'Memeriksa...' : 'Cek Drive'}</span>
+                            </button>
+                          </>
                         ) : (
-                          <span className="text-[10px] text-[#64748B]">Tersimpan di Sistem</span>
+                          <span className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                            <CheckCircle2 size={13} className="text-emerald-600" />
+                            <span>Status: Sudah Selesai Mengerjakan</span>
+                          </span>
                         )}
-                        <button
-                          type="button"
-                          disabled={isCrosschecking}
-                          onClick={handleManualCheckDrive}
-                          className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
-                          title="Periksa keberadaan file di Google Drive"
-                        >
-                          <RefreshCw size={11} className={isCrosschecking ? "animate-spin text-sky-600" : ""} />
-                          <span>{isCrosschecking ? 'Memeriksa...' : 'Cek Drive'}</span>
-                        </button>
                       </div>
                       <div className="flex items-center gap-3 flex-wrap">
                         {isSubmitter ? (
                           <>
-                            <button
-                              type="button"
-                              disabled={isSubmittingFile}
-                              onClick={() => {
-                                if (fileInputRef.current) {
-                                  fileInputRef.current.value = '';
-                                  fileInputRef.current.click();
-                                }
-                              }}
-                              className="text-xs font-bold text-[#0F172A] hover:underline cursor-pointer disabled:opacity-50 text-left sm:text-right py-1"
-                            >
-                              {isSubmittingFile ? 'Mengunggah...' : 'Kirim Ulang File (Resubmit)'}
-                            </button>
+                            {userSub.fileUrl ? (
+                              <button
+                                type="button"
+                                disabled={isSubmittingFile}
+                                onClick={() => {
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.value = '';
+                                    fileInputRef.current.click();
+                                  }
+                                }}
+                                className="text-xs font-bold text-[#0F172A] hover:underline cursor-pointer disabled:opacity-50 text-left sm:text-right py-1"
+                              >
+                                {isSubmittingFile ? 'Mengunggah...' : 'Kirim Ulang File (Resubmit)'}
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               onClick={() => setShowCancelSubmissionConfirm(true)}
                               className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:underline flex items-center gap-1 cursor-pointer py-1"
-                              title="Batalkan pengumpulan dan hapus file"
+                              title={userSub.fileUrl ? "Batalkan pengumpulan dan hapus file" : "Batalkan status selesai"}
                             >
                               <Trash2 size={12} />
-                              <span>Hapus File</span>
+                              <span>{userSub.fileUrl ? 'Hapus File' : 'Batalkan Status Selesai'}</span>
                             </button>
                           </>
                         ) : (
                           <span className="text-[11px] text-slate-500 italic">
-                            Diserahkan oleh {userSub.userName}. Hanya pengunggah utama yang dapat mengganti berkas.
+                            {userSub.fileUrl 
+                              ? `Diserahkan oleh ${userSub.userName}. Hanya pengunggah utama yang dapat mengganti berkas.`
+                              : `Ditandai selesai oleh ${userSub.userName}.`}
                           </span>
                         )}
                       </div>
@@ -2450,7 +2620,11 @@ export default function ClassTasks({
                                     <ExternalLink size={11} />
                                     <span>Drive</span>
                                   </a>
-                                ) : null}
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[10px] flex items-center gap-1">
+                                    <span>📝 Paper</span>
+                                  </span>
+                                )}
                                 <span className="text-[10px] text-[#94A3B8] hidden sm:inline">
                                   {new Date(submission.submittedAt).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
                                 </span>
@@ -2621,6 +2795,37 @@ export default function ClassTasks({
                     ? 'Mode kelompok: 1 perwakilan kelompok mengumpulkan berkas & mencentang teman kelompoknya.'
                     : 'Mode individu: Setiap mahasiswa mengumpulkan berkas tugas secara mandiri.'}
                 </p>
+              </div>
+
+              {/* Submission Required Setting: Upload Berkas (Drive) vs Paper / Kertas */}
+              <div className="space-y-1.5 p-3 rounded-xl bg-slate-50/80 border border-slate-200">
+                <div className="flex items-center justify-between gap-2">
+                  <label htmlFor="taskSubmissionRequiredCheckbox" className="text-xs font-semibold text-[#0F172A] cursor-pointer flex items-center gap-1.5 select-none">
+                    <Upload size={14} className={taskSubmissionRequired ? "text-indigo-600" : "text-slate-400"} />
+                    <span>Wajib Upload Berkas (Google Drive)</span>
+                  </label>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input 
+                      id="taskSubmissionRequiredCheckbox"
+                      type="checkbox" 
+                      checked={taskSubmissionRequired} 
+                      onChange={(e) => setTaskSubmissionRequired(e.target.checked)}
+                      className="sr-only peer" 
+                    />
+                    <div className="w-8 h-4 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+                <div className="pt-0.5 text-[11px]">
+                  {taskSubmissionRequired ? (
+                    <span className="text-indigo-700 font-medium">
+                      📁 Mahasiswa wajib mengunggah file dokumen/tugas ke Google Drive.
+                    </span>
+                  ) : (
+                    <span className="text-amber-800 font-medium">
+                      📝 <strong>Tugas Paper / Kertas di Kelas:</strong> Upload file dinonaktifkan. Mahasiswa cukup menekan tombol <em>"Sudah Mengerjakan"</em>.
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2904,6 +3109,37 @@ export default function ClassTasks({
                 </p>
               </div>
 
+              {/* Submission Required Setting: Upload Berkas (Drive) vs Paper / Kertas */}
+              <div className="space-y-1.5 p-3 rounded-xl bg-slate-50/80 border border-slate-200">
+                <div className="flex items-center justify-between gap-2">
+                  <label htmlFor="editSubmissionRequiredCheckbox" className="text-xs font-semibold text-[#0F172A] cursor-pointer flex items-center gap-1.5 select-none">
+                    <Upload size={14} className={editSubmissionRequired ? "text-indigo-600" : "text-slate-400"} />
+                    <span>Wajib Upload Berkas (Google Drive)</span>
+                  </label>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input 
+                      id="editSubmissionRequiredCheckbox"
+                      type="checkbox" 
+                      checked={editSubmissionRequired} 
+                      onChange={(e) => setEditSubmissionRequired(e.target.checked)}
+                      className="sr-only peer" 
+                    />
+                    <div className="w-8 h-4 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+                <div className="pt-0.5 text-[11px]">
+                  {editSubmissionRequired ? (
+                    <span className="text-indigo-700 font-medium">
+                      📁 Mahasiswa wajib mengunggah file dokumen/tugas ke Google Drive.
+                    </span>
+                  ) : (
+                    <span className="text-amber-800 font-medium">
+                      📝 <strong>Tugas Paper / Kertas di Kelas:</strong> Upload file dinonaktifkan. Mahasiswa cukup menekan tombol <em>"Sudah Mengerjakan"</em>.
+                    </span>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-[#334155]">Batas Tanggal (Due Date)</label>
@@ -3058,17 +3294,25 @@ export default function ClassTasks({
       />
 
       {/* CONFIRM CANCEL SUBMISSION MODAL */}
-      <ConfirmModal
-        isOpen={showCancelSubmissionConfirm}
-        onClose={() => !isCancelingSubmission && setShowCancelSubmissionConfirm(false)}
-        onConfirm={handleCancelSubmission}
-        title="Hapus & Batalkan Pengumpulan?"
-        message="Berkas pengumpulan kamu akan dihapus dan status pengumpulan akan dibatalkan. Kamu dapat mengunggah ulang file kapan saja."
-        confirmText="Ya, Hapus & Batalkan"
-        cancelText="Batal"
-        type="danger"
-        isLoading={isCancelingSubmission}
-      />
+      {(() => {
+        const currentUserSub = selectedTask?.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => m.userId === currentUser?.uid));
+        const isPaperSub = currentUserSub && !currentUserSub.fileUrl;
+        return (
+          <ConfirmModal
+            isOpen={showCancelSubmissionConfirm}
+            onClose={() => !isCancelingSubmission && setShowCancelSubmissionConfirm(false)}
+            onConfirm={handleCancelSubmission}
+            title={isPaperSub ? "Batalkan Status Selesai?" : "Hapus & Batalkan Pengumpulan?"}
+            message={isPaperSub 
+              ? "Status pengerjaan tugas Anda akan dikembalikan menjadi belum selesai. Anda dapat menandainya lagi kapan saja." 
+              : "Berkas pengumpulan kamu akan dihapus dan status pengumpulan akan dibatalkan. Kamu dapat mengunggah ulang file kapan saja."}
+            confirmText={isPaperSub ? "Ya, Batalkan Status" : "Ya, Hapus & Batalkan"}
+            cancelText="Batal"
+            type="danger"
+            isLoading={isCancelingSubmission}
+          />
+        );
+      })()}
 
       {/* LIGHTBOX PREVIEW MODAL FOR ATTACHMENT IMAGE */}
       {previewAttachmentImage && (

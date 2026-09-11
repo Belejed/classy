@@ -298,10 +298,12 @@ export default function App() {
     // Send email notification if enabled
     if (item.sendEmailNotification !== false) {
       const isGroup = item.submissionType === 'group';
+      const isPaper = item.submissionRequired === false;
       const metaRows = [
         ['Mata Kuliah', item.course || 'Perkuliahan'],
         ['Judul Tugas', item.title],
         ['Jenis Pengerjaan', isGroup ? '👥 Tugas Kelompok (1 Perwakilan Kumpul)' : '👤 Tugas Individu'],
+        ['Format Pengumpulan', isPaper ? '📝 Tugas Fisik / Kertas (Paper di Kelas)' : '📁 Upload Berkas (Google Drive)'],
         ['Batas Pengumpulan', `${item.dueDate} pukul ${item.dueTime || '23:59'} WIB`],
         ['Dosen Pengajar', item.lecturer || '-'],
         ['Ruang Kelas', currentClass?.name || 'Classy']
@@ -369,18 +371,19 @@ export default function App() {
     try {
       const targetTask = refreshed.find(t => t.id === taskId);
       const isGroup = Boolean(submissionData.isGroup);
+      const isPaper = !submissionData.fileUrl;
       const groupName = (submissionData.groupName || '').trim();
       const groupList = Array.isArray(submissionData.groupMembers) && submissionData.groupMembers.length > 0
         ? submissionData.groupMembers.map(m => m.userName || m.name).filter(Boolean).join(', ')
         : '';
 
       const logTitle = isGroup
-        ? `${submissionData.userName} mengumpulkan tugas ${groupName ? `[${groupName}]` : 'kelompok'}`
-        : `${submissionData.userName} mengumpulkan tugas`;
+        ? `${submissionData.userName} ${isPaper ? 'menandai tugas kelompok selesai' : 'mengumpulkan tugas kelompok'} ${groupName ? `[${groupName}]` : ''}`
+        : `${submissionData.userName} ${isPaper ? 'menandai tugas selesai' : 'mengumpulkan tugas'}`;
 
       const logDetails = isGroup
-        ? `${submissionData.userName} mengumpulkan berkas kelompok ${groupName ? `"${groupName}" ` : ''}("${submissionData.fileName}")${groupList ? ` bersama: ${groupList}` : ''} untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`
-        : `${submissionData.userName} mengumpulkan berkas "${submissionData.fileName}" untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`;
+        ? `${submissionData.userName} ${isPaper ? 'menandai tugas fisik (paper/kertas)' : 'mengumpulkan berkas'} kelompok ${groupName ? `"${groupName}" ` : ''}${submissionData.fileName ? `("${submissionData.fileName}")` : ''}${groupList ? ` bersama: ${groupList}` : ''} untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`
+        : `${submissionData.userName} ${isPaper ? 'menandai tugas fisik (paper/kertas) selesai dikerjakan' : `mengumpulkan berkas "${submissionData.fileName}"`} untuk tugas "${targetTask?.title || 'Tugas Kuliah'}".`;
 
       await dbService.logs.create(currentClass.id, {
         actionType: 'task_submit',
