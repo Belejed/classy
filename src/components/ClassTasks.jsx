@@ -40,6 +40,7 @@ import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
 import CustomDatePicker from './CustomDatePicker';
+import CustomSelect from './CustomSelect';
 import { isClassBlocked } from '../utils/db';
 
 // Helper to check if a task deadline has passed
@@ -3057,10 +3058,9 @@ export default function ClassTasks({
                 </div>
 
                 {!isCustomCourse && availableCourses.length > 0 ? (
-                  <select
+                  <CustomSelect
                     value={taskCourse}
-                    onChange={(e) => {
-                      const selected = e.target.value;
+                    onChange={(selected) => {
                       setTaskCourse(selected);
                       // Auto-fill lecturer from schedule if matched
                       const matched = (schedules || []).find(s => (s.course || s.title) === selected);
@@ -3068,14 +3068,11 @@ export default function ClassTasks({
                         setTaskLecturer(matched.lecturer.split(',')[0]);
                       }
                     }}
+                    options={availableCourses}
+                    placeholder="-- Pilih Mata Kuliah --"
+                    searchPlaceholder="Cari mata kuliah..."
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all cursor-pointer min-h-[40px]"
-                  >
-                    <option value="">-- Pilih Mata Kuliah --</option>
-                    {availableCourses.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                  />
                 ) : (
                   <input
                     type="text"
@@ -3397,24 +3394,20 @@ export default function ClassTasks({
                 </div>
 
                 {!isCustomEditCourse && availableCourses.length > 0 ? (
-                  <select
+                  <CustomSelect
                     value={editCourse}
-                    onChange={(e) => {
-                      const selected = e.target.value;
+                    onChange={(selected) => {
                       setEditCourse(selected);
                       const matched = (schedules || []).find(s => (s.course || s.title) === selected);
                       if (matched && matched.lecturer) {
                         setEditLecturer(matched.lecturer.split(',')[0]);
                       }
                     }}
+                    options={availableCourses}
+                    placeholder="-- Pilih Mata Kuliah --"
+                    searchPlaceholder="Cari mata kuliah..."
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all cursor-pointer min-h-[40px]"
-                  >
-                    <option value="">-- Pilih Mata Kuliah --</option>
-                    {availableCourses.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                  />
                 ) : (
                   <input
                     type="text"
