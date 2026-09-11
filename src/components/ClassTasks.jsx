@@ -499,14 +499,30 @@ export default function ClassTasks({
   const [submissionGroupName, setSubmissionGroupName] = useState('');
 
   const filteredGroupCandidates = useMemo(() => {
-    return eligibleMembers.filter(m => {
+    const list = eligibleMembers.filter(m => {
       const mId = m.userId || m.uid || m.id;
       if (mId === currentUser?.uid) return false;
       const q = groupSearchQuery.trim().toLowerCase();
       if (!q) return true;
       return (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q);
     });
-  }, [eligibleMembers, currentUser?.uid, groupSearchQuery]);
+
+    return list.sort((a, b) => {
+      const aId = a.userId || a.uid || a.id;
+      const bId = b.userId || b.uid || b.id;
+      const aSelected = selectedGroupMemberIds.includes(aId);
+      const bSelected = selectedGroupMemberIds.includes(bId);
+
+      // Selected members float to the top
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+
+      // Secondary alphabetical sort
+      const nameA = a.name || a.userName || a.email || '';
+      const nameB = b.name || b.userName || b.email || '';
+      return nameA.localeCompare(nameB, 'id');
+    });
+  }, [eligibleMembers, currentUser?.uid, groupSearchQuery, selectedGroupMemberIds]);
 
   const toggleGroupMember = (memberUserId) => {
     if (!memberUserId) return;
@@ -2065,6 +2081,47 @@ export default function ClassTasks({
                               className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-violet-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-violet-500"
                             />
                           </div>
+
+                          {/* Selected Members Chips Preview */}
+                          {selectedGroupMemberIds.length > 0 && (
+                            <div className="p-2 rounded-xl bg-violet-100/70 border border-violet-200 space-y-1.5">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-violet-900">
+                                <span>Anggota Terpilih ({selectedGroupMemberIds.length})</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedGroupMemberIds([])}
+                                  className="text-[10px] text-violet-600 hover:text-violet-800 font-semibold cursor-pointer"
+                                >
+                                  Hapus Semua
+                                </button>
+                              </div>
+                              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
+                                {selectedGroupMemberIds.map(mId => {
+                                  const member = eligibleMembers.find(m => (m.userId || m.uid || m.id) === mId);
+                                  const name = member?.name || member?.userName || member?.email || 'Anggota';
+                                  return (
+                                    <span
+                                      key={mId}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white border border-violet-300 text-violet-950 text-xs font-semibold shadow-2xs"
+                                    >
+                                      <span className="truncate max-w-[120px]">{name}</span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleGroupMember(mId);
+                                        }}
+                                        className="text-violet-400 hover:text-violet-700 ml-0.5 cursor-pointer"
+                                        title="Batal pilih"
+                                      >
+                                        <X size={12} />
+                                      </button>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Classmates Checklist */}
                           <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
