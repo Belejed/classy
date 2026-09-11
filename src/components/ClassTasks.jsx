@@ -1319,6 +1319,8 @@ export default function ClassTasks({
     }
   };
 
+  const handleCancelSubmission = handleConfirmCancelSubmission;
+
   const handleManualCheckDrive = async () => {
     if (!selectedTask?.submissions?.length) return;
     const fileIds = [];
@@ -3634,7 +3636,7 @@ export default function ClassTasks({
           <ConfirmModal
             isOpen={showCancelSubmissionConfirm}
             onClose={() => !isCancelingSubmission && setShowCancelSubmissionConfirm(false)}
-            onConfirm={handleCancelSubmission}
+            onConfirm={handleConfirmCancelSubmission}
             title={isPaperSub ? "Batalkan Status Selesai?" : "Hapus & Batalkan Pengumpulan?"}
             message={isPaperSub 
               ? "Status pengerjaan tugas Anda akan dikembalikan menjadi belum selesai. Anda dapat menandainya lagi kapan saja." 
