@@ -67,8 +67,9 @@ export default function ClassFiles({
 
   // Filter files so regular students cannot see other students' submissions in the Files tab
   const visibleFiles = useMemo(() => {
-    if (isManager) return files;
-    return files.filter(f => {
+    const safeFiles = Array.isArray(files) ? files : [];
+    if (isManager) return safeFiles;
+    return safeFiles.filter(f => {
       const isSubmission = f.isSubmission || f.category === 'Submission' || (f.folder && f.folder.startsWith('Tugas:'));
       // Non-submission files (materials, guides, announcements, questions) are public to everyone
       if (!isSubmission) return true;

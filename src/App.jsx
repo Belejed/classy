@@ -931,6 +931,7 @@ export default function App() {
                   handleDeleteTask={handleDeleteTask}
                   handleUploadFile={handleUploadFile}
                   handleDeleteFile={handleDeleteFile}
+                  handleRefreshFiles={handleRefreshFiles}
                   handleCreateAnnouncement={handleCreateAnnouncement}
                   handleDeleteAnnouncement={handleDeleteAnnouncement}
                   handleCreateGroup={handleCreateGroup}
@@ -999,6 +1000,7 @@ function ClassWorkspace({
   handleDeleteTask,
   handleUploadFile,
   handleDeleteFile,
+  handleRefreshFiles,
   handleCreateAnnouncement,
   handleDeleteAnnouncement,
   handleCreateGroup,
