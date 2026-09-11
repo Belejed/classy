@@ -580,7 +580,7 @@ export default function ClassTasks({
 
   // Overdue count for current user (with group member check)
   const overdueTasksCount = useMemo(() => {
-    return tasks.filter(t => {
+    return (tasks || []).filter(t => {
       const userSub = t.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => m.userId === currentUser?.uid));
       const isFileMissing = userSub && isSubmissionFileMissing(userSub);
       const isSubmitted = !!userSub && !isFileMissing;
@@ -589,8 +589,8 @@ export default function ClassTasks({
   }, [tasks, currentUser]);
 
   // Filter Tasks (with group member check)
-  const filteredTasks = tasks.filter(t => {
-    const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredTasks = (tasks || []).filter(t => {
+    const matchesSearch = (t.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                           (t.course || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const userSub = t.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => m.userId === currentUser?.uid));
