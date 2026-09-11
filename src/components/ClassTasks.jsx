@@ -2357,8 +2357,8 @@ export default function ClassTasks({
                                 }}
                                 className="text-xs font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1 cursor-pointer"
                               >
-                                <Plus size={12} />
-                                <span>+ Tambah File Lain</span>
+                                <Plus size={12} strokeWidth={2.5} />
+                                <span>Tambah File Lain</span>
                               </button>
                             </div>
 
