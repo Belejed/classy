@@ -3694,26 +3694,26 @@ export default function ClassTasks({
       {/* FLOATING BACKGROUND UPLOADS WIDGET */}
       {backgroundUploads.length > 0 && (
         <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end max-w-sm w-[92vw] sm:w-[380px] select-none pointer-events-auto transition-all duration-300">
-          <div className="w-full bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/80 shadow-2xl rounded-2xl overflow-hidden">
+          <div className="w-full bg-white/95 backdrop-blur-md text-[#0F172A] border border-[#CBD5E1] shadow-2xl rounded-2xl overflow-hidden">
             {/* Widget Header */}
             <div 
               onClick={() => setIsWidgetExpanded(prev => !prev)}
-              className="flex items-center justify-between px-4 py-3 bg-slate-800/80 cursor-pointer hover:bg-slate-800 transition-colors border-b border-slate-700/50"
+              className="flex items-center justify-between px-4 py-3 bg-[#F8FAFC] cursor-pointer hover:bg-slate-100/80 transition-colors border-b border-[#E2E8F0]"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 {backgroundUploads.some(u => u.status === 'uploading') ? (
-                  <RefreshCw size={15} className="animate-spin text-indigo-400 shrink-0" />
+                  <RefreshCw size={15} className="animate-spin text-indigo-600 shrink-0" />
                 ) : backgroundUploads.some(u => u.status === 'error') ? (
-                  <AlertCircle size={15} className="text-rose-400 shrink-0" />
+                  <AlertCircle size={15} className="text-rose-600 shrink-0" />
                 ) : (
-                  <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+                  <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
                 )}
-                <span className="text-xs font-semibold truncate">
+                <span className="text-xs font-bold text-[#0F172A] truncate">
                   {backgroundUploads.some(u => u.status === 'uploading')
                     ? `Mengunggah (${backgroundUploads.filter(u => u.status === 'uploading').length} tugas)`
                     : 'Pengunggahan Selesai'}
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                   {backgroundUploads.length}
                 </span>
               </div>
@@ -3724,7 +3724,7 @@ export default function ClassTasks({
                     e.stopPropagation();
                     setIsWidgetExpanded(prev => !prev);
                   }}
-                  className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="p-1 text-[#64748B] hover:text-[#0F172A] rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
                   title={isWidgetExpanded ? 'Ciutkan' : 'Perluas'}
                 >
                   {isWidgetExpanded ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
@@ -3736,7 +3736,7 @@ export default function ClassTasks({
                       e.stopPropagation();
                       setBackgroundUploads([]);
                     }}
-                    className="p-1 text-slate-400 hover:text-rose-300 rounded-lg hover:bg-slate-700/50 transition-colors ml-1"
+                    className="p-1 text-[#64748B] hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors ml-1 cursor-pointer"
                     title="Tutup & Bersihkan"
                   >
                     <X size={15} />
@@ -3747,32 +3747,32 @@ export default function ClassTasks({
 
             {/* Widget Body */}
             {isWidgetExpanded && (
-              <div className="p-3 space-y-2.5 max-h-72 overflow-y-auto divide-y divide-slate-800/80">
+              <div className="p-3.5 space-y-3 max-h-72 overflow-y-auto divide-y divide-slate-100 bg-white">
                 {backgroundUploads.map(job => (
                   <div key={job.id} className="pt-2.5 first:pt-0 space-y-1.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-slate-100 truncate" title={job.taskTitle}>
+                        <p className="text-xs font-bold text-[#0F172A] truncate" title={job.taskTitle}>
                           {job.taskTitle}
                         </p>
-                        <p className="text-[11px] text-slate-400 truncate" title={job.fileName}>
+                        <p className="text-[11px] text-[#64748B] truncate font-mono" title={job.fileName}>
                           {job.rawFileName || job.fileName}
                         </p>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400 shrink-0 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                      <span className="text-[10px] font-mono text-slate-600 shrink-0 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                         {job.fileSize}
                       </span>
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200/60">
                       <div
                         className={`h-full transition-all duration-300 rounded-full ${
                           job.status === 'completed'
                             ? 'bg-emerald-500'
                             : job.status === 'error'
                             ? 'bg-rose-500'
-                            : 'bg-gradient-to-r from-indigo-500 to-cyan-400'
+                            : 'bg-gradient-to-r from-indigo-600 to-sky-500'
                         }`}
                         style={{ width: `${job.progress}%` }}
                       />
@@ -3780,16 +3780,16 @@ export default function ClassTasks({
 
                     {/* Status & Actions */}
                     <div className="flex items-center justify-between text-[11px] pt-0.5">
-                      <span className={`truncate ${
+                      <span className={`truncate text-xs ${
                         job.status === 'completed'
-                          ? 'text-emerald-400 font-medium'
+                          ? 'text-emerald-700 font-semibold'
                           : job.status === 'error'
-                          ? 'text-rose-400 font-medium'
-                          : 'text-indigo-300'
+                          ? 'text-rose-600 font-semibold'
+                          : 'text-indigo-700 font-medium'
                       }`}>
                         {job.status === 'completed' ? (
                           <span className="flex items-center gap-1">
-                            <Check size={12} /> Tersimpan di Drive
+                            <Check size={12} strokeWidth={2.5} /> Tersimpan di Drive
                           </span>
                         ) : job.status === 'error' ? (
                           <span className="truncate">{job.error || 'Gagal mengunggah'}</span>
@@ -3803,14 +3803,14 @@ export default function ClassTasks({
                           <button
                             type="button"
                             onClick={() => handleRetryUpload(job)}
-                            className="px-2 py-0.5 text-[10px] font-semibold bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 rounded border border-rose-500/30 flex items-center gap-1 transition-colors cursor-pointer"
+                            className="px-2 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 rounded border border-rose-200 flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <RefreshCw size={10} /> Coba Lagi
                           </button>
                           <button
                             type="button"
                             onClick={() => setBackgroundUploads(prev => prev.filter(u => u.id !== job.id))}
-                            className="p-0.5 text-slate-400 hover:text-white rounded"
+                            className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
                             title="Hapus"
                           >
                             <X size={12} />
