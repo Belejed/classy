@@ -6,10 +6,12 @@ export default function CustomSelect({
   onChange,
   options = [],
   placeholder = '-- Pilih Opsi --',
-  searchPlaceholder = 'Cari mata kuliah...',
+  searchPlaceholder = 'Cari...',
   icon: Icon = BookOpen,
   className = '',
-  required = false
+  required = false,
+  allowClear = false,
+  footerAction = null
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -84,8 +86,8 @@ export default function CustomSelect({
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full px-3.5 py-2.5 rounded-xl border bg-white text-left text-xs sm:text-sm shadow-2xs transition-all flex items-center justify-between gap-2 min-h-[42px] cursor-pointer ${
           isOpen
-            ? 'border-[#0F172A] ring-2 ring-[#0F172A]/10'
-            : 'border-[#CBD5E1] hover:border-slate-400'
+            ? 'border-indigo-500 ring-4 ring-indigo-500/10'
+            : 'border-slate-200 hover:border-slate-300'
         }`}
       >
         <div className="flex items-center gap-2.5 truncate">
@@ -94,7 +96,7 @@ export default function CustomSelect({
               <Icon size={13} />
             </div>
           )}
-          <span className={`truncate ${selectedOption ? 'font-semibold text-[#0F172A]' : 'text-[#94A3B8]'}`}>
+          <span className={`truncate ${selectedOption ? 'font-semibold text-slate-900' : 'text-slate-400 font-normal'}`}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
         </div>
@@ -102,14 +104,14 @@ export default function CustomSelect({
         <ChevronDown
           size={16}
           className={`text-slate-400 transition-transform duration-200 shrink-0 ${
-            isOpen ? 'rotate-180 text-[#0F172A]' : ''
+            isOpen ? 'rotate-180 text-indigo-600' : ''
           }`}
         />
       </button>
 
       {/* Dropdown Menu Panel */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-[60] bg-white border border-slate-200/90 rounded-2xl shadow-xl overflow-hidden py-1 animate-in fade-in slide-in-from-top-1 duration-150">
           {/* Search bar inside dropdown if > 4 options */}
           {normalizedOptions.length > 4 && (
             <div className="p-2 border-b border-slate-100">
@@ -121,20 +123,29 @@ export default function CustomSelect({
                   placeholder={searchPlaceholder}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-[#0F172A] placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-all"
+                  className="w-full pl-8 pr-7 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 transition-all font-medium"
                 />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer text-xs"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             </div>
           )}
 
           {/* Options List */}
-          <div className="max-h-56 overflow-y-auto p-1.5 space-y-0.5 no-scrollbar">
-            {/* Option to clear / unselect if placeholder clicked */}
-            {placeholder && (
+          <div className="max-h-52 overflow-y-auto p-1.5 space-y-1 custom-scrollbar">
+            {/* Option to clear / unselect if allowClear is true */}
+            {allowClear && placeholder && (
               <button
                 type="button"
                 onClick={() => handleSelect('')}
-                className="w-full px-2.5 py-2 rounded-xl text-left text-xs text-slate-400 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer"
+                className="w-full px-2.5 py-1.5 rounded-xl text-left text-xs text-slate-400 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer"
               >
                 <span>{placeholder}</span>
                 {!value && <Check size={14} className="text-slate-400" />}
@@ -153,22 +164,38 @@ export default function CustomSelect({
                     key={opt.value}
                     type="button"
                     onClick={() => handleSelect(opt.value)}
-                    className={`w-full px-2.5 py-2 rounded-xl text-left text-xs sm:text-sm transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                    className={`w-full px-3 py-2 rounded-xl text-left text-xs sm:text-sm transition-all flex items-center justify-between gap-2 cursor-pointer ${
                       isSelected
-                        ? 'bg-indigo-50 text-indigo-900 font-semibold'
+                        ? 'bg-indigo-50/90 text-indigo-950 font-semibold border border-indigo-100/80'
                         : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
-                    <div className="flex items-center gap-2 truncate">
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? 'bg-indigo-600' : 'bg-transparent'}`} />
+                    <div className="flex items-center gap-2.5 truncate">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? 'bg-indigo-600 ring-2 ring-indigo-200' : 'bg-slate-300'}`} />
                       <span className="truncate">{opt.label}</span>
                     </div>
-                    {isSelected && <Check size={15} className="text-indigo-600 shrink-0" />}
+                    {isSelected && <Check size={14} className="text-indigo-600 shrink-0" strokeWidth={2.5} />}
                   </button>
                 );
               })
             )}
           </div>
+
+          {/* Optional Footer Action */}
+          {footerAction && (
+            <div className="p-1 border-t border-slate-100 bg-slate-50/60 rounded-b-2xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  footerAction.onClick();
+                }}
+                className="w-full px-3 py-2 rounded-xl text-left text-xs font-bold text-indigo-600 hover:bg-indigo-100/70 hover:text-indigo-800 transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                {footerAction.label}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -34,8 +34,17 @@ import { dbService } from '../utils/db';
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
+import CustomSelect from './CustomSelect';
 
 const CATEGORIES = ['All', 'Submission', 'Material', 'Assignments', 'Groups', 'Other'];
+
+const CATEGORY_OPTIONS = [
+  { value: 'Material', label: '📚 Material (Materi Kuliah)' },
+  { value: 'Assignments', label: '📝 Assignments (Tugas Perkuliahan)' },
+  { value: 'Submission', label: '📥 Submission (Pengumpulan Tugas)' },
+  { value: 'Groups', label: '👥 Groups (Berkas Kelompok)' },
+  { value: 'Other', label: '📁 Other (Lainnya / Umum)' }
+];
 
 const FOLDER_PRESETS = [
   { label: 'Materi Kuliah', category: 'Material', icon: '📚' },
@@ -83,20 +92,23 @@ export default function ClassFiles({
 
   // Available courses dynamically gathered from schedules, tasks, files, and class defaults
   const availableCourses = useMemo(() => {
-    const set = new Set();
-    (schedules || []).forEach(s => {
-      const name = (s.subject || s.title || s.course || '').trim();
-      if (name) set.add(name);
-    });
-    (tasks || []).forEach(t => {
-      const name = (t.course || '').trim();
-      if (name) set.add(name);
-    });
-    (files || []).forEach(f => {
-      const name = (f.course || '').trim();
-      if (name && name !== 'Umum' && name !== currentClass?.name) set.add(name);
-    });
-    if (set.size === 0) {
+    const courseMap = new Map();
+    const addCourse = (raw) => {
+      if (!raw) return;
+      const clean = raw.trim().replace(/\s+/g, ' ');
+      if (!clean) return;
+      if (clean.toLowerCase() === 'umum' || clean.toLowerCase() === (currentClass?.name || '').toLowerCase()) return;
+      const key = clean.toLowerCase();
+      if (!courseMap.has(key)) {
+        courseMap.set(key, clean);
+      }
+    };
+
+    (schedules || []).forEach(s => addCourse(s.subject || s.title || s.course));
+    (tasks || []).forEach(t => addCourse(t.course));
+    (files || []).forEach(f => addCourse(f.course));
+
+    if (courseMap.size === 0) {
       [
         'Ekonomi Mikro',
         'Matematika Ekonomi',
@@ -106,9 +118,9 @@ export default function ClassFiles({
         'Pengantar Transportasi',
         'Pendidikan Pancasila',
         'Prinsip - Prinsip Manajemen'
-      ].forEach(c => set.add(c));
+      ].forEach(addCourse);
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'));
+    return Array.from(courseMap.values()).sort((a, b) => a.localeCompare(b, 'id'));
   }, [schedules, tasks, files, currentClass?.name]);
 
   // Set default course once available
@@ -1196,31 +1208,21 @@ export default function ClassFiles({
                 </label>
 
                 {!isCustomCourse ? (
-                  <div className="relative">
-                    <select
-                      value={uploadCourse}
-                      onChange={(e) => {
-                        if (e.target.value === '__CUSTOM__') {
-                          setIsCustomCourse(true);
-                          setUploadCourse('');
-                        } else {
-                          setUploadCourse(e.target.value);
-                        }
-                      }}
-                      className="w-full appearance-none px-3.5 py-2.5 pr-9 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all cursor-pointer"
-                    >
-                      <option value="" disabled>Pilih Mata Kuliah...</option>
-                      {availableCourses.map(c => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                      <option value="__CUSTOM__">➕ Ketik Mata Kuliah Lain...</option>
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <ChevronDown size={15} />
-                    </div>
-                  </div>
+                  <CustomSelect
+                    value={uploadCourse}
+                    onChange={setUploadCourse}
+                    options={availableCourses}
+                    placeholder="Pilih Mata Kuliah..."
+                    searchPlaceholder="Cari mata kuliah..."
+                    icon={BookOpen}
+                    footerAction={{
+                      label: '➕ Ketik Mata Kuliah Lain...',
+                      onClick: () => {
+                        setIsCustomCourse(true);
+                        setUploadCourse('');
+                      }
+                    }}
+                  />
                 ) : (
                   <div className="space-y-1">
                     <input
@@ -1260,32 +1262,28 @@ export default function ClassFiles({
                   </div>
 
                   {!isCustomFolder ? (
-                    <div className="relative">
-                      <select
-                        value={uploadFolder}
-                        onChange={(e) => {
-                          if (e.target.value === '__CUSTOM__') {
-                            setIsCustomFolder(true);
-                            setUploadFolder('');
-                          } else {
-                            const found = FOLDER_PRESETS.find(p => p.label === e.target.value);
-                            setUploadFolder(e.target.value);
-                            if (found) setUploadCategory(found.category);
-                          }
-                        }}
-                        className="w-full appearance-none px-3.5 py-2.5 pr-9 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all cursor-pointer"
-                      >
-                        {FOLDER_PRESETS.map(fp => (
-                          <option key={fp.label} value={fp.label}>
-                            {fp.icon} {fp.label}
-                          </option>
-                        ))}
-                        <option value="__CUSTOM__">➕ Ketik Folder Lainnya...</option>
-                      </select>
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                        <ChevronDown size={15} />
-                      </div>
-                    </div>
+                    <CustomSelect
+                      value={uploadFolder}
+                      onChange={(val) => {
+                        setUploadFolder(val);
+                        const found = FOLDER_PRESETS.find(p => p.label === val);
+                        if (found) setUploadCategory(found.category);
+                      }}
+                      options={FOLDER_PRESETS.map(fp => ({
+                        value: fp.label,
+                        label: `${fp.icon} ${fp.label}`
+                      }))}
+                      placeholder="Pilih Folder Tujuan..."
+                      searchPlaceholder="Cari folder..."
+                      icon={Folder}
+                      footerAction={{
+                        label: '➕ Ketik Folder Baru...',
+                        onClick: () => {
+                          setIsCustomFolder(true);
+                          setUploadFolder('');
+                        }
+                      }}
+                    />
                   ) : (
                     <div className="space-y-1">
                       <input
@@ -1304,22 +1302,14 @@ export default function ClassFiles({
                 {/* Kategori */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700">Kategori Berkas</label>
-                  <div className="relative">
-                    <select
-                      value={uploadCategory}
-                      onChange={(e) => setUploadCategory(e.target.value)}
-                      className="w-full appearance-none px-3.5 py-2.5 pr-9 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 bg-white focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all cursor-pointer font-medium"
-                    >
-                      <option value="Material">Material (Materi Kuliah)</option>
-                      <option value="Assignments">Assignments (Tugas)</option>
-                      <option value="Submission">Submission (Pengumpulan)</option>
-                      <option value="Groups">Groups (Kelompok)</option>
-                      <option value="Other">Other (Lainnya / Umum)</option>
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <ChevronDown size={15} />
-                    </div>
-                  </div>
+                  <CustomSelect
+                    value={uploadCategory}
+                    onChange={setUploadCategory}
+                    options={CATEGORY_OPTIONS}
+                    placeholder="Pilih Kategori..."
+                    searchPlaceholder="Cari kategori..."
+                    icon={Tag}
+                  />
                   <p className="text-[10px] text-slate-400">Menentukan label & ikon berkas di repositori.</p>
                 </div>
               </div>
