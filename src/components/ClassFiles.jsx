@@ -20,7 +20,13 @@ import {
   Filter,
   Layers,
   FolderOpen,
-  RefreshCw
+  RefreshCw,
+  UploadCloud,
+  ChevronDown,
+  BookOpen,
+  FolderPlus,
+  CheckCircle2,
+  Tag
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
@@ -31,10 +37,19 @@ import EmptyState from './EmptyState';
 
 const CATEGORIES = ['All', 'Submission', 'Material', 'Assignments', 'Groups', 'Other'];
 
+const FOLDER_PRESETS = [
+  { label: 'Materi Kuliah', category: 'Material', icon: '📚' },
+  { label: 'Pedoman & Silabus', category: 'Material', icon: '📋' },
+  { label: 'Tugas Perkuliahan', category: 'Assignments', icon: '📝' },
+  { label: 'Umum', category: 'Other', icon: '📁' }
+];
+
 export default function ClassFiles({
   currentClass,
   currentUser,
   files = [],
+  schedules = [],
+  tasks = [],
   onUploadFile,
   onDeleteFile,
   onRefreshFiles
@@ -57,10 +72,50 @@ export default function ClassFiles({
   const [uploadName, setUploadName] = useState('');
   const [uploadCategory, setUploadCategory] = useState('Material');
   const [uploadFolder, setUploadFolder] = useState('Materi Kuliah');
-  const [uploadCourse, setUploadCourse] = useState(currentClass?.name || '');
+  const [uploadCourse, setUploadCourse] = useState('');
+  const [isCustomCourse, setIsCustomCourse] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [recentlyUploadedId, setRecentlyUploadedId] = useState(null);
   const fileInputRef = useRef(null);
   const [selectedFileObj, setSelectedFileObj] = useState(null);
+
+  // Available courses dynamically gathered from schedules, tasks, files, and class defaults
+  const availableCourses = useMemo(() => {
+    const set = new Set();
+    (schedules || []).forEach(s => {
+      const name = (s.subject || s.title || s.course || '').trim();
+      if (name) set.add(name);
+    });
+    (tasks || []).forEach(t => {
+      const name = (t.course || '').trim();
+      if (name) set.add(name);
+    });
+    (files || []).forEach(f => {
+      const name = (f.course || '').trim();
+      if (name && name !== 'Umum' && name !== currentClass?.name) set.add(name);
+    });
+    if (set.size === 0) {
+      [
+        'Ekonomi Mikro',
+        'Matematika Ekonomi',
+        'Pengantar Akuntansi',
+        'Pengantar Bisnis dan Inovasi',
+        'Pengantar Logistik',
+        'Pengantar Transportasi',
+        'Pendidikan Pancasila',
+        'Prinsip - Prinsip Manajemen'
+      ].forEach(c => set.add(c));
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'));
+  }, [schedules, tasks, files, currentClass?.name]);
+
+  // Set default course once available
+  useEffect(() => {
+    if (!uploadCourse && availableCourses.length > 0) {
+      setUploadCourse(availableCourses[0]);
+    }
+  }, [availableCourses, uploadCourse]);
 
   const role = currentClass?.userRole;
   const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
@@ -142,58 +197,119 @@ export default function ClassFiles({
     return <File className="text-slate-500" size={22} />;
   };
 
+  const handleOpenUpload = (folderOverride) => {
+    const targetFolder = folderOverride || activeFolder || 'Materi Kuliah';
+    setUploadFolder(targetFolder);
+    if (targetFolder === 'Materi Kuliah' || targetFolder === 'Pedoman & Silabus') {
+      setUploadCategory('Material');
+    } else if (targetFolder.startsWith('Tugas:') || targetFolder === 'Tugas Perkuliahan') {
+      setUploadCategory('Assignments');
+    }
+
+    if (!uploadCourse && availableCourses.length > 0) {
+      setUploadCourse(availableCourses[0]);
+    }
+    setShowUploadModal(true);
+  };
+
+  const handleCloseUploadModal = () => {
+    if (isUploading) return;
+    setShowUploadModal(false);
+    setSelectedFileObj(null);
+    setUploadName('');
+    setIsCustomCourse(false);
+    setIsDragging(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleFileSelected = (file) => {
+    if (!file) return;
+    const maxBytes = 35 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      toast.error(`Ukuran berkas (${(file.size / (1024 * 1024)).toFixed(1)} MB) melebihi batas maksimal 35 MB.`);
+      return;
+    }
+    setSelectedFileObj(file);
+    if (!uploadName || uploadName === selectedFileObj?.name) {
+      setUploadName(file.name);
+    }
+    
+    // Auto-detect course from filename
+    const lowerName = file.name.toLowerCase();
+    for (const c of availableCourses) {
+      const lowerC = c.toLowerCase();
+      if (
+        lowerName.includes(lowerC) ||
+        (lowerC.includes('mikro') && lowerName.includes('mikro')) ||
+        (lowerC.includes('matematika') && (lowerName.includes('matematika') || lowerName.includes('matek') || lowerName.includes('mte'))) ||
+        (lowerC.includes('akuntansi') && (lowerName.includes('akuntansi') || lowerName.includes('akunt') || lowerName.includes('pak'))) ||
+        (lowerC.includes('logistik') && (lowerName.includes('logistik') || lowerName.includes('plo'))) ||
+        (lowerC.includes('transportasi') && (lowerName.includes('transportasi') || lowerName.includes('ptr'))) ||
+        (lowerC.includes('pancasila') && (lowerName.includes('pancasila') || lowerName.includes('ppa'))) ||
+        (lowerC.includes('bisnis') && (lowerName.includes('bisnis') || lowerName.includes('pbi'))) ||
+        (lowerC.includes('manajemen') && (lowerName.includes('manajemen') || lowerName.includes('pra')))
+      ) {
+        setUploadCourse(c);
+        setIsCustomCourse(false);
+        break;
+      }
+    }
+  };
+
   const handleFilePicked = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedFileObj(file);
-      if (!uploadName) setUploadName(file.name);
+      handleFileSelected(file);
     }
   };
 
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
     if (!uploadName.trim()) {
-      toast.error('Nama file wajib diisi');
+      toast.error('Nama berkas wajib diisi');
       return;
     }
+    if (!selectedFileObj) {
+      toast.error('Silakan pilih berkas yang akan diunggah');
+      return;
+    }
+
+    const finalCourse = (uploadCourse || availableCourses[0] || 'Umum').trim();
+    const targetFolder = uploadFolder.trim() || 'Materi Kuliah';
 
     setIsUploading(true);
     try {
       let fileUrl = '';
-      let fileSize = '1.2 MB';
+      let fileSize = `${(selectedFileObj.size / (1024 * 1024)).toFixed(2)} MB`;
       let driveFileId = null;
-      const targetFolder = uploadFolder.trim() || 'Materi Kuliah';
 
-      if (selectedFileObj) {
-        try {
-          toast.loading('Mengunggah ke Google Drive...', { id: 'drive-upload' });
-          const driveRes = await uploadToGoogleDrive({
-            file: selectedFileObj,
-            name: uploadName.trim(),
-            folderName: targetFolder,
-            workspaceName: currentClass?.name || 'M.Log B'
-          });
-          fileUrl = driveRes.webViewLink || driveRes.previewUrl;
-          driveFileId = driveRes.fileId || null;
-          fileSize = driveRes.fileSize || `${(selectedFileObj.size / (1024 * 1024)).toFixed(2)} MB`;
-          toast.success('Tersimpan di Google Drive!', { id: 'drive-upload' });
-        } catch (driveErr) {
-          console.warn('Google Drive error, falling back to local encoding:', driveErr);
-          toast.error(`Drive error: ${driveErr.message}. Menyimpan lokal...`, { id: 'drive-upload' });
-          const reader = new FileReader();
-          fileUrl = await new Promise((resolve) => {
-            reader.onload = () => resolve(reader.result);
-            reader.readAsDataURL(selectedFileObj);
-          });
-          fileSize = `${(selectedFileObj.size / (1024 * 1024)).toFixed(2)} MB`;
-        }
+      try {
+        toast.loading('Mengunggah ke Google Drive...', { id: 'drive-upload' });
+        const driveRes = await uploadToGoogleDrive({
+          file: selectedFileObj,
+          name: uploadName.trim(),
+          folderName: targetFolder,
+          workspaceName: currentClass?.name || 'M.Log B'
+        });
+        fileUrl = driveRes.webViewLink || driveRes.previewUrl;
+        driveFileId = driveRes.fileId || null;
+        fileSize = driveRes.fileSize || fileSize;
+        toast.success('Tersimpan di Google Drive!', { id: 'drive-upload' });
+      } catch (driveErr) {
+        console.warn('Google Drive error, falling back to local encoding:', driveErr);
+        toast.error(`Drive error: ${driveErr.message}. Menyimpan lokal...`, { id: 'drive-upload' });
+        const reader = new FileReader();
+        fileUrl = await new Promise((resolve) => {
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(selectedFileObj);
+        });
       }
 
-      await onUploadFile({
+      const result = await onUploadFile({
         name: uploadName.trim(),
         category: uploadCategory,
         folder: targetFolder,
-        course: uploadCourse.trim(),
+        course: finalCourse,
         uploadedBy: currentUser?.displayName || 'Member',
         fileSize,
         fileType: uploadName.split('.').pop()?.toLowerCase() || 'pdf',
@@ -201,12 +317,14 @@ export default function ClassFiles({
         driveFileId
       });
 
-      toast.success('File berhasil ditambahkan ke repositori!');
-      setShowUploadModal(false);
-      setUploadName('');
-      setSelectedFileObj(null);
+      const uploadedIdentifier = result?.id || uploadName.trim();
+      setRecentlyUploadedId(uploadedIdentifier);
+      setTimeout(() => setRecentlyUploadedId(null), 15000);
+
+      toast.success('Berkas berhasil diunggah dan tersimpan!');
+      handleCloseUploadModal();
     } catch (err) {
-      toast.error(err.message || 'Gagal mengunggah file');
+      toast.error(err.message || 'Gagal mengunggah berkas');
     } finally {
       setIsUploading(false);
     }
@@ -578,7 +696,7 @@ export default function ClassFiles({
           </button>
 
           <button
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => handleOpenUpload()}
             className="flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[38px]"
           >
             <Upload size={13} />
@@ -682,7 +800,7 @@ export default function ClassFiles({
                 title="Belum Ada Folder atau Berkas"
                 description="Berkas materi perkuliahan atau submission tugas yang dikumpulkan akan otomatis tersusun rapi di sini."
                 actionLabel="Upload Berkas Sekarang"
-                onAction={() => setShowUploadModal(true)}
+                onAction={() => handleOpenUpload()}
               />
             </div>
           ) : (
@@ -709,8 +827,9 @@ export default function ClassFiles({
                         <h4 className="font-bold text-xs text-[#0F172A] truncate group-hover:text-black">
                           {folder.name}
                         </h4>
-                        <p className="text-[10px] text-[#64748B] mt-0.5">
-                          {folder.count} berkas dikumpulkan
+                        <p className="text-[10px] text-emerald-700 font-semibold mt-0.5 flex items-center gap-1">
+                          <CheckCircle2 size={10} className="text-emerald-600 shrink-0" />
+                          <span>{folder.count} berkas terunggah</span>
                         </p>
                       </div>
                     </div>
@@ -741,15 +860,29 @@ export default function ClassFiles({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredFiles.map(file => {
                 const folderTag = file.folder || file.groupName || (file.category === 'Submission' ? 'Tugas' : 'Materi');
+                const isRecentlyUploaded = recentlyUploadedId && (recentlyUploadedId === file.id || recentlyUploadedId === file.name);
+                const isUploadedByMe = (file.uploadedBy && currentUser?.displayName && file.uploadedBy.toLowerCase() === currentUser.displayName.toLowerCase()) ||
+                                       (file.uploadedBy && currentUser?.email && file.uploadedBy.toLowerCase() === currentUser.email.toLowerCase());
+                const hasDrive = !!(file.driveFileId || file.storageUrl);
 
                 return (
                   <div
                     key={file.id}
                     onClick={() => setSelectedFile(file)}
-                    className="bg-white border border-slate-200 hover:border-slate-300 p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between space-y-3 group"
+                    className={`bg-white border p-4 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between space-y-3 group ${
+                      isRecentlyUploaded
+                        ? 'border-emerald-400 bg-emerald-50/40 ring-2 ring-emerald-300/80 shadow-md'
+                        : isUploadedByMe
+                        ? 'border-emerald-200 bg-emerald-50/15 hover:border-emerald-300'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-center shrink-0 group-hover:bg-slate-100 transition-colors">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                        isRecentlyUploaded || isUploadedByMe
+                          ? 'bg-emerald-100/70 border border-emerald-200 text-emerald-800'
+                          : 'bg-[#F8FAFC] border border-[#E2E8F0] group-hover:bg-slate-100'
+                      }`}>
                         {getFileIcon(file.fileType, file.name)}
                       </div>
 
@@ -763,12 +896,31 @@ export default function ClassFiles({
                             📁 {folderTag}
                           </span>
                           <span className="text-[#64748B]">{file.fileSize || '1.2 MB'}</span>
+
+                          {/* Tanda hijau sudah upload */}
+                          <span className="px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold flex items-center gap-1 shrink-0">
+                            <CheckCircle2 size={10} className="text-emerald-600" />
+                            <span>{hasDrive ? '✓ Terunggah di Drive' : '✓ Sudah Upload'}</span>
+                          </span>
+
+                          {isRecentlyUploaded && (
+                            <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white font-bold animate-pulse text-[9px]">
+                              Baru Diunggah!
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
 
                     <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[10px] text-[#94A3B8]">
-                      <span className="truncate">Oleh {file.uploadedBy}</span>
+                      {isUploadedByMe ? (
+                        <span className="truncate text-emerald-700 font-bold flex items-center gap-1">
+                          <Check size={11} className="text-emerald-600" />
+                          <span>Diunggah oleh Anda</span>
+                        </span>
+                      ) : (
+                        <span className="truncate">Oleh {file.uploadedBy}</span>
+                      )}
                       <span className="font-bold text-[#0F172A] group-hover:underline flex items-center gap-1">
                         <Eye size={11} />
                         <span>Preview</span>
@@ -797,9 +949,13 @@ export default function ClassFiles({
                   <h3 className="font-bold text-sm sm:text-base text-[#0F172A] truncate">
                     {selectedFile.name}
                   </h3>
-                  <div className="flex items-center gap-2 text-xs text-[#64748B]">
-                    <span className="px-2 py-0.2 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
+                  <div className="flex items-center gap-2 text-xs text-[#64748B] flex-wrap">
+                    <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
                       📁 {selectedFile.folder || selectedFile.groupName || 'Materi'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold flex items-center gap-1">
+                      <CheckCircle2 size={11} className="text-emerald-600" />
+                      <span>Status: Berhasil Diunggah {selectedFile.driveFileId ? 'ke Drive' : ''}</span>
                     </span>
                     <span>·</span>
                     <span>Pengunggah: {selectedFile.uploadedBy}</span>
@@ -868,80 +1024,111 @@ export default function ClassFiles({
 
       {/* MODAL 2: UPLOAD FILE MODAL */}
       {showUploadModal && (
-        <ModalPortal onClose={() => setShowUploadModal(false)} maxWidth="max-w-md">
-          <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-[#F1F5F9]">
-              <h3 className="font-bold text-base text-[#0F172A]">Upload Berkas ke Kelas</h3>
-              <button onClick={() => setShowUploadModal(false)} className="p-1 rounded-full text-[#94A3B8] hover:text-[#0F172A]">
+        <ModalPortal onClose={handleCloseUploadModal} maxWidth="max-w-lg">
+          <div className="bg-white border border-slate-200/80 rounded-3xl w-full p-6 space-y-5 shadow-2xl max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3.5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
+                  <UploadCloud size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 leading-tight">Upload Berkas ke Kelas</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Unggah materi atau dokumen pendukung ke Google Drive kelas</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={handleCloseUploadModal} 
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Tutup"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleUploadSubmit} className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[#334155]">Nama Berkas</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Modul Pertemuan 4.pdf"
-                  value={uploadName}
-                  onChange={(e) => setUploadName(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
-                />
-              </div>
+            <form onSubmit={handleUploadSubmit} className="space-y-4">
+              {/* 1. File Picker / Dropzone */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                  <span>Pilih Berkas <span className="text-rose-500">*</span></span>
+                  {selectedFileObj && (
+                    <span className="text-[11px] font-mono text-indigo-600 font-medium">
+                      {(selectedFileObj.size / (1024 * 1024)).toFixed(2)} MB
+                    </span>
+                  )}
+                </label>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#334155]">Folder Tujuan</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Materi Kuliah"
-                    value={uploadFolder}
-                    onChange={(e) => setUploadFolder(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#334155]">Kategori</label>
-                  <select
-                    value={uploadCategory}
-                    onChange={(e) => setUploadCategory(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A] bg-white focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all cursor-pointer"
+                {!selectedFileObj ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragging(false);
+                      const dropped = e.dataTransfer.files?.[0];
+                      if (dropped) handleFileSelected(dropped);
+                    }}
+                    className={`p-6 rounded-2xl border-2 border-dashed transition-all cursor-pointer text-center group ${
+                      isDragging 
+                        ? 'border-indigo-500 bg-indigo-50/50 scale-[0.99]' 
+                        : 'border-slate-200 hover:border-indigo-400 bg-slate-50/60 hover:bg-indigo-50/20'
+                    }`}
                   >
-                    <option value="Material">Material</option>
-                    <option value="Submission">Submission</option>
-                    <option value="Assignments">Assignments</option>
-                    <option value="Groups">Groups</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
+                    <div className="w-11 h-11 mx-auto rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-500 group-hover:text-indigo-600 group-hover:scale-105 transition-all mb-2.5">
+                      <UploadCloud size={20} />
+                    </div>
+                    <p className="text-xs font-semibold text-slate-800">
+                      Klik untuk memilih file <span className="font-normal text-slate-500">atau seret file ke sini</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Mendukung PDF, PPTX, DOCX, XLSX, ZIP, Gambar hingga 35 MB
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/40 via-white to-slate-50/50 flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 shadow-2xs flex items-center justify-center shrink-0">
+                        {getFileIcon(selectedFileObj.type, selectedFileObj.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-slate-800 truncate" title={selectedFileObj.name}>
+                          {selectedFileObj.name}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-mono font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                            {(selectedFileObj.size / (1024 * 1024)).toFixed(2)} MB
+                          </span>
+                          <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-0.5">
+                            <CheckCircle2 size={11} /> Berkas siap
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold text-slate-600 hover:text-indigo-600 hover:bg-white border border-slate-200/80 transition-all cursor-pointer shadow-2xs"
+                      >
+                        Ganti
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFileObj(null);
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                        }}
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                        title="Hapus file terpilih"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[#334155]">Mata Kuliah</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Pemrograman Mobile"
-                  value={uploadCourse}
-                  onChange={(e) => setUploadCourse(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-xs text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
-                />
-              </div>
-
-              {/* File Attachment Picker */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[#334155]">Pilih File</label>
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-4 rounded-xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] hover:bg-white text-center cursor-pointer transition-colors space-y-1"
-                >
-                  <Upload size={16} className="mx-auto text-[#64748B]" />
-                  <p className="text-xs font-medium text-[#0F172A]">
-                    {selectedFileObj ? selectedFileObj.name : 'Klik untuk memilih file dari komputer/HP'}
-                  </p>
-                  <p className="text-[10px] text-[#94A3B8]">Mendukung PDF, DOCX, PPTX, ZIP, Gambar, dll.</p>
-                </div>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -950,20 +1137,189 @@ export default function ClassFiles({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#F1F5F9]">
+              {/* 2. Nama Berkas */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                  <span>Nama Tampilan Berkas <span className="text-rose-500">*</span></span>
+                  {selectedFileObj && uploadName !== selectedFileObj.name && (
+                    <button 
+                      type="button"
+                      onClick={() => setUploadName(selectedFileObj.name)}
+                      className="text-[10px] font-normal text-indigo-600 hover:underline cursor-pointer"
+                    >
+                      Gunakan nama asli
+                    </button>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Modul Pertemuan 1 - Pengantar.pdf"
+                  value={uploadName}
+                  onChange={(e) => setUploadName(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all font-medium"
+                />
+              </div>
+
+              {/* 3. Mata Kuliah (SESUAI & DROPDOWN) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <BookOpen size={13} className="text-indigo-500" />
+                    <span>Mata Kuliah <span className="text-rose-500">*</span></span>
+                  </span>
+                  {!isCustomCourse ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomCourse(true);
+                        setUploadCourse('');
+                      }}
+                      className="text-[11px] text-indigo-600 hover:underline cursor-pointer"
+                    >
+                      + Input Manual
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomCourse(false);
+                        setUploadCourse(availableCourses[0] || '');
+                      }}
+                      className="text-[11px] text-indigo-600 hover:underline cursor-pointer"
+                    >
+                      Pilih dari Daftar
+                    </button>
+                  )}
+                </label>
+
+                {!isCustomCourse ? (
+                  <div className="relative">
+                    <select
+                      value={uploadCourse}
+                      onChange={(e) => {
+                        if (e.target.value === '__CUSTOM__') {
+                          setIsCustomCourse(true);
+                          setUploadCourse('');
+                        } else {
+                          setUploadCourse(e.target.value);
+                        }
+                      }}
+                      className="w-full appearance-none px-3.5 py-2.5 pr-9 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all cursor-pointer"
+                    >
+                      <option value="" disabled>Pilih Mata Kuliah...</option>
+                      {availableCourses.map(c => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                      <option value="__CUSTOM__">➕ Ketik Mata Kuliah Lain...</option>
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <ChevronDown size={15} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      placeholder="Ketik nama mata kuliah..."
+                      value={uploadCourse}
+                      onChange={(e) => setUploadCourse(e.target.value)}
+                      autoFocus
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-indigo-50/20 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all font-medium"
+                    />
+                    <p className="text-[10px] text-slate-400">Mode input mata kuliah kustom aktif.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Folder Tujuan & Kategori */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Folder Tujuan */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                    <span>Folder Tujuan</span>
+                    <span className="text-[10px] text-slate-400 font-normal">di Google Drive</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Materi Kuliah"
+                    value={uploadFolder}
+                    onChange={(e) => setUploadFolder(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all"
+                  />
+                  {/* Folder Presets */}
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {FOLDER_PRESETS.map(fp => (
+                      <button
+                        key={fp.label}
+                        type="button"
+                        onClick={() => {
+                          setUploadFolder(fp.label);
+                          setUploadCategory(fp.category);
+                        }}
+                        className={`text-[10px] font-medium px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                          uploadFolder === fp.label
+                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold'
+                            : 'bg-slate-50 border-slate-200/80 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {fp.icon} {fp.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Kategori */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Kategori Berkas</label>
+                  <div className="relative">
+                    <select
+                      value={uploadCategory}
+                      onChange={(e) => setUploadCategory(e.target.value)}
+                      className="w-full appearance-none px-3.5 py-2.5 pr-9 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 bg-white focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all cursor-pointer font-medium"
+                    >
+                      <option value="Material">Material (Materi Kuliah)</option>
+                      <option value="Assignments">Assignments (Tugas)</option>
+                      <option value="Submission">Submission (Pengumpulan)</option>
+                      <option value="Groups">Groups (Kelompok)</option>
+                      <option value="Other">Other (Lainnya / Umum)</option>
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <ChevronDown size={15} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-400">Menentukan label & ikon berkas di repositori.</p>
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowUploadModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-[#64748B] hover:bg-[#F1F5F9]"
+                  disabled={isUploading}
+                  onClick={handleCloseUploadModal}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50 min-h-[38px]"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={isUploading}
-                  className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-xs disabled:opacity-50"
+                  disabled={isUploading || !uploadName.trim() || !selectedFileObj}
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs disabled:opacity-50 flex items-center gap-2 transition-all cursor-pointer min-h-[38px]"
                 >
-                  {isUploading ? 'Mengunggah...' : 'Simpan Berkas'}
+                  {isUploading ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin text-indigo-400" />
+                      <span>Mengunggah ke Drive...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={13} />
+                      <span>Simpan Berkas</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

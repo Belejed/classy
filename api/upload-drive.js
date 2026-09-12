@@ -12,7 +12,10 @@ const getPrivateKey = () => {
   return key;
 };
 
-const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '1BK-P0mPQF9MSy0wsQ-tqNgVCXHXuCwmf';
+// Hardcoded valid Root Folder ID to prevent invalid env overrides
+const ROOT_FOLDER_ID = (process.env.GOOGLE_DRIVE_FOLDER_ID && process.env.GOOGLE_DRIVE_FOLDER_ID !== '1ILurBWuTaUbPAMRZUGgJXu8nsZl8d0Lv')
+  ? process.env.GOOGLE_DRIVE_FOLDER_ID
+  : '1BK-P0mPQF9MSy0wsQ-tqNgVCXHXuCwmf';
 
 const getDriveClient = () => {
   const privateKey = getPrivateKey();
@@ -174,7 +177,8 @@ export default async function handler(req, res) {
     if (resolvedFolderId) {
       scriptBody.folderId = resolvedFolderId;
     } else {
-      scriptBody.folderName = `${targetWorkspace} - ${targetSubfolder}`;
+      scriptBody.workspaceName = targetWorkspace;
+      scriptBody.folderName = targetSubfolder;
     }
 
     const scriptResponse = await fetch(GOOGLE_SCRIPT_URL, {

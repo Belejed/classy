@@ -1293,6 +1293,8 @@ function ClassWorkspace({
                 currentClass={currentClass}
                 currentUser={user}
                 files={files}
+                schedules={schedules}
+                tasks={tasks}
                 onUploadFile={handleUploadFile}
                 onDeleteFile={handleDeleteFile}
                 onRefreshFiles={handleRefreshFiles}

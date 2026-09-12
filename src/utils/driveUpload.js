@@ -3,6 +3,20 @@
  */
 const DIRECT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwi3vHYbWBRva2OhDZVefspXZsr_dOid3hdtQ7rwxWtCoiRsS-24gU4l4A167mNVHEeww/exec';
 
+// Pre-mapped known folder IDs to ensure 100% placement inside M.Log B without stray root folders
+export const KNOWN_SUBFOLDER_IDS = {
+  'M.Log B:Tugas: Bussiness Value Mapping': '1onArmPNPMErsISDvv9RiQ43T35ahF7p5',
+  'M.Log B:Tugas: Tugas Individu': '1vNmsOTYef1vEYCUmpQwwj_gqeKDwkKIn',
+  'M.Log B:Tugas: PPT Permasalahan Transportasi': '1m-EgXYUjhaLdlJDKG4s2d_u2kt4YGoro',
+  'M.Log B:Tugas: Makalah Riset 2 Halaman': '1goE6yRZfOW0adgVsG9VKQSYKLrfBNlwb',
+  'M.Log B:Tugas: Analisis Benchmarking Perusahaan': '16nT7DjMqLeJm9JYexVj5SncZbjWwNFxb',
+  'M.Log B:Materi Kuliah': '1oedY2DbXYwQIC5S6XahXNoEvAtFaGJIz',
+  'M.Log B:Pedoman': '14qmi8TBJSFnWdXEGxDTSurRHQp1JJmIF',
+  'M.Log B:Lampiran Pengumuman': '1MVMWi8D1BwFuOdNMGlI3nKRorrQa4S_C',
+  'M.Log B': '1cflGkvF46agbdU_hWwHXPdc1iCmniWgF',
+  'MLog A 2026': '1blMVEK27MmjwvgrvK26Hs-FNfug5yquZ'
+};
+
 const folderCache = new Map();
 
 /**
@@ -10,8 +24,14 @@ const folderCache = new Map();
  * using lightweight metadata call without transmitting large file payloads
  */
 export async function resolveDriveFolderId(workspaceName, folderName) {
-  const targetWorkspace = (workspaceName || '').trim() || 'Umum';
+  const targetWorkspace = (workspaceName || '').trim() || 'M.Log B';
   const targetFolder = (folderName || '').trim() || 'Materi Kuliah';
+  const directKey = `${targetWorkspace}:${targetFolder}`;
+
+  if (KNOWN_SUBFOLDER_IDS[directKey]) {
+    return KNOWN_SUBFOLDER_IDS[directKey];
+  }
+
   const cacheKey = `fld_${targetWorkspace}_${targetFolder}`;
 
   if (folderCache.has(cacheKey)) {
@@ -55,7 +75,7 @@ export async function resolveDriveFolderId(workspaceName, folderName) {
     console.warn('Could not resolve Drive folder ID:', err);
   }
 
-  return null;
+  return KNOWN_SUBFOLDER_IDS[targetWorkspace] || null;
 }
 
 export async function uploadToGoogleDrive({ file, name, folderName, workspaceName }) {
@@ -107,13 +127,13 @@ export async function uploadToGoogleDrive({ file, name, folderName, workspaceNam
   const scriptPayload = {
     fileName,
     mimeType,
-    fileData
+    fileData,
+    workspaceName: targetWorkspace,
+    folderName: targetFolder
   };
 
   if (resolvedFolderId) {
     scriptPayload.folderId = resolvedFolderId;
-  } else {
-    scriptPayload.folderName = `${targetWorkspace} - ${targetFolder}`;
   }
 
   const directRes = await fetch(DIRECT_SCRIPT_URL, {

@@ -1722,7 +1722,7 @@ export default function ClassTasks({
                     : isOverdue && !isSubmitted
                       ? 'border-l-4 border-l-rose-500 border-rose-200 bg-rose-50/15 ring-1 ring-rose-200/40'
                       : isSubmitted
-                        ? 'border-l-4 border-l-emerald-500 border-slate-200 hover:border-emerald-300'
+                        ? 'border-l-4 border-l-emerald-500 border-emerald-200 bg-emerald-50/20 hover:border-emerald-400 hover:bg-emerald-50/35 shadow-xs'
                         : 'border-l-4 border-l-indigo-400 border-slate-200 hover:border-slate-300'
                 }`}
               >
@@ -1753,14 +1753,14 @@ export default function ClassTasks({
                       </span>
                     ) : isSubmitted ? (
                       isLate ? (
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 shrink-0" title="Dikumpulkan setelah melewati batas tenggat waktu">
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-amber-300 flex items-center gap-1 shrink-0" title="Dikumpulkan setelah melewati batas tenggat waktu">
                           <Clock size={10} className="text-amber-600" />
-                          <span>Terkumpul (Terlambat)</span>
+                          <span>✓ Sudah Upload (Terlambat)</span>
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shrink-0" title={userSub.isGroup && userSub.userId !== currentUser?.uid ? `Submitted by ${userSub.userName}` : 'Submitted'}>
-                          <Check size={10} />
-                          <span>{userSub.isGroup && userSub.userId !== currentUser?.uid ? `Submitted by ${userSub.userName.split(' ')[0]}` : 'Submitted'}</span>
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shrink-0" title={userSub.isGroup && userSub.userId !== currentUser?.uid ? `Dikumpulkan oleh ${userSub.userName}` : 'Tugas Sudah Diunggah'}>
+                          <Check size={11} strokeWidth={2.5} className="text-emerald-700" />
+                          <span>{userSub.isGroup && userSub.userId !== currentUser?.uid ? `✓ Upload: ${userSub.userName.split(' ')[0]}` : '✓ Sudah Upload'}</span>
                         </span>
                       )
                     ) : isOverdue ? (
@@ -1787,12 +1787,17 @@ export default function ClassTasks({
                 </div>
 
                 <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-xs text-[#64748B]">
-                  <span className={`flex items-center gap-1 font-medium ${isOverdue && !isSubmitted ? 'text-rose-600 font-bold' : ''}`}>
-                    <Clock size={12} className={isOverdue && !isSubmitted ? 'text-rose-600' : ''} />
+                  <span className={`flex items-center gap-1 font-medium ${isOverdue && !isSubmitted ? 'text-rose-600 font-bold' : isSubmitted ? 'text-emerald-700 font-semibold' : ''}`}>
+                    <Clock size={12} className={isOverdue && !isSubmitted ? 'text-rose-600' : isSubmitted ? 'text-emerald-600' : ''} />
                     <span>Due {task.dueDate} · {task.dueTime}</span>
                     {isOverdue && !isSubmitted && (
                       <span className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-bold uppercase tracking-wider border border-rose-200">
                         Lewat
+                      </span>
+                    )}
+                    {isSubmitted && (
+                      <span className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold uppercase tracking-wider border border-emerald-300">
+                        ✓ Terkumpul
                       </span>
                     )}
                   </span>
@@ -2844,19 +2849,19 @@ export default function ClassTasks({
                 }
 
                 return (
-                  <div className="p-3 sm:p-4 rounded-xl bg-white border border-emerald-200 space-y-2.5 text-left">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/60 border-2 border-emerald-300 space-y-3 text-left shadow-2xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                          <Check size={14} className="text-emerald-600 shrink-0" />
+                        <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5 bg-emerald-100/90 px-2.5 py-1 rounded-full border border-emerald-300">
+                          <CheckCircle2 size={15} className="text-emerald-700 shrink-0" />
                           <span>
                             {!userSub.fileUrl
                               ? (userSub.isGroup && !isSubmitter
                                   ? `Tugas Ditandai Selesai (oleh ${userSub.userName})`
-                                  : 'Tugas Sudah Dikerjakan')
+                                  : '✓ Tugas Sudah Dikerjakan')
                               : (userSub.isGroup && !isSubmitter
-                                  ? `Tugas Dikumpulkan (Submitted by ${userSub.userName})`
-                                  : 'Tugas Berhasil Dikumpulkan')}
+                                  ? `✓ Sudah Diunggah (oleh ${userSub.userName})`
+                                  : '✓ Berkas Sudah Berhasil Diunggah ke Drive')}
                           </span>
                         </span>
                         {!userSub.fileUrl && (
@@ -3281,17 +3286,21 @@ export default function ClassTasks({
                             <div
                               key={member?.userId || member?.uid || member?.id || submission.id || idx}
                               className={`p-2 sm:p-2.5 rounded-xl border flex items-center justify-between text-xs gap-2 transition-colors ${
-                                subMissing ? 'bg-rose-50/70 border-rose-200' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+                                subMissing ? 'bg-rose-50/70 border-rose-200' : 'bg-emerald-50/25 border-emerald-200 hover:border-emerald-300'
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center justify-center font-bold text-xs shrink-0">
                                   {initial}
                                 </div>
                                 <div className="truncate flex-1">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-bold text-[#0F172A] truncate block max-w-[140px] xs:max-w-[190px] sm:max-w-none">
                                       {studentName}
+                                    </span>
+                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0 flex items-center gap-0.5">
+                                      <Check size={9} />
+                                      <span>✓ Sudah Upload</span>
                                     </span>
                                     {isGroup && (
                                       <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-violet-100 text-violet-800 border border-violet-200 shrink-0 flex items-center gap-0.5">
