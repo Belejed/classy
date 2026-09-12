@@ -23,9 +23,11 @@ import {
   RefreshCw,
   UploadCloud,
   ChevronDown,
+  ChevronUp,
   BookOpen,
   FolderPlus,
   CheckCircle2,
+  AlertCircle,
   Tag
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -87,8 +89,25 @@ export default function ClassFiles({
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [recentlyUploadedId, setRecentlyUploadedId] = useState(null);
+  const [backgroundUploads, setBackgroundUploads] = useState([]);
+  const [isWidgetExpanded, setIsWidgetExpanded] = useState(true);
   const fileInputRef = useRef(null);
   const [selectedFileObj, setSelectedFileObj] = useState(null);
+
+  // Prevent accidental page refresh while files are actively uploading in background
+  useEffect(() => {
+    const hasUploading = backgroundUploads.some(u => u.status === 'uploading');
+    if (!hasUploading) return;
+
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = 'Proses pengunggahan berkas sedang berlangsung di latar belakang. Jika halaman dimuat ulang, pengunggahan akan terputus.';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [backgroundUploads]);
 
   // Available courses dynamically gathered from schedules, tasks, files, and class defaults
   const availableCourses = useMemo(() => {
@@ -277,7 +296,99 @@ export default function ClassFiles({
     }
   };
 
-  const handleUploadSubmit = async (e) => {
+  const executeBackgroundUpload = async (job, fileObj) => {
+    const { id, fileName, targetFolder, finalCourse, category } = job;
+
+    const progressTimer = setInterval(() => {
+      setBackgroundUploads(prev => prev.map(u => {
+        if (u.id !== id || u.status !== 'uploading') return u;
+        const next = Math.min(u.progress + 2, 92);
+        return { ...u, progress: Math.max(u.progress, next) };
+      }));
+    }, 1200);
+
+    try {
+      setBackgroundUploads(prev => prev.map(u => 
+        u.id === id ? { ...u, progress: 15, statusMessage: 'Mengunggah ke Google Drive...' } : u
+      ));
+
+      let fileUrl = '';
+      let fileSize = `${(fileObj.size / (1024 * 1024)).toFixed(2)} MB`;
+      let driveFileId = null;
+
+      try {
+        const driveRes = await uploadToGoogleDrive({
+          file: fileObj,
+          name: fileName,
+          folderName: targetFolder,
+          workspaceName: currentClass?.name || 'M.Log B'
+        });
+        fileUrl = driveRes.webViewLink || driveRes.previewUrl;
+        driveFileId = driveRes.fileId || null;
+        fileSize = driveRes.fileSize || fileSize;
+      } catch (driveErr) {
+        console.warn('Google Drive fallback to local encoding:', driveErr);
+        const reader = new FileReader();
+        fileUrl = await new Promise((resolve) => {
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(fileObj);
+        });
+      }
+
+      clearInterval(progressTimer);
+
+      setBackgroundUploads(prev => prev.map(u => 
+        u.id === id ? { ...u, progress: 95, statusMessage: 'Menyimpan berkas ke kelas...' } : u
+      ));
+
+      const result = await onUploadFile({
+        name: fileName,
+        category,
+        folder: targetFolder,
+        course: finalCourse,
+        uploadedBy: currentUser?.displayName || 'Member',
+        fileSize,
+        fileType: fileName.split('.').pop()?.toLowerCase() || 'pdf',
+        storageUrl: fileUrl,
+        driveFileId
+      });
+
+      const uploadedIdentifier = result?.id || fileName;
+      setRecentlyUploadedId(uploadedIdentifier);
+      setTimeout(() => setRecentlyUploadedId(null), 15000);
+
+      setBackgroundUploads(prev => prev.map(u => 
+        u.id === id ? { ...u, progress: 100, status: 'completed', statusMessage: 'Berhasil diunggah ke Drive!' } : u
+      ));
+
+      toast.success(`🎉 Berkas "${fileName}" berhasil tersimpan di Google Drive!`, { id: `file-done-${id}`, duration: 5000 });
+
+      // Automatically clean up finished job after 8 seconds
+      setTimeout(() => {
+        setBackgroundUploads(prev => prev.filter(u => u.id !== id));
+      }, 8000);
+    } catch (err) {
+      clearInterval(progressTimer);
+      console.error('Background upload error:', err);
+      setBackgroundUploads(prev => prev.map(u => 
+        u.id === id ? { ...u, status: 'error', error: err.message || 'Gagal mengunggah ke Google Drive' } : u
+      ));
+      toast.error(`Gagal mengunggah "${fileName}": ${err.message || 'Terjadi kesalahan'}`);
+    }
+  };
+
+  const handleRetryJob = (job) => {
+    if (!job.fileObj) {
+      toast.error('Berkas asli tidak ditemukan. Silakan buka modal upload kembali.');
+      return;
+    }
+    setBackgroundUploads(prev => prev.map(u => 
+      u.id === job.id ? { ...u, status: 'uploading', progress: 15, error: null, statusMessage: 'Mencoba mengunggah ulang...' } : u
+    ));
+    executeBackgroundUpload(job, job.fileObj);
+  };
+
+  const handleUploadSubmit = (e) => {
     e.preventDefault();
     if (!uploadName.trim()) {
       toast.error('Nama berkas wajib diisi');
@@ -290,58 +401,34 @@ export default function ClassFiles({
 
     const finalCourse = (uploadCourse || availableCourses[0] || 'Umum').trim();
     const targetFolder = uploadFolder.trim() || 'Materi Kuliah';
+    const fileObj = selectedFileObj;
+    const fileName = uploadName.trim();
+    const category = uploadCategory;
+    const jobId = `fupload_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const sizeMb = (fileObj.size / (1024 * 1024)).toFixed(2);
 
-    setIsUploading(true);
-    try {
-      let fileUrl = '';
-      let fileSize = `${(selectedFileObj.size / (1024 * 1024)).toFixed(2)} MB`;
-      let driveFileId = null;
+    const newJob = {
+      id: jobId,
+      fileName,
+      rawFileName: fileObj.name,
+      fileSize: `${sizeMb} MB`,
+      progress: 10,
+      status: 'uploading',
+      statusMessage: fileObj.size > 8 * 1024 * 1024 
+        ? 'Mengunggah berkas besar ke Drive di latar belakang...' 
+        : 'Menyiapkan pengunggahan ke Google Drive...',
+      targetFolder,
+      finalCourse,
+      category,
+      fileObj,
+      startedAt: Date.now()
+    };
 
-      try {
-        toast.loading('Mengunggah ke Google Drive...', { id: 'drive-upload' });
-        const driveRes = await uploadToGoogleDrive({
-          file: selectedFileObj,
-          name: uploadName.trim(),
-          folderName: targetFolder,
-          workspaceName: currentClass?.name || 'M.Log B'
-        });
-        fileUrl = driveRes.webViewLink || driveRes.previewUrl;
-        driveFileId = driveRes.fileId || null;
-        fileSize = driveRes.fileSize || fileSize;
-        toast.success('Tersimpan di Google Drive!', { id: 'drive-upload' });
-      } catch (driveErr) {
-        console.warn('Google Drive error, falling back to local encoding:', driveErr);
-        toast.error(`Drive error: ${driveErr.message}. Menyimpan lokal...`, { id: 'drive-upload' });
-        const reader = new FileReader();
-        fileUrl = await new Promise((resolve) => {
-          reader.onload = () => resolve(reader.result);
-          reader.readAsDataURL(selectedFileObj);
-        });
-      }
+    setBackgroundUploads(prev => [newJob, ...prev]);
+    handleCloseUploadModal();
+    toast.success(`🚀 Berkas "${fileName}" sedang diunggah di latar belakang!`, { duration: 4000 });
 
-      const result = await onUploadFile({
-        name: uploadName.trim(),
-        category: uploadCategory,
-        folder: targetFolder,
-        course: finalCourse,
-        uploadedBy: currentUser?.displayName || 'Member',
-        fileSize,
-        fileType: uploadName.split('.').pop()?.toLowerCase() || 'pdf',
-        storageUrl: fileUrl,
-        driveFileId
-      });
-
-      const uploadedIdentifier = result?.id || uploadName.trim();
-      setRecentlyUploadedId(uploadedIdentifier);
-      setTimeout(() => setRecentlyUploadedId(null), 15000);
-
-      toast.success('Berkas berhasil diunggah dan tersimpan!');
-      handleCloseUploadModal();
-    } catch (err) {
-      toast.error(err.message || 'Gagal mengunggah berkas');
-    } finally {
-      setIsUploading(false);
-    }
+    executeBackgroundUpload(newJob, fileObj);
   };
 
   // Convert data URL to Blob for secure new tab opening & downloading
@@ -1326,20 +1413,11 @@ export default function ClassFiles({
                 </button>
                 <button
                   type="submit"
-                  disabled={isUploading || !uploadName.trim() || !selectedFileObj}
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs disabled:opacity-50 flex items-center gap-2 transition-all cursor-pointer min-h-[38px]"
+                  disabled={!uploadName.trim() || !selectedFileObj}
+                  className="px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-xs disabled:opacity-50 flex items-center gap-2 transition-all cursor-pointer min-h-[38px]"
                 >
-                  {isUploading ? (
-                    <>
-                      <RefreshCw size={13} className="animate-spin text-indigo-400" />
-                      <span>Mengunggah ke Drive...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload size={13} />
-                      <span>Simpan Berkas</span>
-                    </>
-                  )}
+                  <UploadCloud size={15} />
+                  <span>Unggah di Latar Belakang</span>
                 </button>
               </div>
             </form>
@@ -1359,6 +1437,137 @@ export default function ClassFiles({
         type="danger"
         isLoading={isDeleting}
       />
+
+      {/* FLOATING BACKGROUND UPLOADS WIDGET */}
+      {backgroundUploads.length > 0 && (
+        <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end max-w-sm w-[92vw] sm:w-[380px] select-none pointer-events-auto transition-all duration-300">
+          <div className="w-full bg-white/95 backdrop-blur-md text-[#0F172A] border border-[#CBD5E1] shadow-2xl rounded-2xl overflow-hidden">
+            {/* Widget Header */}
+            <div 
+              onClick={() => setIsWidgetExpanded(prev => !prev)}
+              className="flex items-center justify-between px-4 py-3 bg-[#F8FAFC] cursor-pointer hover:bg-slate-100/80 transition-colors border-b border-[#E2E8F0]"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                {backgroundUploads.some(u => u.status === 'uploading') ? (
+                  <RefreshCw size={15} className="animate-spin text-indigo-600 shrink-0" />
+                ) : backgroundUploads.some(u => u.status === 'error') ? (
+                  <AlertCircle size={15} className="text-rose-600 shrink-0" />
+                ) : (
+                  <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                )}
+                <span className="text-xs font-bold text-[#0F172A] truncate">
+                  {backgroundUploads.some(u => u.status === 'uploading')
+                    ? `Mengunggah (${backgroundUploads.filter(u => u.status === 'uploading').length} berkas)`
+                    : 'Pengunggahan Berkas Selesai'}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  {backgroundUploads.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsWidgetExpanded(prev => !prev);
+                  }}
+                  className="p-1 text-[#64748B] hover:text-[#0F172A] rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+                  title={isWidgetExpanded ? 'Ciutkan' : 'Perluas'}
+                >
+                  {isWidgetExpanded ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                </button>
+                {backgroundUploads.every(u => u.status !== 'uploading') && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBackgroundUploads([]);
+                    }}
+                    className="p-1 text-[#64748B] hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors ml-1 cursor-pointer"
+                    title="Tutup & Bersihkan"
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Widget Body */}
+            {isWidgetExpanded && (
+              <div className="p-3.5 space-y-3 max-h-72 overflow-y-auto divide-y divide-slate-100 bg-white custom-scrollbar">
+                {backgroundUploads.map(job => (
+                  <div key={job.id} className="pt-2.5 first:pt-0 space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-[#0F172A] truncate" title={job.fileName}>
+                          {job.fileName}
+                        </p>
+                        <p className="text-[10px] text-[#64748B] truncate font-mono">
+                          📁 {job.targetFolder} · {job.finalCourse}
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-600 shrink-0 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        {job.fileSize}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200/60">
+                      <div
+                        className={`h-full transition-all duration-300 rounded-full ${
+                          job.status === 'completed'
+                            ? 'bg-emerald-500'
+                            : job.status === 'error'
+                            ? 'bg-rose-500'
+                            : 'bg-gradient-to-r from-indigo-600 to-sky-500'
+                        }`}
+                        style={{ width: `${job.progress}%` }}
+                      />
+                    </div>
+
+                    {/* Status Text & Actions */}
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className={`truncate font-medium flex items-center gap-1 ${
+                        job.status === 'completed'
+                          ? 'text-emerald-700 font-bold'
+                          : job.status === 'error'
+                          ? 'text-rose-600'
+                          : 'text-indigo-600'
+                      }`}>
+                        {job.status === 'completed' && <Check size={12} strokeWidth={3} className="text-emerald-600" />}
+                        {job.status === 'error' && <AlertCircle size={12} className="text-rose-600" />}
+                        <span className="truncate">{job.statusMessage || (job.status === 'completed' ? 'Tersimpan di Drive!' : job.error)}</span>
+                      </span>
+
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {job.status === 'error' && (
+                          <button
+                            type="button"
+                            onClick={() => handleRetryJob(job)}
+                            className="text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 transition-colors cursor-pointer"
+                          >
+                            Coba Lagi
+                          </button>
+                        )}
+                        {job.status !== 'uploading' && (
+                          <button
+                            type="button"
+                            onClick={() => setBackgroundUploads(prev => prev.filter(u => u.id !== job.id))}
+                            className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                            title="Hapus"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );
