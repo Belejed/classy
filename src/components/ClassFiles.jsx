@@ -1403,10 +1403,10 @@ export default function ClassFiles({
               </div>
 
               {/* 4. Folder Tujuan & Kategori */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
                 {/* Folder Tujuan */}
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between min-h-[22px]">
                     <label className="text-xs font-semibold text-slate-700">Folder Tujuan</label>
                     <button
                       type="button"
@@ -1419,36 +1419,39 @@ export default function ClassFiles({
                           setUploadFolder('');
                         }
                       }}
-                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer leading-none"
                     >
                       {isCustomFolder ? '← Pilih dari Daftar' : '+ Buat Folder Baru'}
                     </button>
                   </div>
 
                   {!isCustomFolder ? (
-                    <CustomSelect
-                      value={uploadFolder}
-                      onChange={(val) => {
-                        setUploadFolder(val);
-                        const found = FOLDER_PRESETS.find(p => p.label === val);
-                        if (found) setUploadCategory(found.category);
-                      }}
-                      options={FOLDER_PRESETS.map(fp => ({
-                        value: fp.label,
-                        label: `${fp.icon} ${fp.label}`
-                      }))}
-                      placeholder="Pilih Folder Tujuan..."
-                      searchPlaceholder="Cari folder..."
-                      icon={Folder}
-                      direction="up"
-                      footerAction={{
-                        label: '➕ Ketik Folder Baru...',
-                        onClick: () => {
-                          setIsCustomFolder(true);
-                          setUploadFolder('');
-                        }
-                      }}
-                    />
+                    <>
+                      <CustomSelect
+                        value={uploadFolder}
+                        onChange={(val) => {
+                          setUploadFolder(val);
+                          const found = FOLDER_PRESETS.find(p => p.label === val);
+                          if (found) setUploadCategory(found.category);
+                        }}
+                        options={FOLDER_PRESETS.map(fp => ({
+                          value: fp.label,
+                          label: `${fp.icon} ${fp.label}`
+                        }))}
+                        placeholder="Pilih Folder Tujuan..."
+                        searchPlaceholder="Cari folder..."
+                        icon={Folder}
+                        direction="up"
+                        footerAction={{
+                          label: '➕ Ketik Folder Baru...',
+                          onClick: () => {
+                            setIsCustomFolder(true);
+                            setUploadFolder('');
+                          }
+                        }}
+                      />
+                      <p className="text-[10px] text-slate-400">Tersimpan rapi di Google Drive.</p>
+                    </>
                   ) : (
                     <div className="space-y-1">
                       <input
@@ -1457,7 +1460,7 @@ export default function ClassFiles({
                         value={uploadFolder}
                         onChange={(e) => setUploadFolder(e.target.value)}
                         autoFocus
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-indigo-50/20 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all font-medium"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-indigo-50/20 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all font-medium min-h-[42px]"
                       />
                       <p className="text-[10px] text-slate-400">Folder akan dibuat otomatis di Google Drive.</p>
                     </div>
@@ -1466,7 +1469,9 @@ export default function ClassFiles({
 
                 {/* Kategori */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700">Kategori Berkas</label>
+                  <div className="flex items-center justify-between min-h-[22px]">
+                    <label className="text-xs font-semibold text-slate-700">Kategori Berkas</label>
+                  </div>
                   <CustomSelect
                     value={uploadCategory}
                     onChange={setUploadCategory}
