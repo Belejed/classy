@@ -11,12 +11,55 @@ export default function CustomSelect({
   className = '',
   required = false,
   allowClear = false,
-  footerAction = null
+  footerAction = null,
+  direction = 'auto' // 'auto' | 'up' | 'down'
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
+
+  // Determine whether to open upward or downward
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (direction === 'up') {
+      setOpenUpward(true);
+      return;
+    }
+    if (direction === 'down') {
+      setOpenUpward(false);
+      return;
+    }
+
+    // Auto-detect based on available space in viewport and scrollable container
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelowWindow = window.innerHeight - rect.bottom;
+      const spaceAboveWindow = rect.top;
+
+      let spaceBelowContainer = spaceBelowWindow;
+      let spaceAboveContainer = spaceAboveWindow;
+
+      const scrollParent = containerRef.current.closest('.overflow-y-auto, .overflow-auto');
+      if (scrollParent) {
+        const parentRect = scrollParent.getBoundingClientRect();
+        spaceBelowContainer = parentRect.bottom - rect.bottom;
+        spaceAboveContainer = rect.top - parentRect.top;
+      }
+
+      const availableBelow = Math.min(spaceBelowWindow, spaceBelowContainer);
+      const availableAbove = Math.max(spaceAboveWindow, spaceAboveContainer);
+
+      // If less than 240px below and there is more room above, open upward
+      if (availableBelow < 240 && availableAbove > availableBelow) {
+        setOpenUpward(true);
+      } else {
+        setOpenUpward(false);
+      }
+    }
+  }, [isOpen, direction]);
 
   // Normalize options to { value, label }
   const normalizedOptions = useMemo(() => {
@@ -90,13 +133,16 @@ export default function CustomSelect({
             : 'border-slate-200 hover:border-slate-300'
         }`}
       >
-        <div className="flex items-center gap-2.5 truncate">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           {Icon && (
             <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 text-indigo-600">
               <Icon size={13} />
             </div>
           )}
-          <span className={`truncate ${selectedOption ? 'font-semibold text-slate-900' : 'text-slate-400 font-normal'}`}>
+          <span 
+            className={`truncate block ${selectedOption ? 'font-semibold text-slate-900' : 'text-slate-400 font-normal'}`}
+            title={selectedOption ? selectedOption.label : placeholder}
+          >
             {selectedOption ? selectedOption.label : placeholder}
           </span>
         </div>
@@ -111,7 +157,13 @@ export default function CustomSelect({
 
       {/* Dropdown Menu Panel */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-[60] bg-white border border-slate-200/90 rounded-2xl shadow-xl overflow-hidden py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div 
+          className={`absolute left-0 right-0 z-[70] bg-white border border-slate-200/90 rounded-2xl shadow-2xl overflow-hidden py-1 transition-all ${
+            openUpward 
+              ? 'bottom-full mb-1.5 origin-bottom animate-in fade-in slide-in-from-bottom-2 duration-150' 
+              : 'top-full mt-1.5 origin-top animate-in fade-in slide-in-from-top-2 duration-150'
+          }`}
+        >
           {/* Search bar inside dropdown if > 4 options */}
           {normalizedOptions.length > 4 && (
             <div className="p-2 border-b border-slate-100">

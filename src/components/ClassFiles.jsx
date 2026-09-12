@@ -42,11 +42,11 @@ import CustomSelect from './CustomSelect';
 const CATEGORIES = ['All', 'Submission', 'Material', 'Assignments', 'Groups', 'Other'];
 
 const CATEGORY_OPTIONS = [
-  { value: 'Material', label: '📚 Material (Materi Kuliah)' },
-  { value: 'Assignments', label: '📝 Assignments (Tugas Perkuliahan)' },
-  { value: 'Submission', label: '📥 Submission (Pengumpulan Tugas)' },
-  { value: 'Groups', label: '👥 Groups (Berkas Kelompok)' },
-  { value: 'Other', label: '📁 Other (Lainnya / Umum)' }
+  { value: 'Material', label: '📚 Materi Kuliah' },
+  { value: 'Assignments', label: '📝 Tugas Perkuliahan' },
+  { value: 'Submission', label: '📥 Pengumpulan Tugas' },
+  { value: 'Groups', label: '👥 Berkas Kelompok' },
+  { value: 'Other', label: '📁 Dokumen Lainnya' }
 ];
 
 const FOLDER_PRESETS = [
@@ -1506,6 +1506,7 @@ export default function ClassFiles({
                       placeholder="Pilih Folder Tujuan..."
                       searchPlaceholder="Cari folder..."
                       icon={Folder}
+                      direction="up"
                       footerAction={{
                         label: '➕ Ketik Folder Baru...',
                         onClick: () => {
@@ -1539,6 +1540,7 @@ export default function ClassFiles({
                     placeholder="Pilih Kategori..."
                     searchPlaceholder="Cari kategori..."
                     icon={Tag}
+                    direction="up"
                   />
                   <p className="text-[10px] text-slate-400">Menentukan label & ikon berkas di repositori.</p>
                 </div>
