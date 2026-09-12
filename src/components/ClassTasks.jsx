@@ -2508,40 +2508,101 @@ export default function ClassTasks({
                       )}
 
                       {selectedTask.submissionRequired === false ? (
-                        /* Paper / Hardcopy Mode: Mahasiswa cukup klik tombol Sudah Mengerjakan */
-                        <div className="p-4 sm:p-6 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/40 flex flex-col items-center justify-center text-center space-y-3">
-                          <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700 shadow-2xs">
-                            <FileText size={22} />
-                          </div>
-                          <div className="space-y-1 max-w-md">
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 text-[11px] font-bold">
-                              <span>📝 Tugas Fisik / Paper di Kertas</span>
+                        /* Paper / Hardcopy Mode: Mahasiswa cukup klik tombol Sudah Mengerjakan, upload opsional */
+                        <div className="space-y-3">
+                          <div className="p-4 sm:p-5 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/40 flex flex-col items-center justify-center text-center space-y-3">
+                            <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700 shadow-2xs">
+                              <FileText size={22} />
                             </div>
-                            <p className="text-xs sm:text-sm font-bold text-[#0F172A]">
-                              {isGroupTask ? 'Konfirmasi Pengerjaan Tugas Kelompok' : 'Konfirmasi Pengerjaan Tugas'}
-                            </p>
-                            <p className="text-[11px] text-[#64748B] leading-relaxed">
-                              {isGroupTask 
-                                ? `Tugas ini dikerjakan di lembar kertas / paper fisik di kelas. Anda tidak perlu upload file ke Drive. Klik tombol di bawah untuk mencatat bahwa Anda dan ${selectedGroupMemberIds.length} teman kelompok sudah selesai mengerjakan.`
-                                : 'Tugas ini dikerjakan di lembar kertas / paper fisik di kelas. Anda tidak perlu upload file ke Google Drive. Klik tombol di bawah untuk menandai bahwa Anda sudah selesai mengerjakan.'}
-                            </p>
+                            <div className="space-y-1 max-w-md">
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 text-[11px] font-bold">
+                                <span>📝 Tugas Fisik / Paper di Kertas</span>
+                              </div>
+                              <p className="text-xs sm:text-sm font-bold text-[#0F172A]">
+                                {isGroupTask ? 'Konfirmasi Pengerjaan Tugas Kelompok' : 'Konfirmasi Pengerjaan Tugas'}
+                              </p>
+                              <p className="text-[11px] text-[#64748B] leading-relaxed">
+                                {isGroupTask 
+                                  ? `Tugas ini dikerjakan di lembar kertas / paper fisik di kelas. Anda tidak perlu upload file ke Drive. Klik tombol di bawah untuk mencatat bahwa Anda dan ${selectedGroupMemberIds.length} teman kelompok sudah selesai mengerjakan.`
+                                  : 'Tugas ini dikerjakan di lembar kertas / paper fisik di kelas. Klik tombol di bawah untuk menandai bahwa Anda sudah selesai mengerjakan.'}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled={isMarkingDone}
+                              onClick={handleMarkPaperTaskDone}
+                              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-50 min-h-[44px]"
+                            >
+                              <CheckCircle2 size={16} className={isMarkingDone ? "animate-spin" : ""} />
+                              <span>
+                                {isMarkingDone 
+                                  ? 'Menandai Selesai...' 
+                                  : isGroupTask 
+                                    ? 'Tandai Kelompok Sudah Mengerjakan' 
+                                    : 'Sudah Mengerjakan'}
+                              </span>
+                            </button>
                           </div>
 
-                          <button
-                            type="button"
-                            disabled={isMarkingDone}
-                            onClick={handleMarkPaperTaskDone}
-                            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-50 min-h-[44px]"
-                          >
-                            <CheckCircle2 size={16} className={isMarkingDone ? "animate-spin" : ""} />
-                            <span>
-                              {isMarkingDone 
-                                ? 'Menandai Selesai...' 
-                                : isGroupTask 
-                                  ? 'Tandai Kelompok Sudah Mengerjakan' 
-                                  : 'Sudah Mengerjakan'}
-                            </span>
-                          </button>
+                          {/* Optional upload for paper tasks */}
+                          <div className="rounded-xl border border-slate-200 overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => { if (fileInputRef.current) { fileInputRef.current.value = ''; fileInputRef.current.click(); } }}
+                              className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Upload size={13} className="text-slate-500" />
+                                <span className="text-[11px] font-semibold text-slate-600">Upload file tambahan <span className="font-normal text-slate-400">(opsional)</span></span>
+                              </div>
+                              <span className="text-[10px] text-slate-400">{stagedSubmissionFiles.length > 0 ? `${stagedSubmissionFiles.length} file dipilih` : 'Klik untuk pilih file'}</span>
+                            </button>
+                            {stagedSubmissionFiles.length > 0 && (
+                              <div className="px-3.5 pb-3.5 pt-2 bg-white space-y-2">
+                                <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                                  {stagedSubmissionFiles.map((file, idx) => (
+                                    <div key={idx} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+                                      <span className="truncate text-slate-700 font-medium flex-1">{file.name}</span>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className="text-[10px] text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                                        <button type="button" onClick={() => setStagedSubmissionFiles(prev => prev.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-red-500 cursor-pointer transition-colors">
+                                          <X size={12} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => { if (fileInputRef.current) { fileInputRef.current.value = ''; fileInputRef.current.click(); } }}
+                                    className="text-[11px] font-semibold text-sky-600 hover:text-sky-800 flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Plus size={11} strokeWidth={2.5} />
+                                    <span>Tambah</span>
+                                  </button>
+                                  <span className="text-slate-300">·</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setStagedSubmissionFiles([])}
+                                    className="text-[11px] font-semibold text-red-400 hover:text-red-600 flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <X size={11} />
+                                    <span>Hapus Semua</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleSubmitStagedFiles}
+                                    className="ml-auto px-3.5 py-1.5 rounded-lg bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer"
+                                  >
+                                    <Upload size={11} />
+                                    <span>Kumpulkan via Drive</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         /* Standard Drive Upload Mode */
