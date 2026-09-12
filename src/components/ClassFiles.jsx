@@ -74,6 +74,7 @@ export default function ClassFiles({
   const [uploadFolder, setUploadFolder] = useState('Materi Kuliah');
   const [uploadCourse, setUploadCourse] = useState('');
   const [isCustomCourse, setIsCustomCourse] = useState(false);
+  const [isCustomFolder, setIsCustomFolder] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [recentlyUploadedId, setRecentlyUploadedId] = useState(null);
@@ -218,6 +219,7 @@ export default function ClassFiles({
     setSelectedFileObj(null);
     setUploadName('');
     setIsCustomCourse(false);
+    setIsCustomFolder(false);
     setIsDragging(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -1238,37 +1240,65 @@ export default function ClassFiles({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {/* Folder Tujuan */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-                    <span>Folder Tujuan</span>
-                    <span className="text-[10px] text-slate-400 font-normal">di Google Drive</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Materi Kuliah"
-                    value={uploadFolder}
-                    onChange={(e) => setUploadFolder(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all"
-                  />
-                  {/* Folder Presets */}
-                  <div className="flex flex-wrap gap-1 pt-0.5">
-                    {FOLDER_PRESETS.map(fp => (
-                      <button
-                        key={fp.label}
-                        type="button"
-                        onClick={() => {
-                          setUploadFolder(fp.label);
-                          setUploadCategory(fp.category);
-                        }}
-                        className={`text-[10px] font-medium px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
-                          uploadFolder === fp.label
-                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold'
-                            : 'bg-slate-50 border-slate-200/80 text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        {fp.icon} {fp.label}
-                      </button>
-                    ))}
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700">Folder Tujuan</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomFolder(!isCustomFolder);
+                        if (isCustomFolder) {
+                          setUploadFolder(FOLDER_PRESETS[0].label);
+                          setUploadCategory(FOLDER_PRESETS[0].category);
+                        } else {
+                          setUploadFolder('');
+                        }
+                      }}
+                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                    >
+                      {isCustomFolder ? '← Pilih dari Daftar' : '+ Buat Folder Baru'}
+                    </button>
                   </div>
+
+                  {!isCustomFolder ? (
+                    <div className="relative">
+                      <select
+                        value={uploadFolder}
+                        onChange={(e) => {
+                          if (e.target.value === '__CUSTOM__') {
+                            setIsCustomFolder(true);
+                            setUploadFolder('');
+                          } else {
+                            const found = FOLDER_PRESETS.find(p => p.label === e.target.value);
+                            setUploadFolder(e.target.value);
+                            if (found) setUploadCategory(found.category);
+                          }
+                        }}
+                        className="w-full appearance-none px-3.5 py-2.5 pr-9 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all cursor-pointer"
+                      >
+                        {FOLDER_PRESETS.map(fp => (
+                          <option key={fp.label} value={fp.label}>
+                            {fp.icon} {fp.label}
+                          </option>
+                        ))}
+                        <option value="__CUSTOM__">➕ Ketik Folder Lainnya...</option>
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <ChevronDown size={15} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        placeholder="Ketik nama folder baru..."
+                        value={uploadFolder}
+                        onChange={(e) => setUploadFolder(e.target.value)}
+                        autoFocus
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-indigo-50/20 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all font-medium"
+                      />
+                      <p className="text-[10px] text-slate-400">Folder akan dibuat otomatis di Google Drive.</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Kategori */}
