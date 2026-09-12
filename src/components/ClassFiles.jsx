@@ -28,7 +28,8 @@ import {
   FolderPlus,
   CheckCircle2,
   AlertCircle,
-  Tag
+  Tag,
+  RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
@@ -69,6 +70,7 @@ export default function ClassFiles({
   const [activeFolder, setActiveFolder] = useState(null); // null = root, string = folder name
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCourse, setSelectedCourse] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   
   // Preview Modal
@@ -169,10 +171,42 @@ export default function ClassFiles({
     });
   }, [files, isManager, currentUser?.uid, currentUser?.displayName]);
 
+  // Count files per course for chips and badges
+  const courseCountMap = useMemo(() => {
+    const counts = {};
+    visibleFiles.forEach(f => {
+      const c = (f.course || '').trim().toLowerCase();
+      if (c) {
+        counts[c] = (counts[c] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [visibleFiles]);
+
+  // Options for course filter CustomSelect
+  const courseSelectOptions = useMemo(() => {
+    return [
+      { value: 'all', label: 'Semua Mata Kuliah' },
+      ...availableCourses.map(course => {
+        const count = courseCountMap[course.toLowerCase()] || 0;
+        return {
+          value: course,
+          label: course,
+          subtitle: count > 0 ? `${count} berkas` : undefined
+        };
+      })
+    ];
+  }, [availableCourses, courseCountMap]);
+
   // Group files by Folder
   const folderStats = useMemo(() => {
     const map = new Map();
     visibleFiles.forEach(f => {
+      // If course filter is applied, only show folders containing that course's files
+      if (selectedCourse !== 'all' && (f.course || '').toLowerCase() !== selectedCourse.toLowerCase()) {
+        return;
+      }
+
       const folderName = f.folder || f.groupName || (f.category === 'Submission' ? 'Tugas Perkuliahan' : 'Materi Kuliah');
       if (!map.has(folderName)) {
         map.set(folderName, {
@@ -191,9 +225,9 @@ export default function ClassFiles({
       }
     });
     return Array.from(map.values());
-  }, [visibleFiles]);
+  }, [visibleFiles, selectedCourse]);
 
-  // Filtered files based on active folder, category, and search query
+  // Filtered files based on active folder, course, category, and search query
   const filteredFiles = useMemo(() => {
     return visibleFiles.filter(f => {
       const folderName = f.folder || f.groupName || (f.category === 'Submission' ? 'Tugas Perkuliahan' : 'Materi Kuliah');
@@ -202,6 +236,10 @@ export default function ClassFiles({
       if (activeFolder && folderName !== activeFolder) {
         return false;
       }
+
+      // Course filter
+      const matchesCourse = selectedCourse === 'all' || 
+                            (f.course || '').toLowerCase() === selectedCourse.toLowerCase();
 
       // Category filter (only if not inside a specific folder or if category is selected)
       const matchesCategory = selectedCategory === 'All' || f.category?.toLowerCase() === selectedCategory.toLowerCase();
@@ -212,9 +250,9 @@ export default function ClassFiles({
                             (f.uploadedBy || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                             folderName.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return matchesCategory && matchesSearch;
+      return matchesCourse && matchesCategory && matchesSearch;
     });
-  }, [visibleFiles, activeFolder, selectedCategory, searchQuery]);
+  }, [visibleFiles, activeFolder, selectedCourse, selectedCategory, searchQuery]);
 
   const getFileExtension = (name = '', type = '') => {
     return (name.split('.').pop() || type || '').toLowerCase();
@@ -850,35 +888,140 @@ export default function ClassFiles({
 
       {/* Search & Filter Bar */}
       <div className="space-y-3">
-        <div className="relative">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
-          <input
-            type="text"
-            placeholder={activeFolder ? `Cari berkas di dalam ${activeFolder}...` : "Cari berkas berdasarkan nama, tugas, atau nama pengunggah..."}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-white border border-[#E2E8F0] text-xs text-[#0F172A] focus:outline-none focus:border-[#0F172A] shadow-2xs"
-          />
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <div className="relative flex-1">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
+            <input
+              type="text"
+              placeholder={activeFolder ? `Cari berkas di dalam ${activeFolder}...` : "Cari berkas berdasarkan nama, tugas, MK, atau pengunggah..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-xs text-[#0F172A] focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 shadow-2xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <div className="w-full sm:w-64 shrink-0">
+            <CustomSelect
+              value={selectedCourse}
+              onChange={(val) => setSelectedCourse(val)}
+              options={courseSelectOptions}
+              placeholder="Filter Mata Kuliah"
+              searchPlaceholder="Cari mata kuliah..."
+              icon={BookOpen}
+            />
+          </div>
         </div>
 
-        {/* Categories Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          {CATEGORIES.map(cat => {
-            const isSelected = selectedCategory === cat;
-            return (
+        {/* Course Filter Quick Chips */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] font-semibold text-[#64748B] px-0.5">
+            <span className="flex items-center gap-1.5">
+              <BookOpen size={12} className="text-indigo-600" />
+              <span>Mata Kuliah:</span>
+              {selectedCourse !== 'all' && (
+                <span className="text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-2 py-0.2 rounded-md">
+                  {selectedCourse}
+                </span>
+              )}
+            </span>
+            {selectedCourse !== 'all' && (
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1 rounded-xl text-xs font-semibold transition-colors shrink-0 ${
-                  isSelected 
-                    ? 'bg-[#0F172A] text-white' 
-                    : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A]'
-                }`}
+                onClick={() => setSelectedCourse('all')}
+                className="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold hover:underline cursor-pointer"
               >
-                {cat}
+                Tampilkan Semua MK
               </button>
-            );
-          })}
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            <button
+              onClick={() => setSelectedCourse('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                selectedCourse === 'all'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] hover:bg-slate-50'
+              }`}
+            >
+              <span>Semua MK</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                selectedCourse === 'all' ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-600'
+              }`}>
+                {visibleFiles.length}
+              </span>
+            </button>
+
+            {availableCourses.map(course => {
+              const count = courseCountMap[course.toLowerCase()] || 0;
+              const isSelected = selectedCourse.toLowerCase() === course.toLowerCase();
+              return (
+                <button
+                  key={course}
+                  onClick={() => setSelectedCourse(isSelected ? 'all' : course)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A] hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="truncate max-w-[170px] sm:max-w-none">{course}</span>
+                  {count > 0 && (
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      isSelected ? 'bg-indigo-700/80 text-white' : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+                    }`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Categories Chips & Reset Button */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            {CATEGORIES.map(cat => {
+              const isSelected = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1 rounded-xl text-xs font-semibold transition-colors shrink-0 cursor-pointer ${
+                    isSelected 
+                      ? 'bg-[#0F172A] text-white' 
+                      : 'bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+
+          {(selectedCourse !== 'all' || selectedCategory !== 'All' || searchQuery) && (
+            <button
+              onClick={() => {
+                setSelectedCourse('all');
+                setSelectedCategory('All');
+                setSearchQuery('');
+              }}
+              className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+              title="Reset semua filter pencarian"
+            >
+              <RotateCcw size={11} />
+              <span>Reset Filter</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -898,10 +1041,10 @@ export default function ClassFiles({
             <div className="bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 text-center shadow-2xs">
               <EmptyState
                 variant="files"
-                title="Belum Ada Folder atau Berkas"
-                description="Berkas materi perkuliahan atau submission tugas yang dikumpulkan akan otomatis tersusun rapi di sini."
-                actionLabel="Upload Berkas Sekarang"
-                onAction={() => handleOpenUpload()}
+                title={selectedCourse !== 'all' || searchQuery || selectedCategory !== 'All' ? "Tidak Ada Folder untuk Filter Ini" : "Belum Ada Folder atau Berkas"}
+                description={selectedCourse !== 'all' || searchQuery || selectedCategory !== 'All' ? "Tidak ditemukan berkas atau folder yang sesuai dengan mata kuliah atau filter yang dipilih." : "Berkas materi perkuliahan atau submission tugas yang dikumpulkan akan otomatis tersusun rapi di sini."}
+                actionLabel={selectedCourse !== 'all' || searchQuery || selectedCategory !== 'All' ? "Reset Filter" : "Upload Berkas Sekarang"}
+                onAction={selectedCourse !== 'all' || searchQuery || selectedCategory !== 'All' ? () => { setSelectedCourse('all'); setSelectedCategory('All'); setSearchQuery(''); } : () => handleOpenUpload()}
               />
             </div>
           ) : (
@@ -952,9 +1095,9 @@ export default function ClassFiles({
               <EmptyState
                 variant="files"
                 title="Tidak Ada Berkas yang Cocok"
-                description="Coba ubah kata kunci pencarian atau kategori berkas."
-                actionLabel={searchQuery || selectedCategory !== 'All' ? 'Reset Filter' : undefined}
-                onAction={searchQuery || selectedCategory !== 'All' ? () => { setSearchQuery(''); setSelectedCategory('All'); } : undefined}
+                description="Coba ubah kata kunci pencarian, mata kuliah, atau kategori berkas."
+                actionLabel={searchQuery || selectedCategory !== 'All' || selectedCourse !== 'all' ? 'Reset Filter' : undefined}
+                onAction={searchQuery || selectedCategory !== 'All' || selectedCourse !== 'all' ? () => { setSearchQuery(''); setSelectedCategory('All'); setSelectedCourse('all'); } : undefined}
               />
             </div>
           ) : (
