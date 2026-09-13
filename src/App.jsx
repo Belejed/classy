@@ -134,9 +134,12 @@ export default function App() {
   }, [user]);
 
   // 3. Load Class Content when currentClass changes
-  const loadClassContent = async (cls = currentClass) => {
+  const loadClassContent = async (cls = currentClass, isSilent = false) => {
     if (!cls?.id) return;
-    setContentLoading(true);
+    const hasData = schedules !== null && tasks !== null && files !== null;
+    if (!isSilent && !hasData) {
+      setContentLoading(true);
+    }
     try {
       const [schData, taskData, fileData, annData, grpData, logData] = await Promise.all([
         dbService.schedules.list(cls.id),
@@ -160,12 +163,14 @@ export default function App() {
       }
     } catch (err) {
       console.error('Error loading class data:', err);
-      setSchedules([]);
-      setTasks([]);
-      setFiles([]);
-      setAnnouncements([]);
-      setGroups([]);
-      setLogs([]);
+      if (!hasData) {
+        setSchedules([]);
+        setTasks([]);
+        setFiles([]);
+        setAnnouncements([]);
+        setGroups([]);
+        setLogs([]);
+      }
     } finally {
       setContentLoading(false);
     }
@@ -202,7 +207,7 @@ export default function App() {
         if (user) {
           await loadUserClasses();
           if (currentClass?.id) {
-            await loadClassContent(currentClass);
+            await loadClassContent(currentClass, true);
           }
         }
       }
@@ -1208,7 +1213,7 @@ function ClassWorkspace({
     window.scrollTo(0, 0);
   }, [activeTab]);
 
-  const isDataReady = !contentLoading && schedules !== null && tasks !== null && files !== null && announcements !== null;
+  const isDataReady = schedules !== null && tasks !== null && files !== null && announcements !== null;
 
   if (!currentClass) {
     return (
@@ -1320,8 +1325,8 @@ function ClassWorkspace({
           onOpenProfile={onOpenProfile}
         />
 
-        <ErrorBoundary key={activeTab}>
-          <main className={`flex-1 min-w-0 w-full animate-page-enter pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 px-3.5 sm:px-8 py-4 sm:py-6 mx-auto ${activeTab === 'schedule' ? 'max-w-[1500px]' : 'max-w-6xl'}`}>
+        <ErrorBoundary>
+          <main className={`flex-1 min-w-0 w-full pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 px-3.5 sm:px-8 py-4 sm:py-6 mx-auto ${activeTab === 'schedule' ? 'max-w-[1500px]' : 'max-w-6xl'}`}>
             {!isDataReady ? (
               activeTab === 'tasks' ? <TasksSkeleton /> :
               activeTab === 'schedule' ? <ScheduleSkeleton /> :

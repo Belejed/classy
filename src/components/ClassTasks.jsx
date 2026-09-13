@@ -302,8 +302,14 @@ export default function ClassTasks({
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'));
   }, [schedules, tasks]);
 
-  // Check Google Drive files for all tasks
-  const checkDriveStatuses = useCallback(async (customTasks = tasks) => {
+  // Check Google Drive files for all tasks (throttled to avoid lag on every tab switch)
+  const lastDriveCheckRef = useRef(0);
+  const checkDriveStatuses = useCallback(async (customTasks = tasks, force = false) => {
+    const now = Date.now();
+    if (!force && (now - lastDriveCheckRef.current < 3 * 60 * 1000) && Object.keys(driveStatusMap).length > 0) {
+      return;
+    }
+
     const fileIdsToCheck = [];
     (customTasks || []).forEach(t => {
       (t.submissions || []).forEach(s => {
@@ -322,6 +328,7 @@ export default function ClassTasks({
     });
 
     if (fileIdsToCheck.length > 0) {
+      lastDriveCheckRef.current = now;
       setIsCrosschecking(true);
       try {
         const results = await checkDriveFiles(fileIdsToCheck);
@@ -332,13 +339,17 @@ export default function ClassTasks({
         setIsCrosschecking(false);
       }
     }
-  }, [tasks]);
+  }, [tasks, driveStatusMap]);
 
   useEffect(() => {
-    checkDriveStatuses();
+    // Delay non-critical drive status check slightly after render
+    const t = setTimeout(() => {
+      checkDriveStatuses();
+    }, 400);
+    return () => clearTimeout(t);
   }, [checkDriveStatuses]);
 
-  // Re-check drive status when user refocuses the tab/window
+  // Re-check drive status when user refocuses the tab/window (throttled)
   useEffect(() => {
     const handleFocus = () => {
       checkDriveStatuses();
