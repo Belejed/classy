@@ -284,9 +284,18 @@ export default function ClassTasks({
     };
   }, [backgroundUploads]);
 
-  // Google Drive Crosscheck state
+  // Google Drive Crosscheck state & cache
   const [driveStatusMap, setDriveStatusMap] = useState({});
-  const [isCrosschecking, setIsCrosschecking] = useState(false);
+  const [isCrosschecking, setIsCrosschecking] = useState(false); // Only active during manual user click
+  const checkedDriveIdsRef = useRef(new Set());
+  const hasInitialCheckedRef = useRef(false);
+
+  // Helper to record drive statuses safely into state and memory cache
+  const recordDriveStatuses = useCallback((results) => {
+    if (!results || Object.keys(results).length === 0) return;
+    Object.keys(results).forEach(id => checkedDriveIdsRef.current.add(id));
+    setDriveStatusMap(prev => ({ ...prev, ...results }));
+  }, []);
 
   // Available courses from schedules and tasks
   const availableCourses = useMemo(() => {
@@ -302,83 +311,68 @@ export default function ClassTasks({
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'));
   }, [schedules, tasks]);
 
-  // Check Google Drive files for all tasks (throttled to avoid lag on every tab switch)
-  const lastDriveCheckRef = useRef(0);
-  const checkDriveStatuses = useCallback(async (customTasks = tasks, force = false) => {
-    const now = Date.now();
-    if (!force && (now - lastDriveCheckRef.current < 3 * 60 * 1000) && Object.keys(driveStatusMap).length > 0) {
-      return;
-    }
+  // Initial light background check for class tasks (runs at most once per class session, silently)
+  useEffect(() => {
+    if (hasInitialCheckedRef.current || !tasks?.length) return;
+    hasInitialCheckedRef.current = true;
 
-    const fileIdsToCheck = [];
-    (customTasks || []).forEach(t => {
-      (t.submissions || []).forEach(s => {
-        const urls = [
-          ...(s.files?.map(f => (typeof f === 'string' ? f : f?.url)) || []),
-          s.fileUrl
-        ].filter(Boolean);
+    // Run after a short delay so opening the tab is completely instant
+    const t = setTimeout(() => {
+      const fileIdsToCheck = [];
+      tasks.forEach(task => {
+        (task.submissions || []).forEach(s => {
+          const urls = [
+            ...(s.files?.map(f => (typeof f === 'string' ? f : f?.url)) || []),
+            s.fileUrl
+          ].filter(Boolean);
 
-        urls.forEach(u => {
-          const fileId = extractDriveFileId(u);
-          if (fileId && !fileIdsToCheck.includes(fileId)) {
-            fileIdsToCheck.push(fileId);
-          }
+          urls.forEach(u => {
+            const fileId = extractDriveFileId(u);
+            if (fileId && !checkedDriveIdsRef.current.has(fileId) && !fileIdsToCheck.includes(fileId)) {
+              fileIdsToCheck.push(fileId);
+            }
+          });
         });
+      });
+
+      // Limit to 20 files per check to keep network fast and stay well within quota
+      const filesToQuery = fileIdsToCheck.slice(0, 20);
+      if (filesToQuery.length > 0) {
+        checkDriveFiles(filesToQuery).then(results => {
+          recordDriveStatuses(results);
+        }).catch(err => {
+          console.warn('Initial drive check failed:', err);
+        });
+      }
+    }, 2000);
+
+    return () => clearTimeout(t);
+  }, [tasks?.length, recordDriveStatuses]);
+
+  // When a task is selected/opened, verify its submission files once (silently and only uncached files)
+  useEffect(() => {
+    if (!selectedTask?.submissions?.length) return;
+
+    const fileIds = [];
+    selectedTask.submissions.forEach(s => {
+      const urls = [
+        ...(s.files?.map(f => (typeof f === 'string' ? f : f?.url)) || []),
+        s.fileUrl
+      ].filter(Boolean);
+      urls.forEach(u => {
+        const id = extractDriveFileId(u);
+        if (id && !fileIds.includes(id)) fileIds.push(id);
       });
     });
 
-    if (fileIdsToCheck.length > 0) {
-      lastDriveCheckRef.current = now;
-      setIsCrosschecking(true);
-      try {
-        const results = await checkDriveFiles(fileIdsToCheck);
-        setDriveStatusMap(prev => ({ ...prev, ...results }));
-      } catch (err) {
-        console.error("Failed to check drive statuses:", err);
-      } finally {
-        setIsCrosschecking(false);
-      }
+    // Check only files that haven't been checked yet in this session
+    const uncachedIds = fileIds.filter(id => !checkedDriveIdsRef.current.has(id));
+    if (uncachedIds.length > 0) {
+      checkDriveFiles(uncachedIds).then(results => {
+        recordDriveStatuses(results);
+      }).catch(err => console.warn('Task drive file verification failed:', err));
     }
-  }, [tasks, driveStatusMap]);
-
-  useEffect(() => {
-    // Delay non-critical drive status check slightly after render
-    const t = setTimeout(() => {
-      checkDriveStatuses();
-    }, 400);
-    return () => clearTimeout(t);
-  }, [checkDriveStatuses]);
-
-  // Re-check drive status when user refocuses the tab/window (throttled)
-  useEffect(() => {
-    const handleFocus = () => {
-      checkDriveStatuses();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [checkDriveStatuses]);
-
-  // When a task is selected/opened, immediately verify its submission files
-  useEffect(() => {
-    if (selectedTask?.submissions?.length) {
-      const fileIds = [];
-      selectedTask.submissions.forEach(s => {
-        const urls = [
-          ...(s.files?.map(f => (typeof f === 'string' ? f : f?.url)) || []),
-          s.fileUrl
-        ].filter(Boolean);
-        urls.forEach(u => {
-          const id = extractDriveFileId(u);
-          if (id && !fileIds.includes(id)) fileIds.push(id);
-        });
-      });
-      if (fileIds.length > 0) {
-        checkDriveFiles(fileIds).then(results => {
-          setDriveStatusMap(prev => ({ ...prev, ...results }));
-        }).catch(err => console.error(err));
-      }
-    }
-  }, [selectedTask?.id]);
+  }, [selectedTask?.id, recordDriveStatuses]);
 
   // Auto-open task if ?task=taskId is provided in URL
   useEffect(() => {
@@ -1469,12 +1463,15 @@ export default function ClassTasks({
         if (id && !fileIds.includes(id)) fileIds.push(id);
       });
     });
-    if (fileIds.length === 0) return;
+    if (fileIds.length === 0) {
+      toast('Tidak ada berkas Google Drive pada tugas ini.', { icon: 'ℹ️' });
+      return;
+    }
 
     setIsCrosschecking(true);
     try {
       const results = await checkDriveFiles(fileIds);
-      setDriveStatusMap(prev => ({ ...prev, ...results }));
+      recordDriveStatuses(results);
       toast.success('Status Google Drive diperbarui');
     } catch (err) {
       console.error(err);
