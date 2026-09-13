@@ -81,12 +81,9 @@ export const unregisterServiceWorkersAndCaches = async () => {
 
 /**
  * 3. Check for app updates against /version.json
+ * Updates local version tracking quietly without aggressive page reloads.
  */
-let isReloading = false;
-
 export const checkAppUpdate = async () => {
-  if (isReloading) return false;
-
   try {
     const response = await fetch(`/version.json?_t=${Date.now()}`, {
       cache: 'no-store',
@@ -105,18 +102,13 @@ export const checkAppUpdate = async () => {
     const localVersion = localStorage.getItem('classy_app_build_version');
 
     if (!localVersion) {
-      // First run or after storage clear: record version
       localStorage.setItem('classy_app_build_version', serverVersion);
       return false;
     }
 
     if (localVersion !== serverVersion) {
-      console.log(`[AppUpdater] New build detected (local: ${localVersion}, server: ${serverVersion}). Force refreshing...`);
+      console.log(`[AppUpdater] New build detected (local: ${localVersion}, server: ${serverVersion}). Version recorded.`);
       localStorage.setItem('classy_app_build_version', serverVersion);
-      isReloading = true;
-      
-      // Perform clean hard reload
-      window.location.reload();
       return true;
     }
   } catch {
@@ -127,41 +119,41 @@ export const checkAppUpdate = async () => {
 
 /**
  * 4. Setup global update listeners and auto-refresh on tab entry / focus
+ * Quietly syncs fresh Supabase data in the background without reloading the page.
  */
 export const setupGlobalUpdateListeners = ({ onRefreshData } = {}) => {
-  // Purge legacy storage & unregister old service workers immediately
+  // Purge legacy storage & unregister old service workers once
   purgeLegacyStorage();
   unregisterServiceWorkersAndCaches();
 
-  // Check version on initial load
+  // Check version once quietly on initial load
   checkAppUpdate();
 
-  // Vite Preload Error Handler (when dynamic chunks 404 after a new deployment)
+  // Vite Preload Error Handler (only reloads if dynamic chunks 404 after a deployment)
   window.addEventListener('vite:preloadError', (event) => {
     event.preventDefault();
     console.warn('[AppUpdater] Vite preload chunk error detected. Reloading for latest bundle...');
     window.location.reload();
   });
 
-  // Handle visibility and focus: whenever user enters or returns to tab
+  // Handle visibility: whenever user returns to the tab, quietly sync data from Supabase
   let lastRefreshTime = Date.now();
-  const MIN_REFRESH_INTERVAL_MS = 20 * 1000; // 20 seconds throttle
+  const MIN_REFRESH_INTERVAL_MS = 60 * 1000; // 60 seconds throttle between background data fetches
 
   const handleUserReturn = async () => {
     const now = Date.now();
     if (now - lastRefreshTime < MIN_REFRESH_INTERVAL_MS) return;
     lastRefreshTime = now;
 
-    // 1. Check if new code was deployed
-    const updated = await checkAppUpdate();
-    if (updated) return;
+    // Check version quietly in background without reloading
+    checkAppUpdate();
 
-    // 2. Trigger fresh data load from Supabase
+    // Trigger fresh data load from Supabase quietly in background
     if (typeof onRefreshData === 'function') {
       try {
         await onRefreshData();
       } catch (err) {
-        console.warn('[AppUpdater] Auto-refresh data warning:', err);
+        console.warn('[AppUpdater] Background data sync warning:', err);
       }
     }
   };
@@ -172,15 +164,9 @@ export const setupGlobalUpdateListeners = ({ onRefreshData } = {}) => {
     }
   };
 
-  const onWindowFocus = () => {
-    handleUserReturn();
-  };
-
   document.addEventListener('visibilitychange', onVisibilityChange);
-  window.addEventListener('focus', onWindowFocus);
 
   return () => {
     document.removeEventListener('visibilitychange', onVisibilityChange);
-    window.removeEventListener('focus', onWindowFocus);
   };
 };
