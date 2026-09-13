@@ -94,7 +94,8 @@ export default function ClassFiles({
   const [backgroundUploads, setBackgroundUploads] = useState([]);
   const [isWidgetExpanded, setIsWidgetExpanded] = useState(true);
   const fileInputRef = useRef(null);
-  const [selectedFileObj, setSelectedFileObj] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const selectedFileObj = selectedFiles[0] || null;
 
   // Prevent accidental page refresh while files are actively uploading in background
   useEffect(() => {
@@ -285,7 +286,7 @@ export default function ClassFiles({
   const handleCloseUploadModal = () => {
     if (isUploading) return;
     setShowUploadModal(false);
-    setSelectedFileObj(null);
+    setSelectedFiles([]);
     setUploadName('');
     setIsCustomCourse(false);
     setIsCustomFolder(false);
@@ -293,44 +294,83 @@ export default function ClassFiles({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleFileSelected = (file) => {
-    if (!file) return;
+  const handleFilesAdded = (incomingFiles) => {
+    const filesArray = Array.from(incomingFiles || []);
+    if (filesArray.length === 0) return;
+
     const maxBytes = 35 * 1024 * 1024;
-    if (file.size > maxBytes) {
-      toast.error(`Ukuran berkas (${(file.size / (1024 * 1024)).toFixed(1)} MB) melebihi batas maksimal 35 MB.`);
-      return;
+    const valid = [];
+    let oversizedCount = 0;
+
+    filesArray.forEach(file => {
+      if (file.size > maxBytes) {
+        oversizedCount++;
+      } else {
+        valid.push(file);
+      }
+    });
+
+    if (oversizedCount > 0) {
+      toast.error(`${oversizedCount} berkas melebihi batas maksimal 35 MB dan dilewati.`);
     }
-    setSelectedFileObj(file);
-    if (!uploadName || uploadName === selectedFileObj?.name) {
-      setUploadName(file.name);
-    }
-    
-    // Auto-detect course from filename
-    const lowerName = file.name.toLowerCase();
-    for (const c of availableCourses) {
-      const lowerC = c.toLowerCase();
-      if (
-        lowerName.includes(lowerC) ||
-        (lowerC.includes('mikro') && lowerName.includes('mikro')) ||
-        (lowerC.includes('matematika') && (lowerName.includes('matematika') || lowerName.includes('matek') || lowerName.includes('mte'))) ||
-        (lowerC.includes('akuntansi') && (lowerName.includes('akuntansi') || lowerName.includes('akunt') || lowerName.includes('pak'))) ||
-        (lowerC.includes('logistik') && (lowerName.includes('logistik') || lowerName.includes('plo'))) ||
-        (lowerC.includes('transportasi') && (lowerName.includes('transportasi') || lowerName.includes('ptr'))) ||
-        (lowerC.includes('pancasila') && (lowerName.includes('pancasila') || lowerName.includes('ppa'))) ||
-        (lowerC.includes('bisnis') && (lowerName.includes('bisnis') || lowerName.includes('pbi'))) ||
-        (lowerC.includes('manajemen') && (lowerName.includes('manajemen') || lowerName.includes('pra')))
-      ) {
-        setUploadCourse(c);
-        setIsCustomCourse(false);
-        break;
+
+    if (valid.length > 0) {
+      setSelectedFiles(prev => {
+        const existingKeys = new Set(prev.map(f => `${f.name}_${f.size}`));
+        const newUnique = valid.filter(f => !existingKeys.has(`${f.name}_${f.size}`));
+        if (newUnique.length < valid.length) {
+          toast('Beberapa berkas duplikat dilewati.', { icon: 'ℹ️' });
+        }
+        const updated = [...prev, ...newUnique];
+        if (updated.length === 1 && (!uploadName || uploadName === prev[0]?.name)) {
+          setUploadName(updated[0].name);
+        }
+        return updated;
+      });
+
+      // Auto-detect course from first valid file if not custom
+      const first = valid[0];
+      if (first) {
+        const lowerName = first.name.toLowerCase();
+        for (const c of availableCourses) {
+          const lowerC = c.toLowerCase();
+          if (
+            lowerName.includes(lowerC) ||
+            (lowerC.includes('mikro') && lowerName.includes('mikro')) ||
+            (lowerC.includes('matematika') && (lowerName.includes('matematika') || lowerName.includes('matek') || lowerName.includes('mte'))) ||
+            (lowerC.includes('akuntansi') && (lowerName.includes('akuntansi') || lowerName.includes('akunt') || lowerName.includes('pak'))) ||
+            (lowerC.includes('logistik') && (lowerName.includes('logistik') || lowerName.includes('plo'))) ||
+            (lowerC.includes('transportasi') && (lowerName.includes('transportasi') || lowerName.includes('ptr'))) ||
+            (lowerC.includes('pancasila') && (lowerName.includes('pancasila') || lowerName.includes('ppa'))) ||
+            (lowerC.includes('bisnis') && (lowerName.includes('bisnis') || lowerName.includes('pbi'))) ||
+            (lowerC.includes('manajemen') && (lowerName.includes('manajemen') || lowerName.includes('pra')))
+          ) {
+            setUploadCourse(c);
+            setIsCustomCourse(false);
+            break;
+          }
+        }
       }
     }
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoveSelectedFile = (indexToRemove) => {
+    setSelectedFiles(prev => {
+      const next = prev.filter((_, idx) => idx !== indexToRemove);
+      if (next.length === 1) {
+        setUploadName(next[0].name);
+      } else if (next.length === 0) {
+        setUploadName('');
+      }
+      return next;
+    });
   };
 
   const handleFilePicked = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleFileSelected(file);
+    if (e.target.files && e.target.files.length > 0) {
+      handleFilesAdded(e.target.files);
     }
   };
 
@@ -428,45 +468,61 @@ export default function ClassFiles({
 
   const handleUploadSubmit = (e) => {
     e.preventDefault();
-    if (!uploadName.trim()) {
-      toast.error('Nama berkas wajib diisi');
+    if (selectedFiles.length === 0) {
+      toast.error('Silakan pilih minimal 1 berkas yang akan diunggah');
       return;
     }
-    if (!selectedFileObj) {
-      toast.error('Silakan pilih berkas yang akan diunggah');
+
+    if (selectedFiles.length === 1 && !uploadName.trim()) {
+      toast.error('Nama berkas wajib diisi');
       return;
     }
 
     const finalCourse = (uploadCourse || availableCourses[0] || 'Umum').trim();
     const targetFolder = uploadFolder.trim() || 'Materi Kuliah';
-    const fileObj = selectedFileObj;
-    const fileName = uploadName.trim();
     const category = uploadCategory;
-    const jobId = `fupload_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const sizeMb = (fileObj.size / (1024 * 1024)).toFixed(2);
 
-    const newJob = {
-      id: jobId,
-      fileName,
-      rawFileName: fileObj.name,
-      fileSize: `${sizeMb} MB`,
-      progress: 10,
-      status: 'uploading',
-      statusMessage: fileObj.size > 8 * 1024 * 1024 
-        ? 'Mengunggah berkas besar ke Drive di latar belakang...' 
-        : 'Menyiapkan pengunggahan ke Google Drive...',
-      targetFolder,
-      finalCourse,
-      category,
-      fileObj,
-      startedAt: Date.now()
-    };
+    const jobsToStart = selectedFiles.map((fileObj, idx) => {
+      const fileName = selectedFiles.length === 1 && uploadName.trim()
+        ? uploadName.trim()
+        : fileObj.name;
+      const jobId = `fupload_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 7)}`;
+      const sizeMb = (fileObj.size / (1024 * 1024)).toFixed(2);
 
-    setBackgroundUploads(prev => [newJob, ...prev]);
+      return {
+        job: {
+          id: jobId,
+          fileName,
+          rawFileName: fileObj.name,
+          fileSize: `${sizeMb} MB`,
+          progress: 10,
+          status: 'uploading',
+          statusMessage: fileObj.size > 8 * 1024 * 1024 
+            ? 'Mengunggah berkas besar ke Drive di latar belakang...' 
+            : 'Menyiapkan pengunggahan ke Google Drive...',
+          targetFolder,
+          finalCourse,
+          category,
+          fileObj,
+          startedAt: Date.now()
+        },
+        fileObj
+      };
+    });
+
+    setBackgroundUploads(prev => [...jobsToStart.map(j => j.job), ...prev]);
+    const totalCount = selectedFiles.length;
     handleCloseUploadModal();
-    toast.success(`🚀 Berkas "${fileName}" sedang diunggah di latar belakang!`, { duration: 4000 });
 
-    executeBackgroundUpload(newJob, fileObj);
+    if (totalCount === 1) {
+      toast.success(`🚀 Berkas "${jobsToStart[0].job.fileName}" sedang diunggah di latar belakang!`, { duration: 4000 });
+    } else {
+      toast.success(`🚀 ${totalCount} berkas sedang diunggah ke Drive di latar belakang!`, { duration: 4500 });
+    }
+
+    jobsToStart.forEach(({ job, fileObj }) => {
+      executeBackgroundUpload(job, fileObj);
+    });
   };
 
   // Convert data URL to Blob for secure new tab opening & downloading
@@ -1227,17 +1283,24 @@ export default function ClassFiles({
 
             <form onSubmit={handleUploadSubmit} className="space-y-4">
               {/* 1. File Picker / Dropzone */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-                  <span>Pilih Berkas <span className="text-rose-500">*</span></span>
-                  {selectedFileObj && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                  <span className="flex items-center gap-1.5">
+                    <span>Pilih Berkas <span className="text-rose-500">*</span></span>
+                    {selectedFiles.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80 text-[10px] font-bold">
+                        {selectedFiles.length} Berkas
+                      </span>
+                    )}
+                  </span>
+                  {selectedFiles.length > 0 && (
                     <span className="text-[11px] font-mono text-indigo-600 font-medium">
-                      {(selectedFileObj.size / (1024 * 1024)).toFixed(2)} MB
+                      Total: {(selectedFiles.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024)).toFixed(2)} MB
                     </span>
                   )}
-                </label>
+                </div>
 
-                {!selectedFileObj ? (
+                {selectedFiles.length === 0 ? (
                   <div
                     onClick={() => fileInputRef.current?.click()}
                     onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -1245,64 +1308,89 @@ export default function ClassFiles({
                     onDrop={(e) => {
                       e.preventDefault();
                       setIsDragging(false);
-                      const dropped = e.dataTransfer.files?.[0];
-                      if (dropped) handleFileSelected(dropped);
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        handleFilesAdded(e.dataTransfer.files);
+                      }
                     }}
-                    className={`p-6 rounded-2xl border-2 border-dashed transition-all cursor-pointer text-center group ${
+                    className={`p-6 sm:p-7 rounded-2xl border-2 border-dashed transition-all cursor-pointer text-center group ${
                       isDragging 
-                        ? 'border-indigo-500 bg-indigo-50/50 scale-[0.99]' 
+                        ? 'border-indigo-500 bg-indigo-50/60 scale-[0.99]' 
                         : 'border-slate-200 hover:border-indigo-400 bg-slate-50/60 hover:bg-indigo-50/20'
                     }`}
                   >
-                    <div className="w-11 h-11 mx-auto rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-500 group-hover:text-indigo-600 group-hover:scale-105 transition-all mb-2.5">
-                      <UploadCloud size={20} />
+                    <div className="w-12 h-12 mx-auto rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-500 group-hover:text-indigo-600 group-hover:scale-105 transition-all mb-2.5">
+                      <UploadCloud size={22} />
                     </div>
-                    <p className="text-xs font-semibold text-slate-800">
-                      Klik untuk memilih file <span className="font-normal text-slate-500">atau seret file ke sini</span>
+                    <p className="text-xs sm:text-sm font-bold text-slate-800">
+                      Klik untuk memilih berkas <span className="font-normal text-slate-500">atau seret ke sini</span>
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Mendukung PDF, PPTX, DOCX, XLSX, ZIP, Gambar hingga 35 MB
+                    <p className="text-[11px] text-indigo-600 font-medium mt-1">
+                      Bisa pilih beberapa berkas sekaligus (Multiple Files)
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Mendukung PDF, PPTX, DOCX, XLSX, ZIP, Foto/Gambar hingga 35 MB per berkas
                     </p>
                   </div>
                 ) : (
-                  <div className="p-3.5 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/40 via-white to-slate-50/50 flex items-center justify-between gap-3 shadow-2xs">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 shadow-2xs flex items-center justify-center shrink-0">
-                        {getFileIcon(selectedFileObj.type, selectedFileObj.name)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-800 truncate" title={selectedFileObj.name}>
-                          {selectedFileObj.name}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] font-mono font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
-                            {(selectedFileObj.size / (1024 * 1024)).toFixed(2)} MB
-                          </span>
-                          <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-0.5">
-                            <CheckCircle2 size={11} /> Berkas siap
-                          </span>
+                  <div className="space-y-2">
+                    {/* List of Staged Files */}
+                    <div className="rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50/30 to-slate-50/50 p-2.5 space-y-1.5 shadow-2xs">
+                      <div className="flex items-center justify-between px-1 pb-1 text-[11px] font-semibold text-slate-600 border-b border-indigo-100/60">
+                        <span>Daftar Berkas Terpilih ({selectedFiles.length})</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="text-indigo-600 hover:text-indigo-800 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Plus size={11} strokeWidth={2.5} />
+                            <span>Tambah Lagi</span>
+                          </button>
+                          <span className="text-slate-300">·</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedFiles([]);
+                              setUploadName('');
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                            className="text-rose-500 hover:text-rose-700 hover:underline font-medium cursor-pointer"
+                          >
+                            Hapus Semua
+                          </button>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold text-slate-600 hover:text-indigo-600 hover:bg-white border border-slate-200/80 transition-all cursor-pointer shadow-2xs"
-                      >
-                        Ganti
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedFileObj(null);
-                          if (fileInputRef.current) fileInputRef.current.value = '';
-                        }}
-                        className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
-                        title="Hapus file terpilih"
-                      >
-                        <X size={15} />
-                      </button>
+
+                      <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                        {selectedFiles.map((f, idx) => (
+                          <div 
+                            key={`${f.name}_${idx}_${f.size}`}
+                            className="p-2.5 rounded-xl bg-white border border-slate-200/90 flex items-center justify-between gap-3 shadow-2xs hover:border-indigo-200 transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-center shrink-0">
+                                {getFileIcon(f.type, f.name)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold text-slate-800 truncate" title={f.name}>
+                                  {f.name}
+                                </p>
+                                <span className="text-[10px] font-mono font-medium text-slate-500">
+                                  {(f.size / (1024 * 1024)).toFixed(2)} MB
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSelectedFile(idx)}
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                              title="Hapus berkas ini dari daftar"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1310,34 +1398,47 @@ export default function ClassFiles({
                 <input
                   ref={fileInputRef}
                   type="file"
+                  multiple
                   onChange={handleFilePicked}
                   className="hidden"
                 />
               </div>
 
-              {/* 2. Nama Berkas */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-                  <span>Nama Tampilan Berkas <span className="text-rose-500">*</span></span>
-                  {selectedFileObj && uploadName !== selectedFileObj.name && (
-                    <button 
-                      type="button"
-                      onClick={() => setUploadName(selectedFileObj.name)}
-                      className="text-[10px] font-normal text-indigo-600 hover:underline cursor-pointer"
-                    >
-                      Gunakan nama asli
-                    </button>
-                  )}
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Modul Pertemuan 1 - Pengantar.pdf"
-                  value={uploadName}
-                  onChange={(e) => setUploadName(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all font-medium"
-                />
-              </div>
+              {/* 2. Nama Berkas (Kondisional: 1 File vs Multi-File) */}
+              {selectedFiles.length === 1 ? (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                    <span>Nama Tampilan Berkas <span className="text-rose-500">*</span></span>
+                    {selectedFiles[0] && uploadName !== selectedFiles[0].name && (
+                      <button 
+                        type="button"
+                        onClick={() => setUploadName(selectedFiles[0].name)}
+                        className="text-[10px] font-normal text-indigo-600 hover:underline cursor-pointer"
+                      >
+                        Gunakan nama asli
+                      </button>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Modul Pertemuan 1 - Pengantar.pdf"
+                    value={uploadName}
+                    onChange={(e) => setUploadName(e.target.value)}
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-2xs transition-all font-medium"
+                  />
+                </div>
+              ) : selectedFiles.length > 1 ? (
+                <div className="p-3 rounded-xl bg-indigo-50/50 border border-indigo-100 flex items-start gap-2.5 text-xs text-indigo-900">
+                  <CheckCircle2 size={16} className="text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">Mode Multi-Berkas Aktif ({selectedFiles.length} berkas)</p>
+                    <p className="text-[11px] text-indigo-700/80 mt-0.5">
+                      Semua berkas akan diunggah sekaligus dengan nama aslinya ke Google Drive dan repositori kelas.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
 
               {/* 3. Mata Kuliah (SESUAI & DROPDOWN) */}
               <div className="space-y-1.5">
@@ -1497,11 +1598,15 @@ export default function ClassFiles({
                 </button>
                 <button
                   type="submit"
-                  disabled={!uploadName.trim() || !selectedFileObj}
+                  disabled={selectedFiles.length === 0 || (selectedFiles.length === 1 && !uploadName.trim()) || isUploading}
                   className="px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-xs disabled:opacity-50 flex items-center gap-2 transition-all cursor-pointer min-h-[38px]"
                 >
                   <UploadCloud size={15} />
-                  <span>Unggah di Latar Belakang</span>
+                  <span>
+                    {selectedFiles.length > 1
+                      ? `Unggah ${selectedFiles.length} Berkas di Latar Belakang`
+                      : 'Unggah Berkas di Latar Belakang'}
+                  </span>
                 </button>
               </div>
             </form>
