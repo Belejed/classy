@@ -1013,7 +1013,9 @@ export default function App() {
                   classesLoading={classesLoading}
                   logs={logs}
                   onRefreshClasses={loadUserClasses}
-                  onRefreshLogs={handleRefreshLogs}
+                  handleAdminUpdateSubmission={handleAdminUpdateSubmission}
+                  handleAdminMoveSubmission={handleAdminMoveSubmission}
+                  handleRefreshSubmissionsData={handleRefreshSubmissionsData}
                   onOpenProfile={() => setShowProfileModal(true)}
                   onLogout={handleLogout}
                 />
@@ -1089,6 +1091,9 @@ function ClassWorkspace({
   handleApproveMember,
   handleDenyMember,
   handleUpdateClassSettings,
+  handleAdminUpdateSubmission,
+  handleAdminMoveSubmission,
+  handleRefreshSubmissionsData,
   classesLoading,
   logs,
   onRefreshClasses,

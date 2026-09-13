@@ -189,10 +189,31 @@ export default function ClassSubmissionsManager({
   const allSubmissions = useMemo(() => {
     const list = [];
     (tasks || []).forEach(t => {
-      const subs = t.submissions || [];
+      if (!t) return;
+      const subs = Array.isArray(t.submissions) ? t.submissions : [];
       subs.forEach(s => {
-        const isGroup = Boolean(s.isGroup || (Array.isArray(s.groupMembers) && s.groupMembers.length > 1));
-        const memberCount = Array.isArray(s.groupMembers) ? s.groupMembers.length : 0;
+        if (!s || typeof s !== 'object') return;
+        const rawMembers = Array.isArray(s.groupMembers) ? s.groupMembers : [];
+        const normalizedMembers = rawMembers.map(m => {
+          if (!m) return null;
+          if (typeof m === 'string') {
+            return { userId: m, name: m, userName: m, studentId: '', nim: '', userEmail: '' };
+          }
+          if (typeof m === 'object') {
+            return {
+              userId: m.userId || m.uid || m.id || '',
+              userName: m.userName || m.name || m.displayName || 'Anggota',
+              name: m.name || m.userName || m.displayName || 'Anggota',
+              studentId: m.studentId || m.nim || '',
+              nim: m.studentId || m.nim || '',
+              userEmail: m.userEmail || m.email || ''
+            };
+          }
+          return null;
+        }).filter(Boolean);
+
+        const isGroup = Boolean(s.isGroup || normalizedMembers.length > 1);
+        const memberCount = normalizedMembers.length;
         
         // Smart problem indicator: if group task but 0 or 1 member
         const needsFixing = isGroup && memberCount <= 1;
@@ -200,11 +221,12 @@ export default function ClassSubmissionsManager({
         list.push({
           ...s,
           taskId: t.id,
-          taskTitle: t.title,
-          taskCourse: t.subject || t.course || '',
+          taskTitle: t.title || 'Tanpa Judul',
+          taskCourse: (t.subject || t.course || '').trim(),
           taskDueDate: t.dueDate,
           taskDueTime: t.dueTime,
           isGroup,
+          groupMembers: normalizedMembers,
           memberCount,
           needsFixing,
           task: t
@@ -218,6 +240,7 @@ export default function ClassSubmissionsManager({
   const availableCourses = useMemo(() => {
     const set = new Set();
     (tasks || []).forEach(t => {
+      if (!t) return;
       const c = (t.subject || t.course || '').trim();
       if (c) set.add(c);
     });
@@ -227,8 +250,9 @@ export default function ClassSubmissionsManager({
   // Filtered submissions
   const filteredSubmissions = useMemo(() => {
     return allSubmissions.filter(item => {
+      if (!item) return false;
       // Course filter
-      if (selectedCourse !== 'all' && item.taskCourse.toLowerCase() !== selectedCourse.toLowerCase()) {
+      if (selectedCourse !== 'all' && (item.taskCourse || '').toLowerCase() !== selectedCourse.toLowerCase()) {
         return false;
       }
       // Task filter
@@ -248,8 +272,10 @@ export default function ClassSubmissionsManager({
         const matchGroup = (item.groupName || '').toLowerCase().includes(q);
         const matchFile = (item.fileName || '').toLowerCase().includes(q);
         const matchMembers = (item.groupMembers || []).some(m => 
-          (m.userName || m.name || '').toLowerCase().includes(q) || 
-          (m.studentId || m.nim || '').toLowerCase().includes(q)
+          m && (
+            (m.userName || m.name || '').toLowerCase().includes(q) || 
+            (m.studentId || m.nim || '').toLowerCase().includes(q)
+          )
         );
         return matchSubmitter || matchTask || matchGroup || matchFile || matchMembers;
       }
@@ -270,8 +296,8 @@ export default function ClassSubmissionsManager({
   // Approved class members for quick selection
   const registeredMembers = useMemo(() => {
     return (currentClass?.members || [])
-      .filter(m => (m.status || 'approved') === 'approved')
-      .sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || '', 'id'));
+      .filter(m => m && typeof m === 'object' && (m.status || 'approved') === 'approved')
+      .sort((a, b) => (a.name || a.displayName || a.email || '').localeCompare(b.name || b.displayName || b.email || '', 'id'));
   }, [currentClass?.members]);
 
   // Open Edit Modal
@@ -1270,10 +1296,10 @@ export default function ClassSubmissionsManager({
         onClose={() => !isDeletingSub && setSubToDelete(null)}
         onConfirm={handleConfirmDelete}
         title="Hapus Pengumpulan Ini?"
-        description={`Apakah Anda yakin ingin menghapus pengumpulan tugas dari ${subToDelete?.userName} untuk tugas "${subToDelete?.taskTitle}"?`}
-        confirmLabel="Ya, Hapus Pengumpulan"
-        cancelLabel="Batal"
-        variant="danger"
+        message={`Apakah Anda yakin ingin menghapus pengumpulan tugas dari ${subToDelete?.userName} untuk tugas "${subToDelete?.taskTitle}"?`}
+        confirmText="Ya, Hapus Pengumpulan"
+        cancelText="Batal"
+        type="danger"
         isLoading={isDeletingSub}
       />
 
