@@ -14,7 +14,8 @@ import {
   User,
   LogOut,
   Settings,
-  Phone
+  Phone,
+  Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -53,6 +54,9 @@ export default function ClassNavbar({
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
+  const role = currentClass?.userRole || 'student';
+  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+
   const navTabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'schedule', label: 'Schedule', icon: Calendar },
@@ -60,7 +64,8 @@ export default function ClassNavbar({
     { id: 'files', label: 'Files', icon: Folder },
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'forum', label: 'Forum', icon: MessageSquare },
-    { id: 'contacts', label: 'Kontak Dosen', icon: Phone }
+    { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
+    ...(isManager ? [{ id: 'submissions', label: 'Rapikan Tugas', icon: Sparkles }] : [])
   ];
 
   return (

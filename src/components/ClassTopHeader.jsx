@@ -11,7 +11,8 @@ import {
   History, 
   Copy, 
   Check, 
-  MessageCircle
+  MessageCircle,
+  Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -33,6 +34,7 @@ export default function ClassTopHeader({
     forum: { label: 'Forum Diskusi', icon: MessageSquare },
     contacts: { label: 'Kontak Dosen', icon: Phone },
     members: { label: 'Anggota Kelas', icon: Users },
+    submissions: { label: 'Rapikan Tugas & Kelompok', icon: Sparkles },
     logs: { label: 'Log Aktivitas', icon: History }
   };
 

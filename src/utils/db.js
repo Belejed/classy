@@ -336,6 +336,7 @@ export const dbService = {
           academicPeriod: meta.academicPeriod || '2026/2027 Ganjil',
           waGroupLink: meta.waGroupLink || '',
           joinCode: c.invite_code,
+          komtiPin: meta.komtiPin || '',
           ownerId: c.owner_id,
           userRole, // 'superadmin' | 'komti' | 'lecturer' | 'student'
           membershipStatus, // 'approved' | 'pending' | 'rejected'
@@ -374,6 +375,7 @@ export const dbService = {
         academicPeriod: meta.academicPeriod || '2026/2027 Ganjil',
         waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
+        komtiPin: meta.komtiPin || '',
         ownerId: data.owner_id,
         isBlocked,
         status: isBlocked ? 'blocked' : 'active',
@@ -626,6 +628,7 @@ export const dbService = {
         academicPeriod: meta.academicPeriod || '2026/2027',
         waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
+        komtiPin: meta.komtiPin || '',
         ownerId: data.owner_id,
         userRole,
         membershipStatus: userStatus,
@@ -765,7 +768,7 @@ export const dbService = {
       }
     },
 
-    update: async (classId, { name, classIdentifier, lecturer, academicPeriod, waGroupLink }) => {
+    update: async (classId, { name, classIdentifier, lecturer, academicPeriod, waGroupLink, komtiPin }) => {
       const { data, error } = await supabase.from('workspaces').select('*').eq('id', classId).maybeSingle();
       if (error || !data) throw new Error('Kelas tidak ditemukan.');
 
@@ -780,6 +783,7 @@ export const dbService = {
       if (lecturer !== undefined) meta.lecturer = lecturer.trim();
       if (academicPeriod !== undefined) meta.academicPeriod = academicPeriod.trim();
       if (waGroupLink !== undefined) meta.waGroupLink = waGroupLink.trim();
+      if (komtiPin !== undefined) meta.komtiPin = (komtiPin || '').trim();
 
       const updates = {
         description: JSON.stringify(meta)
@@ -799,6 +803,7 @@ export const dbService = {
         academicPeriod: meta.academicPeriod || 'Semester 1',
         waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
+        komtiPin: meta.komtiPin || '',
         ownerId: data.owner_id,
         members: data.members || [],
         memberCount: (data.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1,
@@ -1163,6 +1168,98 @@ export const dbService = {
       }).eq('id', taskId);
 
       if (updErr) throw updErr;
+      return true;
+    },
+
+    updateSubmission: async (taskId, submissionId, updates) => {
+      const { data: existing, error: getErr } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
+      if (getErr || !existing) throw new Error('Tugas tidak ditemukan.');
+
+      let meta = {};
+      try {
+        meta = typeof existing.description === 'string' && existing.description.startsWith('{') ? JSON.parse(existing.description) : {};
+      } catch {
+        meta = { text: existing.description };
+      }
+
+      const submissions = meta.submissions || [];
+      let updatedSubmission = null;
+
+      const updatedSubmissions = submissions.map(s => {
+        const isMatch = s.id === submissionId || s.userId === submissionId || ('sub_' + s.id) === submissionId;
+        if (isMatch) {
+          updatedSubmission = {
+            ...s,
+            ...updates,
+            groupMembers: Array.isArray(updates.groupMembers) ? updates.groupMembers : s.groupMembers,
+            isGroup: updates.isGroup !== undefined ? Boolean(updates.isGroup) : s.isGroup,
+            groupName: updates.groupName !== undefined ? updates.groupName : s.groupName,
+            fileName: updates.fileName !== undefined ? updates.fileName : s.fileName,
+            updatedAt: new Date().toISOString()
+          };
+          return updatedSubmission;
+        }
+        return s;
+      });
+
+      meta.submissions = updatedSubmissions;
+
+      const { error: updErr } = await supabase.from('tasks').update({
+        description: JSON.stringify(meta),
+        updated_at: new Date().toISOString()
+      }).eq('id', taskId);
+
+      if (updErr) throw updErr;
+      return updatedSubmission;
+    },
+
+    moveSubmission: async (fromTaskId, toTaskId, submissionId) => {
+      if (fromTaskId === toTaskId) return true;
+
+      const { data: fromTask, error: fromErr } = await supabase.from('tasks').select('*').eq('id', fromTaskId).maybeSingle();
+      if (fromErr || !fromTask) throw new Error('Tugas sumber tidak ditemukan.');
+
+      const { data: toTask, error: toErr } = await supabase.from('tasks').select('*').eq('id', toTaskId).maybeSingle();
+      if (toErr || !toTask) throw new Error('Tugas tujuan tidak ditemukan.');
+
+      let fromMeta = {};
+      try {
+        fromMeta = typeof fromTask.description === 'string' && fromTask.description.startsWith('{') ? JSON.parse(fromTask.description) : {};
+      } catch {
+        fromMeta = { text: fromTask.description };
+      }
+
+      let toMeta = {};
+      try {
+        toMeta = typeof toTask.description === 'string' && toTask.description.startsWith('{') ? JSON.parse(toTask.description) : {};
+      } catch {
+        toMeta = { text: toTask.description };
+      }
+
+      const fromSubs = fromMeta.submissions || [];
+      const toSubs = toMeta.submissions || [];
+
+      const targetIndex = fromSubs.findIndex(s => s.id === submissionId || s.userId === submissionId || ('sub_' + s.id) === submissionId);
+      if (targetIndex === -1) throw new Error('Pengumpulan tugas tidak ditemukan pada tugas sumber.');
+
+      const [subToMove] = fromSubs.splice(targetIndex, 1);
+      toSubs.push(subToMove);
+
+      fromMeta.submissions = fromSubs;
+      toMeta.submissions = toSubs;
+
+      const { error: updFromErr } = await supabase.from('tasks').update({
+        description: JSON.stringify(fromMeta),
+        updated_at: new Date().toISOString()
+      }).eq('id', fromTaskId);
+      if (updFromErr) throw updFromErr;
+
+      const { error: updToErr } = await supabase.from('tasks').update({
+        description: JSON.stringify(toMeta),
+        updated_at: new Date().toISOString()
+      }).eq('id', toTaskId);
+      if (updToErr) throw updToErr;
+
       return true;
     },
 

@@ -19,7 +19,8 @@ import {
   Shield,
   BookOpen,
   Phone,
-  History
+  History,
+  Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -146,7 +147,10 @@ export default function ClassSidebar({
     { id: 'forum', label: 'Forum', icon: MessageSquare },
     { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
     { id: 'members', label: role === 'superadmin' ? 'Members' : 'Members (Komti)', icon: Users, isSpecial: true },
-    ...(isManager ? [{ id: 'logs', label: 'Log Aktivitas', icon: History, isSpecial: true }] : [])
+    ...(isManager ? [
+      { id: 'submissions', label: 'Rapikan Tugas', icon: Sparkles, isSpecial: true },
+      { id: 'logs', label: 'Log Aktivitas', icon: History, isSpecial: true }
+    ] : [])
   ];
 
   const getRoleLabel = () => {
@@ -330,6 +334,13 @@ export default function ClassSidebar({
                     Manage
                   </span>
                 )}
+                {tab.id === 'submissions' && (
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-bold tracking-wider ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300'
+                  }`}>
+                    PIN
+                  </span>
+                )}
                 {tab.id === 'logs' && (
                   <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-bold tracking-wider ${
                     isActive ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300'
@@ -416,7 +427,7 @@ export default function ClassSidebar({
 
         {/* 5th Tab: Menu Drawer Button (Files, Anggota, Kontak, Forum, Switch Class, Profile) */}
         {(() => {
-          const isOtherTabActive = ['files', 'forum', 'contacts', 'members', 'logs'].includes(activeTab) || mobileMenuOpen;
+          const isOtherTabActive = ['files', 'forum', 'contacts', 'members', 'logs', 'submissions'].includes(activeTab) || mobileMenuOpen;
           return (
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -686,7 +697,41 @@ export default function ClassSidebar({
                     </span>
                   </button>
 
-                  {/* 5. Log Aktivitas (Managers Only) */}
+                  {/* 5. Rapikan Tugas (Managers Only) */}
+                  {isManager && (
+                    <button
+                      onClick={() => {
+                        onSelectTab('submissions');
+                        handleCloseMobileMenu();
+                      }}
+                      className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-5 active:scale-[0.98] ${
+                        activeTab === 'submissions'
+                          ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
+                          : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                          activeTab === 'submissions' ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-700'
+                        }`}>
+                          <Sparkles size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs truncate">Rapikan Tugas</p>
+                          <p className={`text-[10px] truncate ${activeTab === 'submissions' ? 'text-white/80' : 'text-[#64748B]'}`}>
+                            Kelola anggota kelompok
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-1 ${
+                        activeTab === 'submissions' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-800'
+                      }`}>
+                        PIN
+                      </span>
+                    </button>
+                  )}
+
+                  {/* 6. Log Aktivitas (Managers Only) */}
                   {isManager && (
                     <button
                       onClick={() => {

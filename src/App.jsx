@@ -19,6 +19,7 @@ import ClassAnnouncements from './components/ClassAnnouncements';
 import ClassForum from './components/ClassForum';
 import ClassContacts from './components/ClassContacts';
 import ClassActivityLog from './components/ClassActivityLog';
+import ClassSubmissionsManager from './components/ClassSubmissionsManager';
 import UserProfileModal from './components/UserProfileModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import ClassTopHeader from './components/ClassTopHeader';
@@ -460,6 +461,64 @@ export default function App() {
         color: 'rose'
       });
       handleRefreshLogs();
+    } catch {}
+  };
+
+  const handleAdminUpdateSubmission = async (taskId, submissionId, updates) => {
+    await dbService.tasks.updateSubmission(taskId, submissionId, updates);
+    const refreshed = await dbService.tasks.list(currentClass.id);
+    setTasks(refreshed);
+    try {
+      const freshFiles = await dbService.files.list(currentClass.id);
+      setFiles(freshFiles);
+    } catch {}
+
+    try {
+      const targetTask = refreshed.find(t => t.id === taskId);
+      const groupNames = Array.isArray(updates.groupMembers) && updates.groupMembers.length > 0
+        ? updates.groupMembers.map(m => m.userName || m.name).join(', ')
+        : '';
+      await dbService.logs.create(currentClass.id, {
+        actionType: 'task_submit_cleanup',
+        title: `Pengumpulan tugas dirapikan oleh Komti`,
+        details: `${user?.displayName || 'Komti'} merapikan pengumpulan tugas "${targetTask?.title || taskId}"${groupNames ? ` (Anggota kelompok: ${groupNames})` : ''}.`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        targetName: targetTask?.title || '',
+        color: 'indigo'
+      });
+      handleRefreshLogs();
+    } catch {}
+  };
+
+  const handleAdminMoveSubmission = async (fromTaskId, toTaskId, submissionId) => {
+    await dbService.tasks.moveSubmission(fromTaskId, toTaskId, submissionId);
+    const refreshed = await dbService.tasks.list(currentClass.id);
+    setTasks(refreshed);
+    try {
+      const freshFiles = await dbService.files.list(currentClass.id);
+      setFiles(freshFiles);
+    } catch {}
+
+    try {
+      const toTask = refreshed.find(t => t.id === toTaskId);
+      await dbService.logs.create(currentClass.id, {
+        actionType: 'task_submit_move',
+        title: `Pengumpulan tugas dipindahkan oleh Komti`,
+        details: `${user?.displayName || 'Komti'} memindahkan pengumpulan tugas ke "${toTask?.title || toTaskId}".`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        targetName: toTask?.title || '',
+        color: 'sky'
+      });
+      handleRefreshLogs();
+    } catch {}
+  };
+
+  const handleRefreshSubmissionsData = async () => {
+    const refreshedTasks = await dbService.tasks.list(currentClass.id);
+    setTasks(refreshedTasks);
+    try {
+      const freshFiles = await dbService.files.list(currentClass.id);
+      setFiles(freshFiles);
     } catch {}
   };
 
@@ -1059,7 +1118,7 @@ function ClassWorkspace({
     }
   };
 
-  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'contacts', 'members', 'logs'];
+  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'contacts', 'members', 'logs', 'submissions'];
   const activeTab = validTabs.includes(tab) ? tab : 'dashboard';
 
   // Ensure currentClass matches the URL classId
@@ -1352,6 +1411,21 @@ function ClassWorkspace({
                 logs={logs || []}
                 loading={contentLoading}
                 onRefresh={onRefreshLogs}
+              />
+            )}
+
+            {activeTab === 'submissions' && (
+              <ClassSubmissionsManager
+                currentClass={currentClass}
+                currentUser={user}
+                tasks={tasks || []}
+                files={files || []}
+                schedules={schedules || []}
+                onUpdateSubmission={handleAdminUpdateSubmission}
+                onMoveSubmission={handleAdminMoveSubmission}
+                onDeleteSubmission={handleDeleteSubmission}
+                onUpdateClassSettings={handleUpdateClassSettings}
+                onRefreshData={handleRefreshSubmissionsData}
               />
             )}
               </>
