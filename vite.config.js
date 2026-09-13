@@ -5,6 +5,7 @@ import handler from './api/upload-drive.js'
 import checkHandler from './api/check-drive-file.js'
 import trashHandler from './api/trash-drive-file.js'
 
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -19,6 +20,22 @@ export default defineConfig(({ mode }) => {
     root: __dirname,
     plugins: [
       react(),
+      {
+        name: 'generate-version-json',
+        buildStart() {
+          try {
+            const versionInfo = {
+              version: Date.now(),
+              builtAt: new Date().toISOString()
+            };
+            const versionPath = path.resolve(__dirname, 'public/version.json');
+            fs.writeFileSync(versionPath, JSON.stringify(versionInfo, null, 2));
+            console.log('[Vite] Generated fresh public/version.json with timestamp:', versionInfo.version);
+          } catch (err) {
+            console.warn('[Vite] Could not write public/version.json:', err);
+          }
+        }
+      },
       {
         name: 'api-dev-routes',
         configureServer(server) {

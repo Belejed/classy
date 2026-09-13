@@ -26,6 +26,7 @@ import ClassTopHeader from './components/ClassTopHeader';
 import SuperadminDashboardModal from './components/SuperadminDashboardModal';
 import ChangelogModal, { shouldShowChangelogAuto, markChangelogSeen } from './components/ChangelogModal';
 import { DashboardSkeleton, TasksSkeleton, ScheduleSkeleton } from './components/SkeletonLoader';
+import { setupGlobalUpdateListeners } from './utils/appUpdater';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -193,6 +194,21 @@ export default function App() {
       setLogs(null);
     }
   }, [currentClass?.id]);
+
+  // Auto-Update & Background Refresh on Tab Focus / Entry
+  useEffect(() => {
+    const cleanup = setupGlobalUpdateListeners({
+      onRefreshData: async () => {
+        if (user) {
+          await loadUserClasses();
+          if (currentClass?.id) {
+            await loadClassContent(currentClass);
+          }
+        }
+      }
+    });
+    return cleanup;
+  }, [user, currentClass?.id]);
 
   // Helper to send class notifications via serverless Resend endpoint
   const sendClassNotificationEmail = async ({ subject, type = 'announcement', title, subtitle, message, metaRows = [], photoUrl = null, sendIndividual = true }) => {

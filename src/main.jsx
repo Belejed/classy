@@ -4,21 +4,13 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 
-// Unregister any legacy Service Worker & clear old cache
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
-    }
-  });
-}
-if ('caches' in window) {
-  caches.keys().then((names) => {
-    for (const name of names) {
-      caches.delete(name);
-    }
-  });
-}
+import { purgeLegacyStorage, unregisterServiceWorkersAndCaches } from './utils/appUpdater'
+
+// 1. Instantly purge any legacy offline localStorage data from older versions
+purgeLegacyStorage();
+
+// 2. Unregister any legacy Service Worker & clear old CacheStorage
+unregisterServiceWorkersAndCaches();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
