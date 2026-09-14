@@ -1,10 +1,23 @@
-import { createClient } from '@supabase/supabase-js';
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://klnemjadmcuetdpulzkf.supabase.co';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_OhvNh6I3jjbj4vLvFNmEWQ_t0GwP5O1';
+const firebaseConfig = {
+  apiKey: process.env.VITE_FIREBASE_API_KEY || "AIzaSyAmTz5EH4Iy-CubYMuKcCwhhnltxbEmDs0",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "noted-7deda.firebaseapp.com",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "noted-7deda",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "noted-7deda.firebasestorage.app",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "697162701405",
+  appId: process.env.VITE_FIREBASE_APP_ID || "1:697162701405:web:d8977c319e8a6399684bb4"
+};
+
+const getDb = () => {
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  return getFirestore(app);
+};
+
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const RESEND_BATCH_URL = 'https://api.resend.com/emails/batch';
-const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_49d3iMFv_QCsHWiJpaJ8GnGtcQ5y2c8NN';
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Classy Academic Hub <notifikasi@classy.exars.my.id>';
 const DEFAULT_CC = process.env.RESEND_CC_EMAIL || 'exars.012@gmail.com';
 const PORTAL_URL = 'https://classy.exars.my.id';
@@ -152,7 +165,7 @@ function buildHtmlTemplate({ type, title, subtitle, contentHtml, metaRows = [], 
 
 export default async function handler(req, res) {
   // CORS Headers
-  const origin = req.headers.origin;
+  const origin = req.headers?.origin;
   const allowedOrigins = [
     'https://classy.exars.my.id',
     'https://noted-by-blazed.vercel.app'
@@ -163,11 +176,13 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'Origin not allowed' });
   }
 
-  if (isAllowed && origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else if (!origin) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+  if (typeof res.setHeader === 'function') {
+    if (isAllowed && origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else if (!origin) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
@@ -217,14 +232,10 @@ export default async function handler(req, res) {
     // Check if class is blocked / paused (except for Superadmin approval requests)
     if (classId && type !== 'class_approval_request') {
       try {
-        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        const { data: ws } = await supabase
-          .from('workspaces')
-          .select('id, name, description')
-          .eq('id', classId)
-          .maybeSingle();
-
-        if (ws) {
+        const db = getDb();
+        const snap = await getDoc(doc(db, 'workspaces', classId));
+        if (snap.exists()) {
+          const ws = snap.data();
           let meta = {};
           try {
             meta = typeof ws.description === 'string' && ws.description.startsWith('{') ? JSON.parse(ws.description) : {};

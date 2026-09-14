@@ -47,7 +47,7 @@ export default function ClassAnnouncements({
   const [type, setType] = useState('general'); // 'general' | 'assignment' | 'schedule' | 'important'
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
-  const [sendEmailNotification, setSendEmailNotification] = useState(false);
+  const [sendEmailNotification, setSendEmailNotification] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const fileInputRef = useRef(null);
@@ -716,10 +716,10 @@ export default function ClassAnnouncements({
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 font-bold text-[#0F172A]">
                       <Mail size={13} className="text-indigo-600 shrink-0" />
-                      <span>Kirim email seketika sekarang (Khusus Pengumuman Mendesak)</span>
+                      <span>Kirim email notifikasi ke seluruh anggota kelas</span>
                     </div>
                     <p className="text-[11px] text-[#64748B] font-normal mt-0.5 leading-snug">
-                      Pengumuman ini otomatis masuk ke email ringkasan pagi (pk 06:00 WIB) bersama jadwal & tugas. Centang jika butuh broadcast darurat sekarang.
+                      Email pemberitahuan pengumuman ini akan langsung dikirimkan ke email seluruh mahasiswa anggota kelas.
                     </p>
                   </div>
                 </label>

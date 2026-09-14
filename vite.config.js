@@ -4,6 +4,7 @@ import handler from './api/upload-drive.js'
 
 import checkHandler from './api/check-drive-file.js'
 import trashHandler from './api/trash-drive-file.js'
+import sendEmailHandler from './api/send-email.js'
 
 import fs from 'fs';
 import path from 'path';
@@ -43,8 +44,9 @@ export default defineConfig(({ mode }) => {
             const isUpload = req.url.startsWith('/api/upload-drive');
             const isCheck = req.url.startsWith('/api/check-drive-file');
             const isTrash = req.url.startsWith('/api/trash-drive-file');
+            const isEmail = req.url.startsWith('/api/send-email');
 
-            if (isUpload || isCheck || isTrash) {
+            if (isUpload || isCheck || isTrash || isEmail) {
               if (req.method === 'POST') {
                 let bodyStr = '';
                 req.on('data', chunk => { bodyStr += chunk; });
@@ -70,6 +72,7 @@ export default defineConfig(({ mode }) => {
                     if (isUpload) await handler(req, fakeRes);
                     else if (isCheck) await checkHandler(req, fakeRes);
                     else if (isTrash) await trashHandler(req, fakeRes);
+                    else if (isEmail) await sendEmailHandler(req, fakeRes);
                   } catch (e) {
                     res.statusCode = 500;
                     res.end(JSON.stringify({ error: e.message }));

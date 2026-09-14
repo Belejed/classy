@@ -1,9 +1,22 @@
-import { createClient } from '@supabase/supabase-js';
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://klnemjadmcuetdpulzkf.supabase.co';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_OhvNh6I3jjbj4vLvFNmEWQ_t0GwP5O1';
+const firebaseConfig = {
+  apiKey: process.env.VITE_FIREBASE_API_KEY || "AIzaSyAmTz5EH4Iy-CubYMuKcCwhhnltxbEmDs0",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "noted-7deda.firebaseapp.com",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "noted-7deda",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "noted-7deda.firebasestorage.app",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "697162701405",
+  appId: process.env.VITE_FIREBASE_APP_ID || "1:697162701405:web:d8977c319e8a6399684bb4"
+};
+
+const getDb = () => {
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  return getFirestore(app);
+};
+
 const RESEND_BATCH_URL = 'https://api.resend.com/emails/batch';
-const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_49d3iMFv_QCsHWiJpaJ8GnGtcQ5y2c8NN';
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Classy Academic Hub <notifikasi@classy.exars.my.id>';
 const DEFAULT_CC = process.env.RESEND_CC_EMAIL || 'exars.012@gmail.com';
 const PORTAL_URL = 'https://classy.exars.my.id';
@@ -275,29 +288,28 @@ function buildDailyDigestHtml({ className, dayName, displayDate, todaySchedules 
 
 export default async function handler(req, res) {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const db = getDb();
     const { dateStr, dayName, displayDate } = getWibDateTime();
     const todayDate = new Date(dateStr);
 
-    // 1. Fetch all classes (workspaces)
-    const { data: workspaces, error: wsErr } = await supabase.from('workspaces').select('*');
-    if (wsErr) throw wsErr;
+    // 1. Fetch all classes (workspaces) from Firestore
+    const wsSnap = await getDocs(collection(db, 'workspaces'));
+    const workspaces = wsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // 2. Fetch all schedules
-    const { data: allSchedules, error: schErr } = await supabase.from('schedules').select('*');
-    if (schErr) throw schErr;
+    // 2. Fetch all schedules from Firestore
+    const schSnap = await getDocs(collection(db, 'schedules'));
+    const allSchedules = schSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // 3. Fetch all active tasks
-    const { data: allTasks, error: taskErr } = await supabase.from('tasks').select('*');
-    if (taskErr) throw taskErr;
+    // 3. Fetch all active tasks from Firestore
+    const taskSnap = await getDocs(collection(db, 'tasks'));
+    const allTasks = taskSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // 4. Fetch announcements
-    const { data: allAnnouncements, error: annErr } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('category', 'announcement')
-      .order('updated_at', { ascending: false });
-    if (annErr) console.warn('Could not load announcements for digest:', annErr);
+    // 4. Fetch announcements from Firestore
+    const annSnap = await getDocs(collection(db, 'notes'));
+    const allAnnouncements = annSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(a => a.category === 'announcement')
+      .sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')));
 
     const digestResults = [];
 
@@ -325,14 +337,10 @@ export default async function handler(req, res) {
 
       // Check deduplication: 1 morning digest per class per day
       const dedupKey = `cron_morning_digest_${classId}_${dateStr}`;
-      const { data: existingLog } = await supabase
-        .from('notes')
-        .select('id')
-        .eq('category', 'cron_reminder_log')
-        .eq('title', dedupKey)
-        .maybeSingle();
+      const dedupRef = doc(db, 'notes', dedupKey);
+      const dedupSnap = await getDoc(dedupRef);
 
-      if (existingLog) {
+      if (dedupSnap.exists()) {
         continue; // Already dispatched today
       }
 
@@ -424,8 +432,8 @@ export default async function handler(req, res) {
         });
 
         if (batchRes.ok) {
-          await supabase.from('notes').insert({
-            id: 'cron_' + Math.random().toString(36).substr(2, 9),
+          await setDoc(dedupRef, {
+            id: dedupKey,
             workspace_id: classId,
             title: dedupKey,
             subject: 'Morning Digest 06:00 WIB',
@@ -444,7 +452,7 @@ export default async function handler(req, res) {
             pinned: false,
             favorite: false,
             updated_at: new Date().toISOString()
-          });
+          }, { merge: true });
 
           digestResults.push({
             class: ws.name,
