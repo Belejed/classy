@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Users, 
   Search, 
@@ -24,7 +24,8 @@ import {
   MessageCircle,
   FileSpreadsheet,
   ExternalLink,
-  Filter
+  Filter,
+  ChevronDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
@@ -37,6 +38,159 @@ import {
   canDeleteAnything,
   getRoleDisplayName 
 } from '../utils/permissions';
+
+function MemberRoleDropdown({ 
+  currentRole, 
+  onSelectRole, 
+  disabled, 
+  isProcessing 
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const roleOptions = [
+    {
+      id: 'student',
+      label: 'Mahasiswa',
+      desc: 'Tugas, berkas & forum',
+      icon: User,
+      badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
+      iconColor: 'text-slate-600'
+    },
+    {
+      id: 'komti',
+      label: 'Komti (Ketua)',
+      desc: 'Akses penuh 100% semua fitur',
+      icon: Crown,
+      badgeColor: 'bg-amber-50 text-amber-800 border-amber-200',
+      iconColor: 'text-amber-600'
+    },
+    {
+      id: 'vice_komti',
+      label: 'Wakil Komti',
+      desc: 'Kelola semua fitur (tanpa hapus)',
+      icon: Shield,
+      badgeColor: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+      iconColor: 'text-indigo-600'
+    },
+    {
+      id: 'division_head',
+      label: 'Kepala Divisi',
+      desc: 'Input berkas materi & tugas saja',
+      icon: Layers,
+      badgeColor: 'bg-violet-50 text-violet-800 border-violet-200',
+      iconColor: 'text-violet-600'
+    },
+    {
+      id: 'lecturer',
+      label: 'Dosen Pengajar',
+      desc: 'Wewenang pengajar & materi',
+      icon: GraduationCap,
+      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      iconColor: 'text-emerald-600'
+    }
+  ];
+
+  const norm = normalizeRole(currentRole);
+  const activeOption = roleOptions.find(opt => opt.id === norm) || roleOptions[0];
+  const ActiveIcon = activeOption.icon;
+
+  return (
+    <div className="relative inline-block text-left" ref={dropdownRef}>
+      <button
+        type="button"
+        disabled={disabled || isProcessing}
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs hover:shadow-xs cursor-pointer disabled:opacity-50 min-h-[34px] ${
+          activeOption.id === 'komti'
+            ? 'bg-amber-50/90 text-amber-950 border-amber-300/80 hover:bg-amber-100/80'
+            : activeOption.id === 'vice_komti'
+            ? 'bg-indigo-50/90 text-indigo-950 border-indigo-300/80 hover:bg-indigo-100/80'
+            : activeOption.id === 'division_head'
+            ? 'bg-violet-50/90 text-violet-950 border-violet-300/80 hover:bg-violet-100/80'
+            : activeOption.id === 'lecturer'
+            ? 'bg-emerald-50/90 text-emerald-950 border-emerald-300/80 hover:bg-emerald-100/80'
+            : 'bg-slate-100/90 text-slate-800 border-slate-200 hover:bg-slate-200/70'
+        }`}
+      >
+        {isProcessing ? (
+          <span className="w-3.5 h-3.5 border-2 border-slate-400 border-t-slate-800 rounded-full animate-spin shrink-0" />
+        ) : (
+          <ActiveIcon size={13} className={activeOption.iconColor} />
+        )}
+        <span className="truncate max-w-[100px] sm:max-w-none">{activeOption.label}</span>
+        <ChevronDown size={13} className={`text-slate-400 transition-transform duration-150 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-1.5 w-64 rounded-2xl bg-white border border-slate-200/90 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+          <div className="px-2.5 py-1.5 border-b border-slate-100 flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+              Pilih Peran Anggota
+            </span>
+            <span className="text-[10px] font-medium text-slate-400">Hak Akses</span>
+          </div>
+
+          <div className="py-1 space-y-0.5">
+            {roleOptions.map((opt) => {
+              const Icon = opt.icon;
+              const isSelected = opt.id === activeOption.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    if (!isSelected) {
+                      onSelectRole(opt.id);
+                    }
+                  }}
+                  className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all cursor-pointer group ${
+                    isSelected 
+                      ? 'bg-slate-900 text-white font-bold' 
+                      : 'hover:bg-slate-50 text-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${
+                      isSelected ? 'bg-white/15 text-white border-white/20' : `${opt.badgeColor}`
+                    }`}>
+                      <Icon size={14} className={isSelected ? 'text-white' : opt.iconColor} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-xs font-bold truncate leading-tight ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                        {opt.label}
+                      </p>
+                      <p className={`text-[10px] truncate leading-tight mt-0.5 ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>
+                        {opt.desc}
+                      </p>
+                    </div>
+                  </div>
+
+                  {isSelected && (
+                    <Check size={14} className="text-white shrink-0 ml-2" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ClassMembers({
   currentClass,
@@ -906,32 +1060,13 @@ export default function ClassMembers({
                     </div>
                   ) : (
                     <>
-                      {/* Role Selector (Managers) or Static Badge (Students) */}
+                      {/* Role Dropdown (Managers) or Static Badge (Students) */}
                       {isManager && !isTargetSelfOrOwner ? (
-                        <div className="flex items-center gap-1.5">
-                          <select
-                            disabled={processingId === member.userId}
-                            value={rawRole}
-                            onChange={(e) => handleRoleChange(member.userId, e.target.value)}
-                            className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all shadow-2xs cursor-pointer disabled:opacity-50 ${
-                              rawRole === 'komti'
-                                ? 'border-amber-300 bg-amber-50/60 text-amber-900'
-                                : rawRole === 'vice_komti'
-                                ? 'border-indigo-300 bg-indigo-50/60 text-indigo-900'
-                                : rawRole === 'division_head'
-                                ? 'border-violet-300 bg-violet-50/60 text-violet-900'
-                                : rawRole === 'lecturer'
-                                ? 'border-emerald-300 bg-emerald-50/60 text-emerald-900'
-                                : 'border-slate-300 bg-white text-slate-800 hover:border-slate-400'
-                            }`}
-                          >
-                            <option value="student">👤 Mahasiswa</option>
-                            <option value="komti">👑 Komti (Ketua)</option>
-                            <option value="vice_komti">🛡️ Wakil Komti</option>
-                            <option value="division_head">🗂️ Kepala Divisi</option>
-                            <option value="lecturer">🎓 Dosen Pengajar</option>
-                          </select>
-                        </div>
+                        <MemberRoleDropdown
+                          currentRole={rawRole}
+                          isProcessing={processingId === member.userId}
+                          onSelectRole={(newRole) => handleRoleChange(member.userId, newRole)}
+                        />
                       ) : (
                         <div>
                           {getRoleBadge(rawRole)}
