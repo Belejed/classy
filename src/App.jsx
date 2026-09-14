@@ -4,7 +4,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { authService, dbService, isSuperAdmin, isClassBlocked } from './utils/db';
 import { moveFileToDriveTrash, moveFilesToDriveTrash } from './utils/driveUpload';
 import { unlockBodyScroll } from './components/ModalPortal';
-import { Lock, ShieldCheck, Mail, ArrowLeft, ShieldAlert, Copy, Check } from 'lucide-react';
+import { Lock, ShieldCheck, Mail, ArrowLeft, ShieldAlert, Copy, Check, Wrench } from 'lucide-react';
 
 // Classy Components
 import Auth from './components/Auth';
@@ -25,6 +25,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ClassTopHeader from './components/ClassTopHeader';
 import SuperadminDashboardModal from './components/SuperadminDashboardModal';
 import ChangelogModal, { shouldShowChangelogAuto, markChangelogSeen } from './components/ChangelogModal';
+import MaintenanceScreen from './components/MaintenanceScreen';
 import { DashboardSkeleton, TasksSkeleton, ScheduleSkeleton } from './components/SkeletonLoader';
 import { setupGlobalUpdateListeners } from './utils/appUpdater';
 
@@ -48,6 +49,15 @@ export default function App() {
 
   // Modals
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showGlobalSuperadminModal, setShowGlobalSuperadminModal] = useState(false);
+
+  // System Maintenance Mode State
+  const [maintenanceConfig, setMaintenanceConfig] = useState({
+    enabled: false,
+    title: 'Sistem Sedang Dalam Pemeliharaan',
+    message: 'Classy sedang menjalani pemeliharaan sistem berkala untuk peningkatan performa dan pembaruan fitur. Kami akan segera kembali!',
+    estimatedEndTime: ''
+  });
 
   // App Update Changelog Modal (shows at most once a week, and only if an update was released in that week)
   const [showChangelogModal, setShowChangelogModal] = useState(() => shouldShowChangelogAuto());
@@ -55,6 +65,22 @@ export default function App() {
   const handleCloseChangelog = () => {
     markChangelogSeen();
     setShowChangelogModal(false);
+  };
+
+  const handleQuickDisableMaintenance = async () => {
+    const toastId = toast.loading('Mematikan mode pemeliharaan...');
+    try {
+      const updated = await dbService.system.setMaintenanceConfig({
+        ...maintenanceConfig,
+        enabled: false,
+        updatedBy: user?.displayName || user?.email || 'Superadmin'
+      });
+      setMaintenanceConfig(updated);
+      toast.success('Mode pemeliharaan berhasil dimatikan. Website kembali normal!', { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal mematikan mode pemeliharaan', { id: toastId });
+    }
   };
 
   const navigate = useNavigate();
@@ -75,6 +101,28 @@ export default function App() {
   useEffect(() => {
     unlockBodyScroll(true);
   }, [location.pathname]);
+
+  // Maintenance Mode Initial Load and Realtime Listener
+  useEffect(() => {
+    let unsub = null;
+    const initMaintenance = async () => {
+      try {
+        const config = await dbService.system.getMaintenanceConfig();
+        if (config) setMaintenanceConfig(config);
+      } catch (err) {
+        console.warn('Error loading maintenance config:', err);
+      }
+    };
+    initMaintenance();
+    unsub = dbService.system.subscribeToMaintenance((updated) => {
+      if (updated) {
+        setMaintenanceConfig(updated);
+      }
+    });
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
 
   // 1. Auth Listener & Minimum Splash Duration (2 detik)
   const [minSplashDone, setMinSplashDone] = useState(false);
@@ -859,6 +907,25 @@ export default function App() {
     );
   }
 
+  // System Maintenance Mode Guard (Non-superadmins are blocked from the application)
+  if (maintenanceConfig.enabled && !isSuperAdmin(user)) {
+    return (
+      <>
+        <Toaster position="top-right" />
+        <MaintenanceScreen
+          config={maintenanceConfig}
+          onRefreshStatus={async () => {
+            const cfg = await dbService.system.getMaintenanceConfig();
+            if (cfg) setMaintenanceConfig(cfg);
+          }}
+          onSuperadminLogin={(u) => {
+            setUser(u);
+          }}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <Toaster 
@@ -921,6 +988,42 @@ export default function App() {
           },
         }} 
       />
+
+      {/* Global Superadmin Maintenance Alert Banner */}
+      {isSuperAdmin(user) && maintenanceConfig.enabled && (
+        <div className="sticky top-0 z-[99999] bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 text-white px-4 py-2.5 shadow-md flex items-center justify-between gap-3 text-xs font-bold font-sans">
+          <div className="flex items-center gap-2">
+            <Wrench size={16} className="animate-bounce shrink-0" />
+            <span className="truncate">
+              ⚠️ MODE PEMELIHARAAN AKTIF: Pengguna biasa saat ini diblokir dari web.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleQuickDisableMaintenance}
+              className="px-3 py-1 rounded-lg bg-white text-slate-900 font-extrabold hover:bg-slate-100 transition-colors cursor-pointer text-xs shadow-xs"
+            >
+              Matikan Pemeliharaan
+            </button>
+            <button
+              onClick={() => setShowGlobalSuperadminModal(true)}
+              className="px-3 py-1 rounded-lg bg-black/25 hover:bg-black/35 text-white font-semibold transition-colors cursor-pointer text-xs"
+            >
+              Kelola
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Global Superadmin Command Center Modal */}
+      {showGlobalSuperadminModal && isSuperAdmin(user) && (
+        <SuperadminDashboardModal
+          isOpen={showGlobalSuperadminModal}
+          onClose={() => setShowGlobalSuperadminModal(false)}
+          currentUser={user}
+          onRefreshParentClasses={loadUserClasses}
+        />
+      )}
 
       <Routes>
         {/* Reset & Forgot Password - ALWAYS accessible regardless of auth state */}

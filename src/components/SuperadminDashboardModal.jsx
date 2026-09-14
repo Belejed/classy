@@ -23,7 +23,11 @@ import {
   Mail,
   KeyRound,
   MessageCircle,
-  Phone
+  Phone,
+  Wrench,
+  Clock,
+  Sparkles,
+  Power
 } from 'lucide-react';
 
 export default function SuperadminDashboardModal({ 
@@ -36,7 +40,7 @@ export default function SuperadminDashboardModal({
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState(null);
   
-  // Navigation tabs: 'classes' | 'users'
+  // Navigation tabs: 'classes' | 'users' | 'maintenance'
   const [activeTab, setActiveTab] = useState('classes');
 
   // Classes search & filter
@@ -55,16 +59,84 @@ export default function SuperadminDashboardModal({
   const [copiedUserEmail, setCopiedUserEmail] = useState(null);
   const [resettingEmail, setResettingEmail] = useState(null);
 
+  // Maintenance Mode states
+  const [maintenanceConfig, setMaintenanceConfig] = useState({
+    enabled: false,
+    title: 'Sistem Sedang Dalam Pemeliharaan',
+    message: 'Classy sedang menjalani pemeliharaan sistem berkala untuk peningkatan performa dan pembaruan fitur. Kami akan segera kembali!',
+    estimatedEndTime: ''
+  });
+  const [isSavingMaintenance, setIsSavingMaintenance] = useState(false);
+  const [showConfirmMaintenanceModal, setShowConfirmMaintenanceModal] = useState(false);
+  const [pendingTargetState, setPendingTargetState] = useState(false);
+
   const fetchMetrics = async () => {
     setLoading(true);
     try {
-      const data = await dbService.superadmin.getGlobalMetrics();
+      const [data, maint] = await Promise.all([
+        dbService.superadmin.getGlobalMetrics(),
+        dbService.system.getMaintenanceConfig()
+      ]);
       setMetrics(data);
+      if (maint) {
+        setMaintenanceConfig(maint);
+      }
     } catch (err) {
       console.error('Error fetching superadmin metrics:', err);
       toast.error('Gagal memuat statistik Superadmin');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePromptToggleMaintenance = (targetState) => {
+    setPendingTargetState(targetState);
+    setShowConfirmMaintenanceModal(true);
+  };
+
+  const handleConfirmToggleMaintenance = async () => {
+    setIsSavingMaintenance(true);
+    const toastId = toast.loading(
+      pendingTargetState ? 'Mengaktifkan Mode Pemeliharaan...' : 'Mematikan Mode Pemeliharaan...'
+    );
+    try {
+      const updated = await dbService.system.setMaintenanceConfig({
+        ...maintenanceConfig,
+        enabled: pendingTargetState,
+        updatedBy: currentUser?.displayName || currentUser?.email || 'Superadmin'
+      });
+      setMaintenanceConfig(updated);
+      setShowConfirmMaintenanceModal(false);
+      toast.success(
+        pendingTargetState 
+          ? 'Mode Pemeliharaan BERHASIL DIAKTIFKAN. Akses pengguna biasa saat ini diblokir.' 
+          : 'Mode Pemeliharaan DIMATIKAN. Seluruh pengguna kini dapat mengakses web kembali.',
+        { id: toastId, duration: 6000 }
+      );
+    } catch (err) {
+      console.error('Error toggling maintenance:', err);
+      toast.error('Gagal mengubah status pemeliharaan', { id: toastId });
+    } finally {
+      setIsSavingMaintenance(false);
+    }
+  };
+
+  const handleSaveMaintenanceDetails = async (e) => {
+    if (e) e.preventDefault();
+    setIsSavingMaintenance(true);
+    const toastId = toast.loading('Menyimpan pesan pemeliharaan...');
+    try {
+      const updated = await dbService.system.setMaintenanceConfig({
+        ...maintenanceConfig,
+        updatedBy: currentUser?.displayName || currentUser?.email || 'Superadmin'
+      });
+      setMaintenanceConfig(updated);
+      toast.success('Pengaturan pesan pemeliharaan berhasil diperbarui!', { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal menyimpan pengaturan pesan', { id: toastId });
+    } finally {
+      setIsSavingMaintenance(false);
     }
   };
 
@@ -343,6 +415,27 @@ export default function SuperadminDashboardModal({
             >
               <Users size={15} />
               <span>Direktori Pengguna ({metrics?.totalUsers ?? 0})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('maintenance')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === 'maintenance'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+              }`}
+            >
+              <Wrench size={15} className={maintenanceConfig.enabled ? 'text-amber-300 animate-bounce' : ''} />
+              <span>Mode Pemeliharaan</span>
+              {maintenanceConfig.enabled ? (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500 text-white animate-pulse">
+                  Aktif
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                  Off
+                </span>
+              )}
             </button>
           </div>
 
@@ -795,6 +888,195 @@ export default function SuperadminDashboardModal({
             </div>
           )}
 
+          {/* TAB 3: MAINTENANCE MODE CONTROL */}
+          {activeTab === 'maintenance' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              
+              {/* Primary Master Switch Card */}
+              <div className={`p-6 rounded-3xl border transition-all ${
+                maintenanceConfig.enabled
+                  ? 'bg-gradient-to-br from-rose-500/10 via-amber-500/5 to-slate-900 border-rose-500/40 dark:border-rose-500/30'
+                  : 'bg-white dark:bg-[#151D2F] border-slate-200 dark:border-slate-800'
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                      maintenanceConfig.enabled
+                        ? 'bg-rose-500 text-white shadow-rose-500/25'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                    }`}>
+                      <Power size={26} className={maintenanceConfig.enabled ? 'animate-pulse' : ''} />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h3 className="text-base sm:text-lg font-black text-[#0F172A] dark:text-white">
+                          Status Mode Pemeliharaan
+                        </h3>
+                        {maintenanceConfig.enabled ? (
+                          <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500 text-white shadow-xs flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                            Sedang Aktif (Website Terkunci)
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            Tidak Aktif (Website Terbuka)
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-xl">
+                        {maintenanceConfig.enabled
+                          ? 'Seluruh pengguna biasa (mahasiswa, dosen, dan pengunjung) saat ini tidak dapat mengakses aplikasi dan diarahkan ke Layar Pemeliharaan. Akun Superadmin tetap dapat login dan mengakses seluruh fitur.'
+                          : 'Aplikasi berjalan normal dan dapat diakses oleh seluruh pengguna. Aktifkan mode ini jika Anda ingin melakukan perbaikan, migrasi database, atau pembaruan sistem besar.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 pt-2 sm:pt-0">
+                    {maintenanceConfig.enabled ? (
+                      <button
+                        type="button"
+                        disabled={isSavingMaintenance}
+                        onClick={() => handlePromptToggleMaintenance(false)}
+                        className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                      >
+                        <Power size={15} />
+                        <span>Matikan Pemeliharaan</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isSavingMaintenance}
+                        onClick={() => handlePromptToggleMaintenance(true)}
+                        className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-600/25 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                      >
+                        <Wrench size={15} />
+                        <span>Aktifkan Pemeliharaan</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {maintenanceConfig.updatedAt && (
+                  <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Terakhir diperbarui: {new Date(maintenanceConfig.updatedAt).toLocaleString('id-ID')}</span>
+                    {maintenanceConfig.updatedBy && <span>Oleh: {maintenanceConfig.updatedBy}</span>}
+                  </div>
+                )}
+              </div>
+
+              {/* Maintenance Message Configuration Form */}
+              <form onSubmit={handleSaveMaintenanceDetails} className="p-6 rounded-3xl bg-white dark:bg-[#151D2F] border border-slate-200 dark:border-slate-800 shadow-2xs space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                    <Sparkles size={18} />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-[#0F172A] dark:text-white">
+                      Kustomisasi Pesan Pemeliharaan
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Sesuaikan judul, pesan penjelasan, dan estimasi waktu yang akan ditampilkan kepada pengguna saat mode pemeliharaan aktif.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                      Judul Pemeliharaan
+                    </label>
+                    <input
+                      type="text"
+                      value={maintenanceConfig.title}
+                      onChange={(e) => setMaintenanceConfig(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="Contoh: Sistem Sedang Dalam Pemeliharaan"
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-[#0F172A] dark:text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                      Pesan Lengkap / Alasan Pemeliharaan
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={maintenanceConfig.message}
+                      onChange={(e) => setMaintenanceConfig(prev => ({ ...prev, message: e.target.value }))}
+                      placeholder="Tuliskan keterangan untuk pengguna yang membuka web..."
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-[#0F172A] dark:text-white focus:outline-none focus:border-amber-500 leading-relaxed resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                      Estimasi Waktu Selesai (Opsional)
+                    </label>
+                    <div className="relative max-w-sm">
+                      <Clock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={maintenanceConfig.estimatedEndTime}
+                        onChange={(e) => setMaintenanceConfig(prev => ({ ...prev, estimatedEndTime: e.target.value }))}
+                        placeholder="Contoh: 14:00 WIB / 30 Menit Lagi"
+                        className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-[#0F172A] dark:text-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      Jika diisi, badge estimasi selesai akan muncul pada layar pemeliharaan pengguna.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end">
+                  <button
+                    type="submit"
+                    disabled={isSavingMaintenance}
+                    className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    {isSavingMaintenance ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+                    <span>Simpan Pengaturan Pesan</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* Live Preview Box */}
+              <div className="p-5 rounded-3xl bg-slate-950 text-slate-100 border border-slate-800 space-y-4 shadow-xl">
+                <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-3">
+                  <span className="font-bold flex items-center gap-2">
+                    <Sparkles size={14} className="text-amber-400" />
+                    Preview Tampilan Layar Pengguna
+                  </span>
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                    Live Preview
+                  </span>
+                </div>
+
+                <div className="text-center py-6 px-4 space-y-3 max-w-md mx-auto">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
+                    <Wrench size={22} />
+                  </div>
+                  <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                    Mode Pemeliharaan Sedang Aktif
+                  </span>
+                  <h4 className="text-base font-extrabold text-white">
+                    {maintenanceConfig.title || 'Sistem Sedang Dalam Pemeliharaan'}
+                  </h4>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {maintenanceConfig.message || 'Kami sedang melakukan pembaruan berkala.'}
+                  </p>
+                  {maintenanceConfig.estimatedEndTime && (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-bold text-amber-400">
+                      <Clock size={13} />
+                      <span>Estimasi Selesai: {maintenanceConfig.estimatedEndTime}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          )}
+
         </div>
 
         {/* Modal Footer */}
@@ -811,6 +1093,58 @@ export default function SuperadminDashboardModal({
         </div>
 
       </div>
+
+      {/* SUB-MODAL: CONFIRM TOGGLE MAINTENANCE */}
+      {showConfirmMaintenanceModal && (
+        <ModalPortal onClose={() => !isSavingMaintenance && setShowConfirmMaintenanceModal(false)} maxWidth="max-w-md">
+          <div className="bg-white dark:bg-[#151D2F] border border-amber-200 dark:border-amber-900/60 rounded-3xl p-6 space-y-5 shadow-2xl relative overflow-hidden font-sans">
+            <div className={`absolute top-0 left-0 right-0 h-1.5 ${pendingTargetState ? 'bg-rose-600' : 'bg-emerald-600'}`} />
+
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
+              pendingTargetState 
+                ? 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400' 
+                : 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400'
+            }`}>
+              <Power size={24} />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="text-lg font-extrabold text-[#0F172A] dark:text-white">
+                {pendingTargetState ? 'Aktifkan Mode Pemeliharaan?' : 'Matikan Mode Pemeliharaan?'}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                {pendingTargetState
+                  ? 'Saat diaktifkan, seluruh pengguna biasa (mahasiswa/dosen) yang sedang membuka web akan langsung dialihkan ke Layar Pemeliharaan secara realtime. Akses Superadmin tetap terbuka.'
+                  : 'Saat dimatikan, seluruh pengguna akan langsung dapat mengakses kelas dan dashboard Classy kembali secara normal.'}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isSavingMaintenance}
+                onClick={() => setShowConfirmMaintenanceModal(false)}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isSavingMaintenance}
+                onClick={handleConfirmToggleMaintenance}
+                className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5 ${
+                  pendingTargetState
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                {isSavingMaintenance ? <RefreshCw size={13} className="animate-spin" /> : <Power size={13} />}
+                <span>{isSavingMaintenance ? 'Memproses...' : (pendingTargetState ? 'Ya, Aktifkan' : 'Ya, Matikan')}</span>
+              </button>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
 
       {/* SUB-MODAL: CONFIRM FORCE DELETE CLASS */}
       {deletingClass && (

@@ -2000,5 +2000,134 @@ export const dbService = {
         totalSchedules
       };
     }
+  },
+
+  // 11. SYSTEM SETTINGS & MAINTENANCE SERVICE
+  system: {
+    getMaintenanceConfig: async () => {
+      try {
+        const { data, error } = await supabase
+          .from('notes')
+          .select('*')
+          .eq('id', 'system_maintenance')
+          .maybeSingle();
+
+        if (error || !data) {
+          return {
+            enabled: false,
+            title: 'Sistem Sedang Dalam Pemeliharaan',
+            message: 'Classy sedang menjalani pemeliharaan sistem berkala untuk peningkatan performa dan pembaruan fitur. Kami akan segera kembali!',
+            estimatedEndTime: '',
+            updatedAt: null,
+            updatedBy: null
+          };
+        }
+
+        let parsed = {};
+        try {
+          parsed = typeof data.content === 'string' && data.content.startsWith('{')
+            ? JSON.parse(data.content)
+            : {};
+        } catch {}
+
+        return {
+          enabled: Boolean(parsed.enabled),
+          title: data.title || parsed.title || 'Sistem Sedang Dalam Pemeliharaan',
+          message: parsed.message || 'Classy sedang menjalani pemeliharaan sistem berkala untuk peningkatan performa dan pembaruan fitur. Kami akan segera kembali!',
+          estimatedEndTime: parsed.estimatedEndTime || '',
+          updatedAt: data.updated_at || parsed.updatedAt || null,
+          updatedBy: parsed.updatedBy || null
+        };
+      } catch (err) {
+        console.warn('Failed to get maintenance config, defaulting to false:', err);
+        return {
+          enabled: false,
+          title: 'Sistem Sedang Dalam Pemeliharaan',
+          message: 'Classy sedang menjalani pemeliharaan sistem berkala untuk peningkatan performa dan pembaruan fitur. Kami akan segera kembali!',
+          estimatedEndTime: '',
+          updatedAt: null,
+          updatedBy: null
+        };
+      }
+    },
+
+    setMaintenanceConfig: async ({ enabled, title, message, estimatedEndTime, updatedBy }) => {
+      const payload = {
+        enabled: Boolean(enabled),
+        title: title || 'Sistem Sedang Dalam Pemeliharaan',
+        message: message || 'Classy sedang menjalani pemeliharaan sistem berkala untuk peningkatan performa dan pembaruan fitur. Kami akan segera kembali!',
+        estimatedEndTime: estimatedEndTime || '',
+        updatedAt: new Date().toISOString(),
+        updatedBy: updatedBy || 'Superadmin'
+      };
+
+      const row = {
+        id: 'system_maintenance',
+        workspace_id: null,
+        title: payload.title,
+        category: 'system_setting',
+        content: JSON.stringify(payload),
+        color: enabled ? 'rose' : 'emerald',
+        updated_at: new Date().toISOString()
+      };
+
+      const { data: existing } = await supabase
+        .from('notes')
+        .select('id')
+        .eq('id', 'system_maintenance')
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('notes')
+          .update(row)
+          .eq('id', 'system_maintenance');
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('notes')
+          .insert(row);
+        if (error) throw error;
+      }
+
+      return payload;
+    },
+
+    subscribeToMaintenance: (callback) => {
+      const channel = supabase
+        .channel('system_maintenance_channel')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notes',
+            filter: 'id=eq.system_maintenance'
+          },
+          (payload) => {
+            if (payload.new) {
+              let parsed = {};
+              try {
+                parsed = typeof payload.new.content === 'string' && payload.new.content.startsWith('{')
+                  ? JSON.parse(payload.new.content)
+                  : {};
+              } catch {}
+              callback({
+                enabled: Boolean(parsed.enabled),
+                title: payload.new.title || parsed.title || 'Sistem Sedang Dalam Pemeliharaan',
+                message: parsed.message || '',
+                estimatedEndTime: parsed.estimatedEndTime || '',
+                updatedAt: payload.new.updated_at || parsed.updatedAt || null,
+                updatedBy: parsed.updatedBy || null
+              });
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }
 };
