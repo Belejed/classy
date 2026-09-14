@@ -170,7 +170,14 @@ class FirestoreQueryBuilder {
         q = collection(db, this.tableName);
       }
 
-      const snapshot = await getDocs(q);
+      let snapshot;
+      try {
+        snapshot = await getDocs(q);
+      } catch (err1) {
+        console.warn(`[FirestoreQueryBuilder] Initial query on ${this.tableName} failed, retrying...`, err1);
+        await new Promise(r => setTimeout(r, 400));
+        snapshot = await getDocs(q);
+      }
       let records = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
       for (const filter of this.filters) {
@@ -501,20 +508,27 @@ export const resolveEmailFromIdentifier = async (rawIdentifier) => {
     if (Array.isArray(workspaces)) {
       for (const ws of workspaces) {
         const members = ws.members || [];
-        const found = members.find(m => {
-          if (!m) return false;
-          // Match by phone
-          if (normalizedPhone && m.phoneNumber) {
-            const mPhone = String(m.phoneNumber).replace(/\D/g, '');
-            const mNorm = mPhone.startsWith('0') ? '62' + mPhone.slice(1) : (mPhone.startsWith('62') ? mPhone : '62' + mPhone);
-            if (mNorm === normalizedPhone) return true;
+        // First try exact phone match
+        if (normalizedPhone) {
+          const phoneMatch = members.find(m => {
+            if (!m || !m.phoneNumber) return false;
+            const mDigits = String(m.phoneNumber).replace(/\D/g, '');
+            const mNorm = mDigits.startsWith('0') ? '62' + mDigits.slice(1) : (mDigits.startsWith('62') ? mDigits : '62' + mDigits);
+            return mNorm === normalizedPhone || mDigits.endsWith(phoneDigits) || phoneDigits.endsWith(mDigits);
+          });
+          if (phoneMatch && phoneMatch.email) {
+            return String(phoneMatch.email).toLowerCase().trim();
           }
-          // Match by name
-          if (m.name && m.name.toLowerCase().trim() === cleanId) return true;
-          return false;
+        }
+
+        // Then try name match (exact or name contains keyword)
+        const nameMatch = members.find(m => {
+          if (!m || !m.name) return false;
+          const mName = m.name.toLowerCase().trim();
+          return mName === cleanId || mName.split(' ')[0] === cleanId || mName.includes(cleanId);
         });
-        if (found && found.email) {
-          return String(found.email).toLowerCase().trim();
+        if (nameMatch && nameMatch.email) {
+          return String(nameMatch.email).toLowerCase().trim();
         }
       }
     }
@@ -760,7 +774,7 @@ function escapeRegExp(string) {
 export const dbService = {
   // 1. CLASSES (Workspaces Table)
   classes: {
-    list: async (userId, userEmail) => {
+    list: async (userId, userEmail, userPhone = null) => {
       const { data, error } = await supabase.from('workspaces').select('*').order('created_at', { ascending: false });
       if (error) {
         console.error('Error fetching classes:', error);
@@ -768,13 +782,30 @@ export const dbService = {
       }
 
       const isSuper = isSuperAdminEmail(userEmail);
-      const filtered = (data || []).filter(c => 
-        !c.id.startsWith('personal_') && 
-        c.invite_code !== 'PERSONAL' &&
-        (isSuper ||
-         c.owner_id === userId || 
-         c.members?.some(m => m.userId === userId || m.email?.toLowerCase() === userEmail?.toLowerCase()))
-      );
+      const cleanUserId = (userId || '').trim();
+      const cleanUserEmail = (userEmail || '').trim().toLowerCase();
+      const cleanUserPhone = (userPhone || '').replace(/\D/g, '');
+
+      const filtered = (data || []).filter(c => {
+        if (c.id.startsWith('personal_') || c.invite_code === 'PERSONAL') return false;
+        if (isSuper) return true;
+        if (cleanUserId && c.owner_id === cleanUserId) return true;
+
+        return c.members?.some(m => {
+          if (!m) return false;
+          const mUid = (m.userId || m.uid || m.id || '').trim();
+          const mEmail = (m.email || m.userEmail || '').trim().toLowerCase();
+          if (cleanUserId && mUid && mUid === cleanUserId) return true;
+          if (cleanUserEmail && mEmail && mEmail === cleanUserEmail) return true;
+          if (cleanUserPhone && m.phoneNumber) {
+            const mPhoneDigits = String(m.phoneNumber).replace(/\D/g, '');
+            if (mPhoneDigits && (mPhoneDigits === cleanUserPhone || cleanUserPhone.endsWith(mPhoneDigits) || mPhoneDigits.endsWith(cleanUserPhone))) {
+              return true;
+            }
+          }
+          return false;
+        });
+      });
 
       return filtered.map(c => {
         let meta = {};
@@ -784,12 +815,17 @@ export const dbService = {
           meta = {};
         }
 
-        const isOwner = c.owner_id === userId;
-        const currentMember = c.members?.find(m => m.userId === userId || m.email?.toLowerCase() === userEmail?.toLowerCase());
+        const isOwner = cleanUserId && c.owner_id === cleanUserId;
+        const currentMember = c.members?.find(m => {
+          if (!m) return false;
+          const mUid = (m.userId || m.uid || m.id || '').trim();
+          const mEmail = (m.email || m.userEmail || '').trim().toLowerCase();
+          return (cleanUserId && mUid === cleanUserId) || (cleanUserEmail && mEmail === cleanUserEmail);
+        });
         let userRole = isSuper ? 'superadmin' : (currentMember?.role || (isOwner ? 'komti' : 'student'));
         if (userRole === 'coordinator') userRole = 'komti';
 
-        // An owner or superadmin is always approved
+        // An owner or superadmin is always approved, and if status is undefined, default to 'approved'
         const membershipStatus = (isOwner || isSuper) ? 'approved' : (currentMember?.status || 'approved');
 
         // Always hide superadmin from member lists and member count

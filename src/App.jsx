@@ -175,8 +175,24 @@ export default function App() {
     if (!user) return;
     setClassesLoading(true);
     try {
-      const userClasses = await dbService.classes.list(user.uid, user.email);
+      // Instant SWR cache read so users never see an empty screen on slow cellular connections
+      const cacheKey = `classy_cached_user_classes_${user.uid}`;
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setClasses(parsed);
+          }
+        }
+      } catch {}
+
+      const userClasses = await dbService.classes.list(user.uid, user.email, user.phoneNumber);
       setClasses(userClasses);
+
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(userClasses));
+      } catch {}
 
       if (currentClass) {
         const stillValid = userClasses.find(c => c.id === currentClass.id);
@@ -197,6 +213,25 @@ export default function App() {
       setCurrentClass(null);
     }
   }, [user]);
+
+  // Auto-forward student directly into their class workspace if they only belong to 1 class
+  useEffect(() => {
+    if (
+      user &&
+      classes.length === 1 &&
+      !classesLoading &&
+      (location.pathname === '/lobby' || location.pathname === '/' || location.pathname === '/login')
+    ) {
+      const stayInLobby = sessionStorage.getItem(`classy_stay_lobby_${user.uid}`);
+      if (!stayInLobby) {
+        const cls = classes[0];
+        if ((cls.membershipStatus === 'approved' || !cls.membershipStatus) && !cls.isBlocked) {
+          setCurrentClass(cls);
+          navigate(`/class/${cls.id}/dashboard`, { replace: true });
+        }
+      }
+    }
+  }, [user, classes, classesLoading, location.pathname]);
 
   // 3. Load Class Content when currentClass changes
   const loadClassContent = async (cls = currentClass, isSilent = false) => {
@@ -929,6 +964,11 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    try {
+      if (user?.uid) {
+        sessionStorage.removeItem(`classy_stay_lobby_${user.uid}`);
+      }
+    } catch {}
     await authService.logout();
     setUser(null);
     setCurrentClass(null);
@@ -1127,6 +1167,9 @@ export default function App() {
                   classes={classes}
                   classesLoading={classesLoading}
                   onSelectClass={(cls) => {
+                    try {
+                      if (user?.uid) sessionStorage.removeItem(`classy_stay_lobby_${user.uid}`);
+                    } catch {}
                     setCurrentClass(cls);
                     navigate(`/class/${cls.id}/dashboard`);
                   }}
@@ -1428,6 +1471,9 @@ function ClassWorkspace({
           navigate(`/class/${cls.id}/dashboard`);
         }}
         onBackToLobby={() => {
+          try {
+            if (user?.uid) sessionStorage.setItem(`classy_stay_lobby_${user.uid}`, '1');
+          } catch {}
           setCurrentClass(null);
           navigate('/lobby');
         }}

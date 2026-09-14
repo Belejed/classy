@@ -328,10 +328,25 @@ export default function ClassLobby({
               <EmptyState
                 variant="tasks"
                 title="Kamu belum terdaftar di kelas manapun"
-                description="Silakan bergabung menggunakan kode kelas yang dibagikan oleh Komti/Dosen, atau buat ruang kelas baru."
+                description="Silakan bergabung menggunakan kode kelas yang dibagikan oleh Komti/Dosen, atau muat ulang jika Anda baru saja mendaftar."
                 actionLabel="Gabung Kelas"
                 onAction={() => setShowJoinModal(true)}
               />
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => onRefreshClasses()}
+                  className="px-4 py-2 rounded-xl border border-[#CBD5E1] dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-[#0F172A] dark:text-slate-200 transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
+                >
+                  <RefreshCw size={13} className={classesLoading ? "animate-spin" : ""} />
+                  <span>Muat Ulang Kelas</span>
+                </button>
+                {currentUser?.email && (
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Akun: <strong className="text-slate-700 dark:text-slate-300 font-mono">{currentUser.email}</strong>
+                  </span>
+                )}
+              </div>
             </div>
           ) : (
             <div className="max-w-xl space-y-4">
