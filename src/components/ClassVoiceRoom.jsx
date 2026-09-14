@@ -31,7 +31,8 @@ const ICE_SERVERS = {
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
     { urls: 'stun:stun4.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' }
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:stun.relay.metered.ca:80' }
   ]
 };
 
@@ -187,11 +188,18 @@ export default function ClassVoiceRoom({
           try {
             const transceivers = pc.getTransceivers ? pc.getTransceivers() : [];
             const audioTransceiver = transceivers.find(t => t.receiver?.track?.kind === 'audio' || t.sender);
-            if (audioTransceiver && audioTransceiver.sender) {
-              await audioTransceiver.sender.replaceTrack(audioTrack);
+            if (audioTransceiver) {
+              audioTransceiver.direction = 'sendrecv';
+              if (audioTransceiver.sender) {
+                await audioTransceiver.sender.replaceTrack(audioTrack);
+              }
             } else {
               const senders = pc.getSenders ? pc.getSenders() : [];
-              if (senders[0]) await senders[0].replaceTrack(audioTrack);
+              if (senders[0]) {
+                await senders[0].replaceTrack(audioTrack);
+              } else {
+                pc.addTrack(audioTrack, stream);
+              }
             }
           } catch (trackErr) {
             console.warn(`Failed to replaceTrack for peer ${targetPeerId}:`, trackErr);
@@ -291,8 +299,64 @@ export default function ClassVoiceRoom({
     }
   };
 
+  // Helper to ensure remote audio element exists and is playing
+  const handleRemoteTrack = (targetPeerId, track, stream) => {
+    let audio = remoteAudiosRef.current.get(targetPeerId);
+    if (!audio) {
+      audio = document.createElement('audio');
+      audio.autoplay = true;
+      audio.playsInline = true;
+      audio.setAttribute('playsinline', '');
+      audio.setAttribute('autoplay', '');
+      // Append directly to document.body so CSS display:none on any container NEVER silences the audio
+      audio.style.position = 'fixed';
+      audio.style.top = '-9999px';
+      audio.style.left = '-9999px';
+      audio.style.width = '1px';
+      audio.style.height = '1px';
+      audio.style.opacity = '0.001';
+      audio.style.pointerEvents = 'none';
+      document.body.appendChild(audio);
+      remoteAudiosRef.current.set(targetPeerId, audio);
+    }
+
+    const mediaStream = (stream && stream.getTracks().length > 0) 
+      ? stream 
+      : (audio.srcObject instanceof MediaStream ? audio.srcObject : new MediaStream());
+    
+    if (track && !mediaStream.getTracks().includes(track)) {
+      mediaStream.addTrack(track);
+    }
+
+    audio.srcObject = mediaStream;
+    audio.volume = 1.0;
+    audio.muted = isDeafenedRef.current;
+
+    const playAudio = () => {
+      if (!isDeafenedRef.current) {
+        audio.muted = false;
+        const p = audio.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(playErr => {
+            console.warn(`[ClassVoiceRoom] Audio play error from ${targetPeerId}:`, playErr);
+            setAutoplayBlocked(true);
+          });
+        }
+      }
+    };
+
+    if (track) {
+      track.onunmute = () => {
+        console.log(`[ClassVoiceRoom] Remote track onunmute from ${targetPeerId}`);
+        playAudio();
+      };
+    }
+
+    playAudio();
+  };
+
   // Create RTCPeerConnection Helper
-  const createPeerConnection = (targetPeerId) => {
+  const createPeerConnection = (targetPeerId, isInitiator = false) => {
     let pc = peerConnectionsRef.current.get(targetPeerId);
     if (pc && pc.connectionState !== 'closed') {
       return pc;
@@ -301,14 +365,15 @@ export default function ClassVoiceRoom({
     pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnectionsRef.current.set(targetPeerId, pc);
 
-    // Always configure a sendrecv audio transceiver
-    const transceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
-
-    // If local microphone stream is already active, attach its track to the sender immediately
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        transceiver.sender.replaceTrack(audioTrack).catch(e => console.warn('replaceTrack err:', e));
+    // If initiator: add track if we have local microphone, or add transceiver so we can both receive and later transmit
+    if (isInitiator) {
+      if (localStreamRef.current) {
+        const audioTrack = localStreamRef.current.getAudioTracks()[0];
+        if (audioTrack) {
+          pc.addTrack(audioTrack, localStreamRef.current);
+        }
+      } else {
+        pc.addTransceiver('audio', { direction: 'sendrecv' });
       }
     }
 
@@ -324,34 +389,11 @@ export default function ClassVoiceRoom({
 
     pc.ontrack = (event) => {
       console.log(`[ClassVoiceRoom] ontrack from ${targetPeerId}`, event);
-      let audio = remoteAudiosRef.current.get(targetPeerId);
-      if (!audio) {
-        audio = document.createElement('audio');
-        audio.autoplay = true;
-        audio.playsInline = true;
-        audio.setAttribute('playsinline', '');
-        audio.setAttribute('autoplay', '');
-        // Append directly to document.body so CSS display:none on any container NEVER silences the audio
-        audio.style.position = 'fixed';
-        audio.style.top = '-9999px';
-        audio.style.left = '-9999px';
-        audio.style.width = '1px';
-        audio.style.height = '1px';
-        audio.style.opacity = '0.001';
-        audio.style.pointerEvents = 'none';
-        document.body.appendChild(audio);
-        remoteAudiosRef.current.set(targetPeerId, audio);
-      }
-      const stream = event.streams[0] || new MediaStream([event.track]);
-      audio.srcObject = stream;
-      audio.muted = isDeafenedRef.current;
-      audio.play().catch(playErr => {
-        console.warn('[ClassVoiceRoom] Audio play error:', playErr);
-        setAutoplayBlocked(true);
-      });
+      handleRemoteTrack(targetPeerId, event.track, event.streams && event.streams[0]);
     };
 
     pc.onconnectionstatechange = () => {
+      console.log(`[ClassVoiceRoom] Connection state with ${targetPeerId}: ${pc.connectionState}`);
       if (pc.connectionState === 'failed') {
         try {
           pc.restartIce();
@@ -364,14 +406,12 @@ export default function ClassVoiceRoom({
 
   const initiatePeerConnection = async (targetPeerId) => {
     try {
-      const pc = createPeerConnection(targetPeerId);
+      const pc = createPeerConnection(targetPeerId, true);
       // Avoid initiating offer if peer connection is already busy in an offer/answer exchange
       if (pc.signalingState !== 'stable') {
         return;
       }
-      const offer = await pc.createOffer({
-        offerToReceiveAudio: true
-      });
+      const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       if (myPeerIdRef.current) {
         await dbService.voice.sendSignal(classId, {
@@ -391,6 +431,26 @@ export default function ClassVoiceRoom({
       toast.error('Silakan login terlebih dahulu untuk masuk ke Stage.');
       return;
     }
+
+    // Immediately trigger user-gesture audio unlock so browser won't block incoming WebRTC audio later
+    soundFX.playJoinCall();
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        const tempCtx = new AudioCtx();
+        tempCtx.resume().then(() => {
+          try { tempCtx.close(); } catch {}
+        }).catch(() => {});
+      }
+    } catch {}
+
+    try {
+      const dummyAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+      dummyAudio.volume = 0.01;
+      dummyAudio.play().then(() => {
+        try { dummyAudio.pause(); dummyAudio.remove(); } catch {}
+      }).catch(() => {});
+    } catch {}
 
     setIsConnecting(true);
     myPeerIdRef.current = myPeerId;
@@ -436,16 +496,12 @@ export default function ClassVoiceRoom({
 
       // 4. Subscribe to WebRTC Signals
       signalsUnsubRef.current = dbService.voice.subscribeSignals(classId, myPeerId, async ({ fromPeerId, signal }) => {
-        // Prevent feedback loop between multiple tabs of same user
-        const fromPeer = activePeers.find(p => p.peerId === fromPeerId);
-        if (fromPeer && fromPeer.userId === myUserId) {
-          return;
-        }
+        if (fromPeerId === myPeerId) return;
 
         let pc = peerConnectionsRef.current.get(fromPeerId);
 
         if (signal.type === 'offer') {
-          if (!pc) pc = createPeerConnection(fromPeerId);
+          if (!pc) pc = createPeerConnection(fromPeerId, false);
 
           // Handle offer glare/collision gracefully
           if (pc.signalingState !== 'stable') {
@@ -472,7 +528,25 @@ export default function ClassVoiceRoom({
           }
           pendingCandidatesRef.current.delete(fromPeerId);
 
-          const answer = await pc.createAnswer({ offerToReceiveAudio: true });
+          // Configure transceiver direction and attach local microphone if available
+          const transceivers = pc.getTransceivers ? pc.getTransceivers() : [];
+          const audioTransceiver = transceivers.find(t => t.receiver?.track?.kind === 'audio' || t.sender);
+          if (audioTransceiver) {
+            audioTransceiver.direction = 'sendrecv';
+            if (localStreamRef.current) {
+              const audioTrack = localStreamRef.current.getAudioTracks()[0];
+              if (audioTrack && audioTransceiver.sender) {
+                await audioTransceiver.sender.replaceTrack(audioTrack);
+              }
+            }
+          } else if (localStreamRef.current) {
+            const audioTrack = localStreamRef.current.getAudioTracks()[0];
+            if (audioTrack) {
+              pc.addTrack(audioTrack, localStreamRef.current);
+            }
+          }
+
+          const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           if (myPeerIdRef.current) {
             await dbService.voice.sendSignal(classId, {
@@ -480,6 +554,17 @@ export default function ClassVoiceRoom({
               toPeerId: fromPeerId,
               signal: answer
             });
+          }
+
+          // Ensure receiver track is attached and playing
+          try {
+            const receivers = pc.getReceivers ? pc.getReceivers() : [];
+            const audioReceiver = receivers.find(r => r.track && r.track.kind === 'audio');
+            if (audioReceiver && audioReceiver.track) {
+              handleRemoteTrack(fromPeerId, audioReceiver.track);
+            }
+          } catch (recErr) {
+            console.warn('Receiver check err:', recErr);
           }
         } else if (signal.type === 'answer') {
           if (pc) {
@@ -494,6 +579,17 @@ export default function ClassVoiceRoom({
               }
             }
             pendingCandidatesRef.current.delete(fromPeerId);
+
+            // Ensure receiver track is attached and playing
+            try {
+              const receivers = pc.getReceivers ? pc.getReceivers() : [];
+              const audioReceiver = receivers.find(r => r.track && r.track.kind === 'audio');
+              if (audioReceiver && audioReceiver.track) {
+                handleRemoteTrack(fromPeerId, audioReceiver.track);
+              }
+            } catch (recErr) {
+              console.warn('Receiver check err:', recErr);
+            }
           }
         } else if (signal.candidate) {
           if (pc && pc.remoteDescription && pc.remoteDescription.type) {
@@ -513,7 +609,7 @@ export default function ClassVoiceRoom({
 
       // 5. Connect to Existing Peers (Deterministic rule: lower peerId initiates)
       activePeers.forEach((peer) => {
-        if (peer.peerId !== myPeerId && peer.userId !== myUserId) {
+        if (peer.peerId !== myPeerId) {
           if (myPeerId < peer.peerId) {
             initiatePeerConnection(peer.peerId);
           }
@@ -521,7 +617,6 @@ export default function ClassVoiceRoom({
       });
 
       setIsConnected(true);
-      soundFX.playJoinCall();
       if (initialRole === 'host') {
         toast.success('Membuka Panggung Suara sebagai Host! 👑');
       } else {
@@ -542,7 +637,6 @@ export default function ClassVoiceRoom({
 
     activePeers.forEach((peer) => {
       if (peer.peerId === myPeerId) return;
-      if (peer.userId === myUserId) return;
 
       // Deterministic initiation rule: peer with alphabetically lower peerId initiates
       if (!peerConnectionsRef.current.has(peer.peerId)) {
@@ -688,11 +782,30 @@ export default function ClassVoiceRoom({
 
   // Unlock Audio if blocked by browser autoplay policy
   const handleUnlockAudio = () => {
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().catch(() => {});
+    }
+    soundFX.getAudioContext();
+
     remoteAudiosRef.current.forEach(audio => {
       if (audio) {
-        audio.play().catch(() => {});
+        audio.muted = false;
+        audio.volume = 1.0;
+        audio.play().catch(e => console.warn('[ClassVoiceRoom] Unlock play error:', e));
       }
     });
+
+    // Also re-check all peer connection receivers
+    peerConnectionsRef.current.forEach((pc, pId) => {
+      try {
+        const receivers = pc.getReceivers ? pc.getReceivers() : [];
+        const audioReceiver = receivers.find(r => r.track && r.track.kind === 'audio');
+        if (audioReceiver && audioReceiver.track) {
+          handleRemoteTrack(pId, audioReceiver.track);
+        }
+      } catch {}
+    });
+
     setAutoplayBlocked(false);
     toast.success('Audio panggung diaktifkan! 🔊');
   };
