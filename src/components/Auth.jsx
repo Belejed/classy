@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService, getFriendlyAuthErrorMessage } from '../utils/db';
+import { resetActivityEpoch } from '../utils/sessionTimeout';
 import toast from 'react-hot-toast';
 import { 
   ArrowRight, 
@@ -189,6 +190,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
           localStorage.setItem('classy_last_login_epoch', Date.now().toString());
           localStorage.removeItem('classy_must_change_temp_password');
           sessionStorage.removeItem('classy_must_change_temp_password');
+          resetActivityEpoch();
         } catch {}
 
         toast.success('Akun Classy berhasil dibuat!');
@@ -213,6 +215,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
 
         try {
           localStorage.setItem('classy_last_login_epoch', Date.now().toString());
+          resetActivityEpoch();
           if (cleanPass === '123456') {
             localStorage.setItem('classy_must_change_temp_password', 'true');
             sessionStorage.setItem('classy_must_change_temp_password', 'true');

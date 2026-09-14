@@ -25,6 +25,7 @@ import { setupGlobalUpdateListeners } from './utils/appUpdater';
 import { canDeleteAnything } from './utils/permissions';
 import { shouldShowChangelogAuto, markChangelogSeen } from './utils/changelogHelper';
 import ChangeTemporaryPasswordModal from './components/ChangeTemporaryPasswordModal';
+import { setupIdleSessionWatcher, resetActivityEpoch, clearActivityEpoch } from './utils/sessionTimeout';
 
 // Heavy modals and non-critical sub-tabs: Lazy loaded for optimal mobile performance and small bundle
 const ClassSubmissionsManager = lazy(() => import('./components/ClassSubmissionsManager'));
@@ -247,6 +248,42 @@ export default function App() {
 
     return () => {
       if (unsub) unsub();
+    };
+  }, [user, navigate]);
+
+  // 20-Minute Inactivity / Idle Auto-Logout Watcher (Session Expired)
+  useEffect(() => {
+    if (!user) return;
+
+    const cleanup = setupIdleSessionWatcher({
+      enabled: Boolean(user),
+      onTimeout: async () => {
+        console.warn('[Security] User idle for 20 minutes. Terminating session.');
+        try {
+          await authService.logout();
+        } catch (err) {
+          console.error('Idle timeout logout error:', err);
+        }
+        try {
+          clearActivityEpoch();
+          localStorage.removeItem('classy_must_change_temp_password');
+          sessionStorage.removeItem('classy_must_change_temp_password');
+        } catch {}
+
+        setUser(null);
+        setCurrentClass(null);
+        setClasses([]);
+        toast('Sesi Anda telah berakhir karena tidak ada aktivitas selama 20 menit. Silakan login kembali.', {
+          icon: '⏰',
+          duration: 8000,
+          id: 'session-timeout-toast'
+        });
+        navigate('/login', { replace: true });
+      }
+    });
+
+    return () => {
+      cleanup();
     };
   }, [user, navigate]);
 
@@ -1041,7 +1078,10 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await authService.logout();
+    try {
+      clearActivityEpoch();
+      await authService.logout();
+    } catch {}
     setUser(null);
     setCurrentClass(null);
     setClasses([]);
@@ -1215,6 +1255,7 @@ export default function App() {
               initialMode="update_password"
               onAuthSuccess={(u) => { 
                 setUser(u); 
+                resetActivityEpoch();
                 setMustChangePassword(localStorage.getItem('classy_must_change_temp_password') === 'true');
                 navigate('/lobby'); 
               }} 
@@ -1228,6 +1269,7 @@ export default function App() {
               initialMode="forgot"
               onAuthSuccess={(u) => { 
                 setUser(u); 
+                resetActivityEpoch();
                 setMustChangePassword(localStorage.getItem('classy_must_change_temp_password') === 'true');
                 navigate('/lobby'); 
               }} 
@@ -1243,6 +1285,7 @@ export default function App() {
               element={
                 <Auth onAuthSuccess={(u) => { 
                   setUser(u); 
+                  resetActivityEpoch();
                   setMustChangePassword(localStorage.getItem('classy_must_change_temp_password') === 'true');
                   navigate('/lobby'); 
                 }} />
