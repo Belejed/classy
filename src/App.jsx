@@ -59,8 +59,15 @@ export default function App() {
     estimatedEndTime: ''
   });
 
-  // App Update Changelog Modal (shows at most once a week, and only if an update was released in that week)
+  // App Update Changelog Modal (shows every Monday on first open, or on new release)
   const [showChangelogModal, setShowChangelogModal] = useState(() => shouldShowChangelogAuto());
+
+  // Automatically pop up Changelog every Monday when user logs in / opens the app
+  useEffect(() => {
+    if (user && shouldShowChangelogAuto()) {
+      setShowChangelogModal(true);
+    }
+  }, [user]);
 
   const handleCloseChangelog = () => {
     markChangelogSeen();

@@ -1,13 +1,17 @@
-﻿import React from 'react';
+import React from 'react';
 import { 
   Sparkles, 
   CheckCircle2, 
   UploadCloud, 
   Users, 
-  Clock, 
+  Radio, 
+  Volume2, 
+  Dices, 
   ShieldCheck, 
+  KeyRound, 
+  Hand, 
   X, 
-  FolderSync
+  CalendarDays
 } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 
@@ -15,71 +19,52 @@ import ModalPortal from './ModalPortal';
  * Current release changelog information
  */
 export const CURRENT_CHANGELOG = {
-  version: 'v1.5.0',
-  title: 'Pembaruan Versi 1.5.0',
-  releaseDate: '2026-09-11', // Format YYYY-MM-DD
+  version: 'v2.5.0',
+  title: 'Pembaruan Pekan Ini • v2.5.0',
+  releaseDate: '2026-09-14', // Format YYYY-MM-DD
 };
 
 /**
- * Returns ISO week string, e.g. "2026-W37"
+ * Formats a Date object into YYYY-MM-DD
  */
-export function getIsoWeekKey(dateInput = new Date()) {
+export function getLocalDateString(dateInput = new Date()) {
   const d = new Date(dateInput);
-  if (isNaN(d.getTime())) return 'unknown';
-  const target = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNr = (target.getUTCDay() + 6) % 7;
-  target.setUTCDate(target.getUTCDate() - dayNr + 3);
-  const firstThursday = target.getTime();
-  target.setUTCMonth(0, 1);
-  if (target.getUTCDay() !== 4) {
-    target.setUTCMonth(0, 1 + ((4 - target.getUTCDay()) + 7) % 7);
-  }
-  const weekNumber = 1 + Math.ceil((firstThursday - target.getTime()) / 604800000);
-  return `${d.getUTCFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
  * Determines whether the changelog modal should automatically pop up:
- * 1. Must have an update released in the current week (within last 7 days).
- * 2. Must not have already seen/dismissed an update in the current week (max 1x a week).
- * 3. Must not have already seen this specific version.
+ * 1. SETIAP SENIN: Otomatis muncul pada kunjungan pertama setiap hari Senin.
+ * 2. ATAU: Jika terdapat rilis versi baru yang belum pernah dilihat sama sekali.
  */
 export function shouldShowChangelogAuto() {
   if (typeof window === 'undefined') return false;
   try {
     const now = new Date();
-    const currentWeekKey = getIsoWeekKey(now);
-    const updateReleaseDate = new Date(CURRENT_CHANGELOG.releaseDate);
-    const updateWeekKey = getIsoWeekKey(updateReleaseDate);
+    const todayKey = getLocalDateString(now);
+    const isMonday = now.getDay() === 1; // 1 = Monday (Senin)
 
-    // 1. Check if there is an update in the current week (calendar week or within 7 days)
-    const diffDays = (now.getTime() - updateReleaseDate.getTime()) / (1000 * 60 * 60 * 24);
-    const isUpdateThisWeek = (currentWeekKey === updateWeekKey) || (diffDays >= 0 && diffDays <= 7);
-    if (!isUpdateThisWeek) {
-      // Tidak ada update di minggu ini -> jangan muncul
-      return false;
+    // 1. Setiap hari Senin: Muncul sekali di pembukaan pertama hari Senin tersebut
+    if (isMonday) {
+      const seenThisMonday = localStorage.getItem(`classy_monday_changelog_${todayKey}`);
+      if (!seenThisMonday) {
+        return true;
+      }
     }
 
-    // 2. Has this specific version already been seen?
+    // 2. Jika ada pembaruan versi baru yang belum pernah dilihat sama sekali
     const seenVersion = localStorage.getItem('classy_changelog_seen_version');
-    if (seenVersion === CURRENT_CHANGELOG.version) {
-      return false;
+    if (seenVersion !== CURRENT_CHANGELOG.version) {
+      const seenToday = localStorage.getItem(`classy_changelog_seen_date_${todayKey}`);
+      if (!seenToday) {
+        return true;
+      }
     }
 
-    // 3. Has the user already dismissed an update in this week? (Only 1x per week)
-    const seenWeek = localStorage.getItem('classy_changelog_seen_week');
-    if (seenWeek === currentWeekKey) {
-      return false;
-    }
-
-    // 4. Frequency throttle (minimum 7 days cooldown)
-    const lastSeenTimestamp = parseInt(localStorage.getItem('classy_changelog_last_seen_at') || '0', 10);
-    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-    if (lastSeenTimestamp && (now.getTime() - lastSeenTimestamp < sevenDaysMs)) {
-      return false;
-    }
-
-    return true;
+    return false;
   } catch {
     return false;
   }
@@ -91,9 +76,13 @@ export function shouldShowChangelogAuto() {
 export function markChangelogSeen() {
   if (typeof window === 'undefined') return;
   try {
-    const currentWeekKey = getIsoWeekKey(new Date());
+    const now = new Date();
+    const todayKey = getLocalDateString(now);
+
+    // Tandai sudah dilihat untuk hari Senin ini
+    localStorage.setItem(`classy_monday_changelog_${todayKey}`, 'true');
+    localStorage.setItem(`classy_changelog_seen_date_${todayKey}`, 'true');
     localStorage.setItem('classy_changelog_seen_version', CURRENT_CHANGELOG.version);
-    localStorage.setItem('classy_changelog_seen_week', currentWeekKey);
     localStorage.setItem('classy_changelog_last_seen_at', Date.now().toString());
   } catch {}
 }
@@ -120,13 +109,13 @@ export default function ChangelogModal({ isOpen, onClose }) {
             <div className="space-y-1.5">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[11px] font-bold text-sky-200 shadow-2xs">
                 <Sparkles size={13} className="text-amber-300 animate-pulse" />
-                <span>Pembaruan Minggu Ini • {CURRENT_CHANGELOG.version}</span>
+                <span>Pembaruan Pekan Ini • {CURRENT_CHANGELOG.version}</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                Apa yang Baru di Classy?
+                Apa yang Baru di Classy? 🚀
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md">
-                Ringkasan fitur baru, stabilitas pengunggahan berkas, dan penyempurnaan sistem minggu ini.
+                Selamat memulai pekan kuliah baru! Berikut rangkuman fitur baru dan peningkatan sistem Classy minggu ini.
               </p>
             </div>
 
@@ -142,94 +131,111 @@ export default function ChangelogModal({ isOpen, onClose }) {
         </div>
 
         {/* Changelog Highlights List */}
-        <div className="p-5 sm:p-6 overflow-y-auto space-y-4 custom-scrollbar divide-y divide-slate-100">
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-4.5 custom-scrollbar divide-y divide-slate-100">
           
-          {/* 1. Multi-File Upload */}
-          <div className="pt-3 first:pt-0 space-y-1.5 text-left">
-            <div className="flex items-center gap-2">
+          {/* 1. Stage Channel Discord */}
+          <div className="pt-3.5 first:pt-0 space-y-1.5 text-left">
+            <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
-                <UploadCloud size={16} />
+                <Radio size={16} />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Pengumpulan Berkas Fleksibel (Multi-File)</span>
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Baru</span>
+                  <span>Discord-Style Stage Channel (Voice 2.0)</span>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Utama</span>
                 </h4>
               </div>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed pl-10">
-              Sekarang pengumpulan tugas mendukung lebih dari 1 file sekaligus (PDF, PPTX, DOCX, ZIP, gambar, dll.) dalam satu kali pengumpulan dengan total kalkulasi ukuran berkas otomatis.
+            <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
+              Ruang suara kini menggunakan sistem panggung: Komti & Dosen sebagai Host, pembicara di panggung, dan mahasiswa masuk sebagai penonton dalam kondisi bisu (<span className="font-semibold text-slate-700">Mute Default</span>) tanpa popup izin mic. Penonton dapat menekan tombol <span className="font-semibold text-slate-700">✋ Angkat Tangan</span> untuk meminta izin berbicara.
             </p>
           </div>
 
-          {/* 2. Group Member Selection Float to Top */}
-          <div className="pt-3 space-y-1.5 text-left">
-            <div className="flex items-center gap-2">
+          {/* 2. Web Audio Sound Effects */}
+          <div className="pt-3.5 space-y-1.5 text-left">
+            <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0 border border-violet-100">
-                <Users size={16} />
+                <Volume2 size={16} />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Penyortiran Cerdas Anggota Kelompok</span>
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">Peningkatan</span>
+                  <span>Sound Effects Interaktif (Web Audio API)</span>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">Baru</span>
                 </h4>
               </div>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed pl-10">
-              Nama teman yang dicentang otomatis melompat ke urutan teratas daftar anggota, dilengkapi panel chip ringkasan untuk mempermudah melihat dan membatalkan pilihan.
+            <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
+              Dilengkapi efek suara sintetis instan tanpa unduhan: nada masuk & keluar call khas Discord, nada denting angkat tangan, detak roda mekanik kocok nama, dan musik selebrasi kemenangan (<span className="font-semibold text-slate-700">Ta-da! 🎉</span>).
             </p>
           </div>
 
-          {/* 3. Google Drive Auto Folder Integration */}
-          <div className="pt-3 space-y-1.5 text-left">
-            <div className="flex items-center gap-2">
+          {/* 3. Class Tools Hub (Tab Forum) */}
+          <div className="pt-3.5 space-y-1.5 text-left">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
+                <Dices size={16} />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <span>Pusat Alat Bantu Kelas & Generator Hub</span>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Praktis</span>
+                </h4>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
+              Tab Forum kini menjadi generator perkuliahan: <span className="font-semibold text-slate-700">Acak Kelompok</span> (+ pilih ketua otomatis), <span className="font-semibold text-slate-700">Acak Materi Presentasi</span> (+ format WhatsApp 1-klik), <span className="font-semibold text-slate-700">Kocok Giliran Mahasiswa</span>, serta <span className="font-semibold text-slate-700">Indikator Mahasiswa Online Realtime</span>.
+            </p>
+          </div>
+
+          {/* 4. Login Fleksibel (WhatsApp / Email & 123456) */}
+          <div className="pt-3.5 space-y-1.5 text-left">
+            <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
-                <FolderSync size={16} />
+                <KeyRound size={16} />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Penataan Otomatis Folder Google Drive</span>
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Perbaikan</span>
+                  <span>Login Fleksibel (No. WhatsApp / Email)</span>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Penting</span>
                 </h4>
               </div>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed pl-10">
-              Semua berkas yang diunggah dipindahkan secara otomatis ke dalam subfolder kelas dan tugas yang sah (<code className="text-emerald-800 bg-emerald-50 px-1 rounded">[Kelas] ➔ Tugas: [Nama]</code>). Tidak ada lagi file yang tercecer di root Google Drive.
+            <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
+              Mahasiswa kini bisa login menggunakan <span className="font-semibold text-slate-700">No. WhatsApp</span> atau alamat Email. Dilengkapi tombol cepat <span className="font-semibold text-slate-700">"Isi 123456"</span>, pembersihan otomatis spasi liar keyboard ponsel, dan tombol intip kata sandi.
             </p>
           </div>
 
-          {/* 4. Anti-Refresh Guard & Crash Recovery */}
-          <div className="pt-3 space-y-1.5 text-left">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+          {/* 5. Rapikan Tugas & PIN Komti */}
+          <div className="pt-3.5 space-y-1.5 text-left">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0 border border-sky-100">
                 <ShieldCheck size={16} />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Proteksi Anti-Refresh & Deteksi Gagal Upload</span>
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">Penting</span>
+                  <span>Tab Rapikan Tugas & Proteksi PIN</span>
                 </h4>
               </div>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed pl-10">
-              Browser akan menahan konfirmasi jika tidak sengaja me-refresh halaman saat upload sedang berjalan. Jika terputus paksa, sistem mendeteksi kegagalan dan menampilkan informasi jelas serta panduan kirim ulang.
+            <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
+              Khusus pengelola kelas untuk merapikan teman kelompok tugas mahasiswa (1-klik add langsung mengubah status tugas teman jadi "Sudah Dikerjakan"), memindahkan pengumpulan antar tugas, dan diproteksi PIN keamanan.
             </p>
           </div>
 
-          {/* 5. Modern Custom Date & Time Picker */}
-          <div className="pt-3 space-y-1.5 text-left">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
-                <Clock size={16} />
+          {/* 6. Multi-File Upload */}
+          <div className="pt-3.5 space-y-1.5 text-left">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+                <UploadCloud size={16} />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Pemilih Jam & Kalender Deadline Modern</span>
+                  <span>Multi-File Upload & Background Drive Queue</span>
                 </h4>
               </div>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed pl-10">
-              Tampilan tanggal dan pemilih jam baru dengan preset cepat (Pagi, Siang, Sore, 23:59 WIB) dan layout tinggi sejajar yang rapi.
+            <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
+              Pilih banyak berkas sekaligus tanpa auto-submit. Pengguna dapat meninjau staging preview berkas sebelum mengklik tombol submit manual, lalu diunggah di latar belakang dengan aman.
             </p>
           </div>
 
@@ -237,9 +243,10 @@ export default function ChangelogModal({ isOpen, onClose }) {
 
         {/* Footer with confirmation button */}
         <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-          <p className="text-[11px] text-slate-500 text-center sm:text-left leading-tight">
-            Pemberitahuan ini hanya muncul maksimal seminggu sekali jika terdapat update di minggu tersebut.
-          </p>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 text-center sm:text-left leading-tight">
+            <CalendarDays size={13} className="text-indigo-600 shrink-0" />
+            <span>Pemberitahuan ini otomatis muncul setiap awal pekan (Senin) saat membuka Classy.</span>
+          </div>
           <button
             type="button"
             onClick={handleDismiss}
