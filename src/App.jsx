@@ -171,11 +171,14 @@ export default function App() {
         // Enforce baseline session reset cutoff: any session created prior to this timestamp must re-authenticate
         const BASELINE_FORCE_LOGOUT_EPOCH = 1789398027650;
         let lastLoginEpoch = 0;
+        let isTabSession = false;
         try {
+          isTabSession = Boolean(sessionStorage.getItem('classy_last_login_epoch'));
           lastLoginEpoch = Number(localStorage.getItem('classy_last_login_epoch') || 0);
         } catch {}
 
-        if (lastLoginEpoch < BASELINE_FORCE_LOGOUT_EPOCH) {
+        // Only invalidate old restored/persisted sessions, never a fresh login in the current tab
+        if (!isTabSession && lastLoginEpoch < BASELINE_FORCE_LOGOUT_EPOCH) {
           console.warn('[Security] Session invalidated by global security reset');
           try {
             await authService.logout();
@@ -194,6 +197,13 @@ export default function App() {
           });
           navigate('/login', { replace: true });
           return;
+        }
+
+        // Sync mustChangePassword state immediately
+        const isMustChange = localStorage.getItem('classy_must_change_temp_password') === 'true' || 
+                             sessionStorage.getItem('classy_must_change_temp_password') === 'true';
+        if (isMustChange) {
+          setMustChangePassword(true);
         }
       }
 

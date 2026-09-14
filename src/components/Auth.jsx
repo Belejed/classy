@@ -211,10 +211,10 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
           return;
         }
 
-        const user = await authService.login(cleanEmail, cleanPass);
-
+        const nowEpoch = Date.now().toString();
         try {
-          localStorage.setItem('classy_last_login_epoch', Date.now().toString());
+          localStorage.setItem('classy_last_login_epoch', nowEpoch);
+          sessionStorage.setItem('classy_last_login_epoch', nowEpoch);
           resetActivityEpoch();
           if (cleanPass === '123456') {
             localStorage.setItem('classy_must_change_temp_password', 'true');
@@ -224,6 +224,19 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
             sessionStorage.removeItem('classy_must_change_temp_password');
           }
         } catch {}
+
+        let user;
+        try {
+          user = await authService.login(cleanEmail, cleanPass);
+        } catch (loginErr) {
+          try {
+            localStorage.removeItem('classy_last_login_epoch');
+            sessionStorage.removeItem('classy_last_login_epoch');
+            localStorage.removeItem('classy_must_change_temp_password');
+            sessionStorage.removeItem('classy_must_change_temp_password');
+          } catch {}
+          throw loginErr;
+        }
 
         toast.success(`Selamat datang kembali!`);
         if (onAuthSuccess) onAuthSuccess(user);

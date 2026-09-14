@@ -70,8 +70,11 @@ export function setupIdleSessionWatcher({ onTimeout, enabled = true }) {
     } catch {}
   };
 
-  // Immediate check on setup (e.g. when reopening a tab or restoring a session)
-  checkInactivity();
+  // If activity key is missing or stale on watcher mount, initialize it fresh
+  const existing = Number(localStorage.getItem(LAST_ACTIVITY_KEY) || 0);
+  if (!existing || (Date.now() - existing) >= IDLE_TIMEOUT_MS) {
+    resetActivityEpoch();
+  }
 
   // Activity handler (throttled)
   const handleUserActivity = () => {
