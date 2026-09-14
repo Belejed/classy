@@ -1771,7 +1771,7 @@ export default function ClassTasks({
                 }`}
               >
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200/80 flex items-center gap-1 truncate max-w-[180px]">
                         <BookOpen size={11} className="text-slate-500 shrink-0" />
@@ -1809,7 +1809,7 @@ export default function ClassTasks({
                       )
                     ) : isOverdue ? (
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 shrink-0 animate-pulse">
-                        <AlertCircle size={10} className="text-rose-600" />
+                        <AlertCircle size={10} />
                         <span>Terlewat</span>
                       </span>
                     ) : (
@@ -1830,7 +1830,7 @@ export default function ClassTasks({
                   )}
                 </div>
 
-                <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-xs text-[#64748B]">
+                <div className="pt-2 border-t border-[#F1F5F9] flex flex-wrap items-center justify-between gap-2 text-xs text-[#64748B]">
                   <span className={`flex items-center gap-1 font-medium ${isOverdue && !isSubmitted ? 'text-rose-600 font-bold' : isSubmitted ? 'text-emerald-700 font-semibold' : ''}`}>
                     <Clock size={12} className={isOverdue && !isSubmitted ? 'text-rose-600' : isSubmitted ? 'text-emerald-600' : ''} />
                     <span>Due {task.dueDate} · {task.dueTime}</span>
@@ -1857,17 +1857,17 @@ export default function ClassTasks({
                 {/* Student Quick Drive Link if submitted */}
                 {isSubmitted && userSub && isDriveOrDocsUrl(userSub.fileUrl || userSub.files?.[0]?.url) && (
                   <div 
-                    className="pt-2 border-t border-emerald-100/90 flex items-center justify-between text-xs" 
+                    className="pt-2 border-t border-emerald-100/90 flex flex-wrap items-center justify-between gap-2 text-xs" 
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span className="text-[11px] text-emerald-900 font-medium truncate max-w-[190px]" title={userSub.fileName || 'Berkas Tugas'}>
+                    <span className="text-[11px] text-emerald-900 font-medium truncate flex-1 min-w-[120px]" title={userSub.fileName || 'Berkas Tugas'}>
                       📁 {userSub.fileName || `${userSub.files?.length || 1} Berkas Dikirim`}
                     </span>
                     <a
                       href={userSub.fileUrl || userSub.files?.[0]?.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[11px] flex items-center gap-1 transition-colors shrink-0 shadow-2xs cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[11px] flex items-center gap-1 transition-colors shrink-0 shadow-2xs cursor-pointer ml-auto"
                       title="Buka berkas tugas di Google Drive"
                     >
                       <ExternalLink size={11} />
@@ -3006,7 +3006,7 @@ export default function ClassTasks({
                             return (
                               <div 
                                 key={idx} 
-                                className="p-2.5 rounded-xl bg-white border border-emerald-200 hover:border-emerald-300 flex items-center justify-between gap-2.5 text-xs shadow-2xs transition-all"
+                                className="p-2.5 rounded-xl bg-white border border-emerald-200 hover:border-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-2xs transition-all"
                               >
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                   <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
@@ -3040,7 +3040,7 @@ export default function ClassTasks({
                                     href={fileUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 hover:text-sky-900 border border-sky-200 font-bold text-[11px] flex items-center gap-1.5 shrink-0 transition-colors shadow-2xs cursor-pointer"
+                                    className="w-full sm:w-auto justify-center px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 hover:text-sky-900 border border-sky-200 font-bold text-[11px] flex items-center gap-1.5 shrink-0 transition-colors shadow-2xs cursor-pointer"
                                     title="Buka berkas ini di Google Drive"
                                   >
                                     <ExternalLink size={12} />
@@ -3053,7 +3053,7 @@ export default function ClassTasks({
                         </div>
                       </div>
                     ) : (
-                      <div className="p-3 rounded-xl bg-white border border-emerald-200 flex items-center justify-between gap-3 shadow-2xs">
+                      <div className="p-3.5 rounded-xl bg-white border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
                             <FileText size={18} />
@@ -3086,7 +3086,7 @@ export default function ClassTasks({
                             href={userSub.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 shadow-xs hover:shadow transition-all cursor-pointer"
+                            className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 shadow-xs hover:shadow transition-all cursor-pointer"
                             title="Buka berkas di Google Drive"
                           >
                             <ExternalLink size={13} />
@@ -3100,19 +3100,17 @@ export default function ClassTasks({
                       <div className="flex items-center gap-3 flex-wrap">
                         {userSub.fileUrl || (Array.isArray(userSub.files) && userSub.files[0]?.url) ? (
                           <>
-                            {isDriveOrDocsUrl(userSub.fileUrl || userSub.files?.[0]?.url) ? (
+                            {Array.isArray(userSub.files) && userSub.files.length > 1 && isDriveOrDocsUrl(userSub.files[0]?.url) ? (
                               <a
-                                href={userSub.fileUrl || userSub.files?.[0]?.url}
+                                href={userSub.files[0]?.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-xs font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1 cursor-pointer"
                               >
                                 <ExternalLink size={12} />
-                                <span>{Array.isArray(userSub.files) && userSub.files.length > 1 ? 'Buka Berkas Utama di Drive ↗' : 'Buka di Google Drive ↗'}</span>
+                                <span>Buka Berkas Utama di Drive ↗</span>
                               </a>
-                            ) : (
-                              <span className="text-[10px] text-[#64748B]">Tersimpan di Sistem</span>
-                            )}
+                            ) : null}
                             <button
                               type="button"
                               disabled={isCrosschecking}

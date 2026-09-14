@@ -185,7 +185,7 @@ export default function ClassLobby({
           <div className="flex items-center gap-2.5">
             <img src="/logo.png" alt="Classy" className="w-8 h-8 object-contain shrink-0" />
             <span className="font-bold text-lg text-[#0F172A] dark:text-white tracking-tight">Classy</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-[#F1F5F9] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 font-medium ml-1">
+            <span className="hidden sm:inline-block text-xs px-2 py-0.5 rounded-full bg-[#F1F5F9] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 font-medium ml-1">
               Class Lobby
             </span>
           </div>
@@ -199,7 +199,8 @@ export default function ClassLobby({
                 title="Buka Pusat Kendali Superadmin"
               >
                 <ShieldCheck size={14} />
-                <span>Superadmin Panel</span>
+                <span className="hidden sm:inline">Superadmin Panel</span>
+                <span className="sm:hidden">Admin</span>
               </button>
             )}
 
@@ -481,7 +482,7 @@ export default function ClassLobby({
                       )}
                     </div>
 
-                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap">
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                       <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
                         <Users size={14} className="text-slate-400" />
                         <span>{cls.memberCount} Anggota terdaftar</span>
@@ -494,7 +495,7 @@ export default function ClassLobby({
                             type="button"
                             onClick={() => handleToggleBlock(cls.id, !isBlocked)}
                             disabled={blockingClassId === cls.id}
-                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50 ${
+                            className={`flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50 ${
                               isBlocked
                                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                                 : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/50 dark:border-rose-800 dark:text-rose-300'
@@ -507,7 +508,7 @@ export default function ClassLobby({
                           <button
                             type="button"
                             onClick={() => onSelectClass(cls)}
-                            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                            className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                           >
                             <span>Masuk</span>
                             <ArrowRight size={14} />
@@ -516,7 +517,7 @@ export default function ClassLobby({
                       ) : isBlocked ? (
                         <a
                           href={`mailto:arya@exars.my.id?subject=${encodeURIComponent(`Permintaan Buka Blokir Kelas: ${cls.name} (${cls.classIdentifier || ''})`)}&body=${encodeURIComponent(`Halo Superadmin Arya,\n\nSaya ingin meminta pembukaan blokir / verifikasi kelas berikut di Classy:\n- Nama Kelas: ${cls.name}\n- Kode/Rombel: ${cls.classIdentifier || '-'}\n- Dosen: ${cls.lecturer || '-'}\n- Pemohon: ${currentUser?.displayName || '-'} (${currentUser?.email || '-'})\n\nMohon bantuannya untuk membuka blokir kelas ini agar mahasiswa dapat mengaksesnya. Terima kasih.`)}`}
-                          className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                          className="w-full sm:w-auto justify-center px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
                         >
                           <Mail size={14} />
                           <span>Email arya@exars.my.id</span>
@@ -525,7 +526,7 @@ export default function ClassLobby({
                         <button
                           type="button"
                           onClick={() => onSelectClass(cls)}
-                          className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-xs group-hover:gap-3 cursor-pointer"
+                          className="w-full sm:w-auto justify-center px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-xs group-hover:gap-3 cursor-pointer"
                         >
                           <span>Masuk ke Kelas</span>
                           <ArrowRight size={14} />
