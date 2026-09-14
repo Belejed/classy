@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { authService } from '../utils/db';
+import { authService, getFriendlyAuthErrorMessage } from '../utils/db';
 import toast from 'react-hot-toast';
 import { 
   ArrowRight, 
@@ -84,7 +84,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
       setMode('reset_sent');
     } catch (err) {
       console.error('Reset password error:', err);
-      toast.error(err.message || 'Gagal mengirim email reset password');
+      toast.error(getFriendlyAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -172,7 +172,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
       }
     } catch (err) {
       console.error('Auth error:', err);
-      toast.error(err.message || 'Terjadi kesalahan autentikasi');
+      toast.error(getFriendlyAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }

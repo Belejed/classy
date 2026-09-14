@@ -433,6 +433,46 @@ const formatUser = (user, extra = {}) => {
   };
 };
 
+// Helper to translate Firebase Auth errors into user-friendly Indonesian messages
+export const getFriendlyAuthErrorMessage = (err) => {
+  if (!err) return 'Terjadi kesalahan autentikasi.';
+  const code = err.code || '';
+  const msg = (err.message || '').toLowerCase();
+
+  if (
+    code === 'auth/invalid-credential' ||
+    code === 'auth/wrong-password' ||
+    code === 'auth/user-not-found' ||
+    msg.includes('invalid-credential') ||
+    msg.includes('wrong-password') ||
+    msg.includes('user-not-found')
+  ) {
+    return 'Email atau password salah. Silakan periksa kembali.';
+  }
+  if (code === 'auth/invalid-email' || msg.includes('invalid-email')) {
+    return 'Format alamat email tidak valid.';
+  }
+  if (code === 'auth/user-disabled' || msg.includes('user-disabled')) {
+    return 'Akun ini telah dinonaktifkan. Hubungi admin atau Komti.';
+  }
+  if (code === 'auth/too-many-requests' || msg.includes('too-many-requests')) {
+    return 'Terlalu banyak percobaan gagal. Silakan tunggu beberapa saat lagi.';
+  }
+  if (code === 'auth/email-already-in-use' || msg.includes('email-already-in-use')) {
+    return 'Email ini sudah terdaftar. Silakan langsung masuk / login.';
+  }
+  if (code === 'auth/weak-password' || msg.includes('weak-password')) {
+    return 'Password terlalu singkat atau lemah. Minimal 6 karakter.';
+  }
+  if (code === 'auth/network-request-failed' || msg.includes('network-request-failed')) {
+    return 'Koneksi internet bermasalah. Periksa jaringan Anda.';
+  }
+
+  // Clean raw Firebase error string if any unmapped error code appears
+  const clean = (err.message || '').replace(/^Firebase:\s*Error\s*\((.*?)\)\.?/i, '$1').trim();
+  return clean || 'Terjadi kesalahan saat memproses akun Anda.';
+};
+
 // --- AUTHENTICATION SERVICE (FIREBASE AUTH) ---
 export const authService = {
   getCurrentUser: async () => {
@@ -454,51 +494,74 @@ export const authService = {
   },
 
   login: async (email, password) => {
-    const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-    return formatUser(cred.user);
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+      return formatUser(cred.user);
+    } catch (err) {
+      throw new Error(getFriendlyAuthErrorMessage(err));
+    }
   },
 
   signup: async (email, password, { fullName = '', phoneNumber = '' } = {}) => {
-    const cleanPhone = (phoneNumber || '').trim();
-    const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : (cleanPhone ? `+${cleanPhone.replace(/^0+/, '62')}` : '');
+    try {
+      const cleanPhone = (phoneNumber || '').trim();
+      const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : (cleanPhone ? `+${cleanPhone.replace(/^0+/, '62')}` : '');
 
-    const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-    if (fullName.trim()) {
-      try {
-        await updateFirebaseProfile(cred.user, { displayName: fullName.trim() });
-      } catch {}
+      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      if (fullName.trim()) {
+        try {
+          await updateFirebaseProfile(cred.user, { displayName: fullName.trim() });
+        } catch {}
+      }
+      return formatUser(cred.user, { fullName: fullName.trim(), phoneNumber: formattedPhone });
+    } catch (err) {
+      throw new Error(getFriendlyAuthErrorMessage(err));
     }
-    return formatUser(cred.user, { fullName: fullName.trim(), phoneNumber: formattedPhone });
   },
 
   updateProfile: async ({ fullName, phoneNumber, notificationPreferences }) => {
     const user = auth.currentUser;
     if (!user) throw new Error('Pengguna belum masuk.');
 
-    if (fullName && fullName.trim()) {
-      await updateFirebaseProfile(user, { displayName: fullName.trim() });
+    try {
+      if (fullName && fullName.trim()) {
+        await updateFirebaseProfile(user, { displayName: fullName.trim() });
+      }
+      return formatUser(user, { fullName, phoneNumber, notificationPreferences });
+    } catch (err) {
+      throw new Error(getFriendlyAuthErrorMessage(err));
     }
-
-    return formatUser(user, { fullName, phoneNumber, notificationPreferences });
   },
 
   resetPassword: async (email) => {
-    await sendPasswordResetEmail(auth, email.trim());
-    return { success: true };
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      return { success: true };
+    } catch (err) {
+      throw new Error(getFriendlyAuthErrorMessage(err));
+    }
   },
 
   updatePassword: async (newPassword) => {
     const user = auth.currentUser;
     if (!user) throw new Error('Pengguna belum masuk.');
-    await updateFirebasePassword(user, newPassword);
-    return { success: true };
+    try {
+      await updateFirebasePassword(user, newPassword);
+      return { success: true };
+    } catch (err) {
+      throw new Error(getFriendlyAuthErrorMessage(err));
+    }
   },
 
   updateEmail: async (newEmail) => {
     const user = auth.currentUser;
     if (!user) throw new Error('Pengguna belum masuk.');
-    await updateFirebaseEmail(user, newEmail.trim());
-    return { success: true };
+    try {
+      await updateFirebaseEmail(user, newEmail.trim());
+      return { success: true };
+    } catch (err) {
+      throw new Error(getFriendlyAuthErrorMessage(err));
+    }
   },
 
   logout: async () => {
