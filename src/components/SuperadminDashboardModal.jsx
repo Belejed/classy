@@ -1041,36 +1041,47 @@ export default function SuperadminDashboardModal({
               </form>
 
               {/* Live Preview Box */}
-              <div className="p-5 rounded-3xl bg-slate-950 text-slate-100 border border-slate-800 space-y-4 shadow-xl">
-                <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-3">
-                  <span className="font-bold flex items-center gap-2">
-                    <Sparkles size={14} className="text-amber-400" />
+              <div className="p-5 rounded-3xl bg-[#FDFBF7] dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <span className="font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                    <Sparkles size={14} className="text-amber-500" />
                     Preview Tampilan Layar Pengguna
                   </span>
-                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                     Live Preview
                   </span>
                 </div>
 
-                <div className="text-center py-6 px-4 space-y-3 max-w-md mx-auto">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
-                    <Wrench size={22} />
+                <div className="bg-white dark:bg-[#151D2F] border border-slate-200 dark:border-slate-700/80 rounded-2xl p-6 text-center space-y-3 max-w-md mx-auto shadow-sm relative overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-emerald-500 to-teal-500" />
+                  
+                  <img src="/logo.png" alt="Classy" className="w-9 h-9 object-contain mx-auto" />
+                  
+                  <div>
+                    <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
+                      Mode Pemeliharaan Sedang Aktif
+                    </span>
                   </div>
-                  <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                    Mode Pemeliharaan Sedang Aktif
-                  </span>
-                  <h4 className="text-base font-extrabold text-white">
+
+                  <h4 className="text-base font-extrabold text-slate-900 dark:text-white">
                     {maintenanceConfig.title || 'Sistem Sedang Dalam Pemeliharaan'}
                   </h4>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    {maintenanceConfig.message || 'Kami sedang melakukan pembaruan berkala.'}
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {maintenanceConfig.message || 'Kami sedang melakukan pemeliharaan sistem berkala.'}
                   </p>
                   {maintenanceConfig.estimatedEndTime && (
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-bold text-amber-400">
-                      <Clock size={13} />
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200">
+                      <Clock size={13} className="text-amber-600" />
                       <span>Estimasi Selesai: {maintenanceConfig.estimatedEndTime}</span>
                     </div>
                   )}
+
+                  <div className="pt-2">
+                    <div className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-xs">
+                      <RefreshCw size={12} />
+                      <span>Cek Status Sekarang</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 

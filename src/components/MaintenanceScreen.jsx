@@ -2,13 +2,10 @@ import React, { useState } from 'react';
 import { 
   Wrench, 
   RefreshCw, 
-  ShieldAlert, 
-  Lock, 
-  Sparkles, 
   Clock, 
-  GraduationCap, 
-  ArrowRight,
   CheckCircle2,
+  Lock,
+  ArrowRight,
   X
 } from 'lucide-react';
 import { authService, isSuperAdmin } from '../utils/db';
@@ -20,10 +17,24 @@ export default function MaintenanceScreen({
   onSuperadminLogin 
 }) {
   const [isChecking, setIsChecking] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
+  
+  // Secret Easter Egg to open admin access without displaying "Superadmin" on the public UI
+  const [logoClickCount, setLogoClickCount] = useState(0);
+  const [showSecretModal, setShowSecretModal] = useState(false);
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
+
+  const handleLogoClick = () => {
+    const nextCount = logoClickCount + 1;
+    if (nextCount >= 5) {
+      setShowSecretModal(true);
+      setLogoClickCount(0);
+    } else {
+      setLogoClickCount(nextCount);
+      setTimeout(() => setLogoClickCount(0), 3000);
+    }
+  };
 
   const handleManualCheck = async () => {
     setIsChecking(true);
@@ -50,176 +61,168 @@ export default function MaintenanceScreen({
     try {
       const user = await authService.login(adminEmail, adminPassword);
       if (isSuperAdmin(user)) {
-        toast.success(`Selamat datang, Superadmin ${user.displayName || user.email}!`);
-        setShowAdminModal(false);
+        toast.success(`Selamat datang kembali, ${user.displayName || user.email}!`);
+        setShowSecretModal(false);
         if (onSuperadminLogin) {
           onSuperadminLogin(user);
         }
       } else {
-        toast.error('Akun ini bukan Superadmin. Akses ditolak selama pemeliharaan.');
+        toast.error('Akses ditolak selama masa pemeliharaan.');
       }
     } catch (err) {
-      toast.error(err.message || 'Gagal masuk akun Superadmin');
+      toast.error(err.message || 'Gagal masuk akun');
     } finally {
       setAdminLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden font-sans select-none">
-      {/* Dynamic Background Glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-[450px] h-[450px] bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-10 left-10 w-[350px] h-[350px] bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#FDFBF7] text-[#1E293B] flex flex-col justify-between relative overflow-hidden font-sans select-none">
+      {/* Subtle Warm Background Ambiance */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amber-100/40 rounded-full blur-3xl pointer-events-none -mr-32 -mt-32" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-emerald-100/40 rounded-full blur-3xl pointer-events-none -ml-32 -mb-32" />
 
-      {/* Top Bar */}
+      {/* Top Header */}
       <header className="w-full max-w-5xl mx-auto px-6 py-6 flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-lg shadow-emerald-500/20">
-            <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-              <GraduationCap className="text-emerald-400 w-5 h-5" />
-            </div>
-          </div>
+        <div 
+          onClick={handleLogoClick}
+          className="flex items-center gap-3 cursor-pointer group select-none transition-transform active:scale-95"
+          title="Classy Academic Hub"
+        >
+          <img 
+            src="/logo.png" 
+            alt="Classy" 
+            className="w-10 h-10 object-contain drop-shadow-xs" 
+          />
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-black tracking-tight text-lg text-white">Classy</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="font-black tracking-tight text-lg text-slate-900">Classy</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                 Academic Hub
               </span>
             </div>
-            <span className="text-xs text-slate-400 block -mt-0.5">Ruang Kelas Terpadu</span>
+            <span className="text-xs text-slate-500 block -mt-0.5">Ruang Kelas Terpadu</span>
           </div>
         </div>
 
-        <button
-          onClick={() => setShowAdminModal(true)}
-          className="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-slate-800/80 text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-md"
-        >
-          <Lock size={12} className="text-amber-400" />
-          <span>Akses Superadmin</span>
-        </button>
+        {/* Clean minimal indicator */}
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+          <span className="text-xs font-semibold text-slate-600 hidden sm:inline">
+            Pemeliharaan Sistem
+          </span>
+        </div>
       </header>
 
-      {/* Main Content Card */}
+      {/* Main Center Card */}
       <main className="flex-1 flex items-center justify-center px-4 py-8 relative z-10">
-        <div className="max-w-xl w-full mx-auto text-center space-y-6">
-          
+        <div className="max-w-lg w-full bg-white border border-slate-200/80 rounded-3xl p-8 sm:p-10 shadow-xl shadow-slate-900/5 text-center space-y-6 relative overflow-hidden">
+          {/* Top Accent Line */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 via-emerald-500 to-teal-500" />
+
           {/* Animated Illustration Badge */}
-          <div className="relative inline-flex items-center justify-center">
-            <div className="absolute inset-0 bg-amber-500/20 rounded-full blur-xl animate-pulse" />
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-700/80 p-5 flex items-center justify-center shadow-2xl relative">
-              <Wrench className="w-12 h-12 sm:w-14 sm:h-14 text-amber-400 animate-bounce transition-all duration-1000" />
-              <div className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1.5 shadow-lg">
-                <ShieldAlert size={16} />
-              </div>
-            </div>
+          <div className="w-20 h-20 rounded-3xl bg-amber-50 border border-amber-200/80 text-amber-600 flex items-center justify-center mx-auto shadow-sm relative">
+            <Wrench className="w-10 h-10 text-amber-600 animate-bounce transition-all duration-1000" />
           </div>
 
-          {/* Status Chip */}
+          {/* Status Badge */}
           <div>
-            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
               Mode Pemeliharaan Sedang Aktif
             </span>
           </div>
 
-          {/* Heading */}
+          {/* Heading & Message */}
           <div className="space-y-3">
-            <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
               {config?.title || 'Sistem Sedang Dalam Pemeliharaan'}
             </h1>
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-md mx-auto">
-              {config?.message || 'Kami sedang melakukan pembaruan berkala dan peningkatan infrastruktur server agar Classy berjalan lebih cepat, aman, dan stabil. Kami akan segera kembali!'}
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-md mx-auto">
+              {config?.message || 'Kami sedang melakukan pemeliharaan berkala dan peningkatan performa sistem agar Classy berjalan lebih lancar dan nyaman digunakan. Kami akan segera kembali!'}
             </p>
           </div>
 
-          {/* Estimated Completion Time Box */}
+          {/* Estimated Completion Time */}
           {config?.estimatedEndTime && (
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 max-w-sm mx-auto backdrop-blur-md flex items-center justify-center gap-3">
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
-                <Clock size={20} />
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 max-w-sm mx-auto flex items-center justify-center gap-3">
+              <div className="p-2 rounded-xl bg-amber-100 text-amber-700">
+                <Clock size={18} />
               </div>
               <div className="text-left">
-                <span className="text-[11px] uppercase font-bold text-slate-400 block tracking-wider">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
                   Estimasi Selesai
                 </span>
-                <span className="text-sm font-extrabold text-white">
+                <span className="text-sm font-extrabold text-slate-900">
                   {config.estimatedEndTime}
                 </span>
               </div>
             </div>
           )}
 
-          {/* Actions */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          {/* Single Clean Action Button */}
+          <div className="pt-2 flex flex-col items-center justify-center gap-3">
             <button
               onClick={handleManualCheck}
               disabled={isChecking}
-              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
             >
-              <RefreshCw size={16} className={isChecking ? 'animate-spin' : ''} />
+              <RefreshCw size={15} className={isChecking ? 'animate-spin' : ''} />
               <span>{isChecking ? 'Memeriksa Status...' : 'Cek Status Sekarang'}</span>
             </button>
-            <button
-              onClick={() => setShowAdminModal(true)}
-              className="w-full sm:w-auto px-5 py-3 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-slate-200 font-semibold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <Lock size={15} className="text-slate-400" />
-              <span>Login Superadmin</span>
-            </button>
-          </div>
 
-          <div className="text-xs text-slate-500 pt-2 flex items-center justify-center gap-2">
-            <CheckCircle2 size={13} className="text-emerald-500" />
-            <span>Halaman ini otomatis membuka kembali saat pemeliharaan selesai.</span>
+            <div className="text-xs text-slate-500 pt-2 flex items-center justify-center gap-1.5">
+              <CheckCircle2 size={13} className="text-emerald-600" />
+              <span>Halaman otomatis terbuka kembali saat pemeliharaan selesai.</span>
+            </div>
           </div>
 
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full max-w-5xl mx-auto px-6 py-6 text-center text-xs text-slate-500 relative z-10 border-t border-slate-900/60">
-        <p>© 2026 Classy Academic Hub • Dikembangkan untuk efisiensi perkuliahan.</p>
+      {/* Clean Footer */}
+      <footer className="w-full max-w-5xl mx-auto px-6 py-6 text-center text-xs text-slate-500 relative z-10 border-t border-slate-200/60">
+        <p>© 2026 Classy Academic Hub • Ruang Kelas Terpadu.</p>
       </footer>
 
-      {/* Emergency Superadmin Login Modal */}
-      {showAdminModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 relative">
+      {/* Secret Emergency Access Modal (Only opens if logo is clicked 5 times) */}
+      {showSecretModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 relative">
             <button
-              onClick={() => setShowAdminModal(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              onClick={() => setShowSecretModal(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X size={18} />
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
-                <Lock size={20} />
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+                <Lock size={18} />
               </div>
               <div>
-                <h3 className="font-extrabold text-white text-base">Akses Superadmin</h3>
-                <p className="text-xs text-slate-400">Masuk untuk membuka kendali pemeliharaan sistem.</p>
+                <h3 className="font-extrabold text-slate-900 text-base">Akses Pengelola</h3>
+                <p className="text-xs text-slate-500">Masuk untuk mengelola sistem.</p>
               </div>
             </div>
 
             <form onSubmit={handleAdminSubmit} className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1.5">
-                  Email Superadmin
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Email
                 </label>
                 <input
                   type="email"
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
-                  placeholder="arya@exars.my.id / exars.012@gmail.com"
+                  placeholder="arya@exars.my.id"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
                   Kata Sandi
                 </label>
                 <input
@@ -228,29 +231,29 @@ export default function MaintenanceScreen({
                   onChange={(e) => setAdminPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowAdminModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                  onClick={() => setShowSecretModal(false)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={adminLoading}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {adminLoading ? (
                     <RefreshCw size={13} className="animate-spin" />
                   ) : (
                     <ArrowRight size={13} />
                   )}
-                  <span>{adminLoading ? 'Memverifikasi...' : 'Buka Akses'}</span>
+                  <span>{adminLoading ? 'Memverifikasi...' : 'Masuk'}</span>
                 </button>
               </div>
             </form>
