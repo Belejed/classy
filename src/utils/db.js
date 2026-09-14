@@ -1,5 +1,279 @@
-import { supabase, isSupabaseConfigured } from '../supabase';
-import { extractDriveFileId } from './driveUpload';
+import { db, auth, isConfigured as isFirebaseConfigured } from '../firebase.js';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  onSnapshot
+} from 'firebase/firestore';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged as onFirebaseAuthStateChanged,
+  sendPasswordResetEmail,
+  updatePassword as updateFirebasePassword,
+  updateEmail as updateFirebaseEmail,
+  updateProfile as updateFirebaseProfile
+} from 'firebase/auth';
+import { extractDriveFileId } from './driveUpload.js';
+
+export const isSupabaseConfigured = isFirebaseConfigured;
+
+// --- FIRESTORE ADAPTER & SANITIZER ---
+const sanitizeForFirestore = (obj) => {
+  if (obj === undefined) return null;
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeForFirestore);
+  }
+  const result = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key] = sanitizeForFirestore(value);
+    }
+  }
+  return result;
+};
+
+const cleanForFirestore = (collName, item) => {
+  if (!item || typeof item !== 'object') return sanitizeForFirestore(item);
+  const copy = JSON.parse(JSON.stringify(item));
+  if (collName === 'tasks') {
+    if (Array.isArray(copy.attachments)) {
+      copy.attachments.forEach(a => {
+        if (a && a.dataUrl && (a.url || a.directUrl || a.fileId)) {
+          delete a.dataUrl;
+        }
+      });
+    }
+    if (typeof copy.description === 'string' && copy.description.startsWith('{')) {
+      try {
+        const p = JSON.parse(copy.description);
+        if (Array.isArray(p.attachments)) {
+          p.attachments.forEach(a => {
+            if (a && a.dataUrl && (a.url || a.directUrl || a.fileId)) {
+              delete a.dataUrl;
+            }
+          });
+          copy.description = JSON.stringify(p);
+        }
+      } catch {}
+    }
+  }
+  return sanitizeForFirestore(copy);
+};
+
+class FirestoreQueryBuilder {
+  constructor(tableName) {
+    this.tableName = tableName;
+    this.filters = [];
+    this.sorts = [];
+    this.isSingle = false;
+    this.isMaybeSingle = false;
+    this.countExact = false;
+    this.isHead = false;
+  }
+
+  select(fields = '*', options = {}) {
+    if (options && options.count === 'exact') this.countExact = true;
+    if (options && options.head) this.isHead = true;
+    return this;
+  }
+
+  eq(field, value) {
+    this.filters.push({ field, op: 'eq', value });
+    return this;
+  }
+
+  ilike(field, pattern) {
+    this.filters.push({ field, op: 'ilike', value: pattern });
+    return this;
+  }
+
+  order(field, { ascending = true } = {}) {
+    this.sorts.push({ field, ascending });
+    return this;
+  }
+
+  maybeSingle() {
+    this.isMaybeSingle = true;
+    return this.execute();
+  }
+
+  single() {
+    this.isSingle = true;
+    return this.execute();
+  }
+
+  then(resolve, reject) {
+    return this.execute().then(resolve, reject);
+  }
+
+  async execute() {
+    try {
+      const idFilter = this.filters.find(f => f.field === 'id' && f.op === 'eq');
+      if (idFilter && this.filters.length === 1 && (this.isSingle || this.isMaybeSingle)) {
+        const docRef = doc(db, this.tableName, String(idFilter.value));
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) {
+          return { data: null, error: this.isSingle ? new Error('Record not found') : null, count: 0 };
+        }
+        return { data: { id: docSnap.id, ...docSnap.data() }, error: null, count: 1 };
+      }
+
+      let q;
+      const wsFilter = this.filters.find(f => f.field === 'workspace_id' && f.op === 'eq');
+      if (wsFilter) {
+        q = query(collection(db, this.tableName), where('workspace_id', '==', wsFilter.value));
+      } else {
+        q = collection(db, this.tableName);
+      }
+
+      const snapshot = await getDocs(q);
+      let records = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      for (const filter of this.filters) {
+        if (filter.op === 'eq') {
+          records = records.filter(r => String(r[filter.field] ?? '') === String(filter.value ?? ''));
+        } else if (filter.op === 'ilike') {
+          const cleanVal = String(filter.value || '').toLowerCase().replace(/%/g, '');
+          records = records.filter(r => String(r[filter.field] || '').toLowerCase().includes(cleanVal));
+        }
+      }
+
+      for (const sort of this.sorts) {
+        records.sort((a, b) => {
+          const valA = a[sort.field] ?? '';
+          const valB = b[sort.field] ?? '';
+          if (valA < valB) return sort.ascending ? -1 : 1;
+          if (valA > valB) return sort.ascending ? 1 : -1;
+          return 0;
+        });
+      }
+
+      const totalCount = records.length;
+      if (this.isHead) {
+        return { data: null, count: totalCount, error: null };
+      }
+      if (this.isSingle || this.isMaybeSingle) {
+        const first = records[0] || null;
+        if (!first && this.isSingle) {
+          return { data: null, error: new Error('Record not found'), count: 0 };
+        }
+        return { data: first, count: first ? 1 : 0, error: null };
+      }
+      return { data: records, count: totalCount, error: null };
+    } catch (err) {
+      console.error(`Firestore query error on ${this.tableName}:`, err);
+      return { data: null, error: err, count: 0 };
+    }
+  }
+
+  async insert(data) {
+    try {
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items) {
+        const id = item.id || 'doc_' + Math.random().toString(36).substr(2, 9);
+        const itemToSave = cleanForFirestore(this.tableName, { ...item, id });
+        await setDoc(doc(db, this.tableName, id), itemToSave, { merge: true });
+      }
+      return { data, error: null };
+    } catch (err) {
+      console.error(`Firestore insert error on ${this.tableName}:`, err);
+      return { data: null, error: err };
+    }
+  }
+
+  async upsert(data) {
+    return this.insert(data);
+  }
+
+  update(updates) {
+    this.pendingUpdates = updates;
+    return {
+      eq: (field, value) => {
+        this.filters.push({ field, op: 'eq', value });
+        return {
+          eq: (field2, value2) => {
+            this.filters.push({ field: field2, op: 'eq', value: value2 });
+            return this.executeUpdate();
+          },
+          then: (resolve, reject) => this.executeUpdate().then(resolve, reject)
+        };
+      },
+      then: (resolve, reject) => this.executeUpdate().then(resolve, reject)
+    };
+  }
+
+  async executeUpdate() {
+    try {
+      const updates = cleanForFirestore(this.tableName, this.pendingUpdates);
+      const idFilter = this.filters.find(f => f.field === 'id' && f.op === 'eq');
+      if (idFilter && this.filters.length === 1) {
+        await setDoc(doc(db, this.tableName, String(idFilter.value)), updates, { merge: true });
+        return { data: updates, error: null };
+      }
+
+      const { data: records } = await this.execute();
+      if (records && records.length > 0) {
+        for (const r of records) {
+          await setDoc(doc(db, this.tableName, r.id), updates, { merge: true });
+        }
+      }
+      return { data: updates, error: null };
+    } catch (err) {
+      console.error(`Firestore update error on ${this.tableName}:`, err);
+      return { data: null, error: err };
+    }
+  }
+
+  delete() {
+    return {
+      eq: (field, value) => {
+        this.filters.push({ field, op: 'eq', value });
+        return {
+          eq: (field2, value2) => {
+            this.filters.push({ field: field2, op: 'eq', value: value2 });
+            return this.executeDelete();
+          },
+          then: (resolve, reject) => this.executeDelete().then(resolve, reject)
+        };
+      },
+      then: (resolve, reject) => this.executeDelete().then(resolve, reject)
+    };
+  }
+
+  async executeDelete() {
+    try {
+      const idFilter = this.filters.find(f => f.field === 'id' && f.op === 'eq');
+      if (idFilter && this.filters.length === 1) {
+        await deleteDoc(doc(db, this.tableName, String(idFilter.value)));
+        return { data: null, error: null };
+      }
+
+      const { data: records } = await this.execute();
+      if (records && records.length > 0) {
+        for (const r of records) {
+          await deleteDoc(doc(db, this.tableName, r.id));
+        }
+      }
+      return { data: null, error: null };
+    } catch (err) {
+      console.error(`Firestore delete error on ${this.tableName}:`, err);
+      return { data: null, error: err };
+    }
+  }
+}
+
+const supabase = {
+  from: (table) => new FirestoreQueryBuilder(table)
+};
 
 // Generate 6-character clean unique join code like 'A7K29P'
 export const generateJoinCode = () => {
@@ -71,147 +345,123 @@ export const isProtectedClass = (clsOrId) => {
   return false;
 };
 
-// --- AUTHENTICATION SERVICE ---
+// Format Firebase user to Classy standard user object
+const formatUser = (user, extra = {}) => {
+  if (!user) return null;
+  const email = user.email || '';
+  const isSuper = isSuperAdminEmail(email);
+  let savedMeta = {};
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      savedMeta = JSON.parse(localStorage.getItem(`classy_user_meta_${user.uid}`) || '{}');
+    } catch {}
+  }
+
+  const displayName = extra.fullName || user.displayName || savedMeta.fullName || email.split('@')[0];
+  const phoneNumber = extra.phoneNumber || user.phoneNumber || savedMeta.phoneNumber || '';
+  const notificationPreferences = extra.notificationPreferences || savedMeta.notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES;
+  const role = isSuper ? 'superadmin' : (savedMeta.role || 'user');
+
+  if (typeof window !== 'undefined' && window.localStorage) {
+    if (extra.fullName || extra.phoneNumber || extra.notificationPreferences || isSuper) {
+      try {
+        localStorage.setItem(`classy_user_meta_${user.uid}`, JSON.stringify({
+          fullName: displayName,
+          phoneNumber,
+          role,
+          notificationPreferences
+        }));
+      } catch {}
+    }
+  }
+
+  return {
+    uid: user.uid,
+    id: user.uid,
+    email: user.email,
+    displayName,
+    phoneNumber,
+    role,
+    userRole: role,
+    isSuperAdmin: isSuper,
+    notificationPreferences
+  };
+};
+
+// --- AUTHENTICATION SERVICE (FIREBASE AUTH) ---
 export const authService = {
   getCurrentUser: async () => {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session) return null;
-      const isSuper = isSuperAdminEmail(session.user.email) || session.user.user_metadata?.role === 'superadmin';
-      return {
-        uid: session.user.id,
-        email: session.user.email,
-        displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
-        phoneNumber: session.user.user_metadata?.phone_number || '',
-        role: isSuper ? 'superadmin' : (session.user.user_metadata?.role || 'user'),
-        isSuperAdmin: isSuper,
-        notificationPreferences: session.user.user_metadata?.notification_preferences || DEFAULT_NOTIFICATION_PREFERENCES
-      };
-    } catch {
-      return null;
+      if (typeof auth.authStateReady === 'function') {
+        await auth.authStateReady();
+      }
+      return formatUser(auth.currentUser);
+    } catch (err) {
+      console.warn('getCurrentUser error:', err);
+      return formatUser(auth.currentUser);
     }
   },
 
   onAuthStateChanged: (callback) => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const isSuper = isSuperAdminEmail(session.user.email) || session.user.user_metadata?.role === 'superadmin';
-        callback({
-          uid: session.user.id,
-          email: session.user.email,
-          displayName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
-          phoneNumber: session.user.user_metadata?.phone_number || '',
-          role: isSuper ? 'superadmin' : (session.user.user_metadata?.role || 'user'),
-          isSuperAdmin: isSuper,
-          notificationPreferences: session.user.user_metadata?.notification_preferences || DEFAULT_NOTIFICATION_PREFERENCES
-        });
-      } else {
-        callback(null);
-      }
+    return onFirebaseAuthStateChanged(auth, (user) => {
+      callback(formatUser(user));
     });
-
-    return () => subscription.unsubscribe();
   },
 
   login: async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    return {
-      uid: data.user.id,
-      email: data.user.email,
-      displayName: data.user.user_metadata?.full_name || data.user.email?.split('@')[0],
-      phoneNumber: data.user.user_metadata?.phone_number || '',
-      notificationPreferences: data.user.user_metadata?.notification_preferences || DEFAULT_NOTIFICATION_PREFERENCES
-    };
+    const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+    return formatUser(cred.user);
   },
 
   signup: async (email, password, { fullName = '', phoneNumber = '' } = {}) => {
     const cleanPhone = (phoneNumber || '').trim();
     const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : (cleanPhone ? `+${cleanPhone.replace(/^0+/, '62')}` : '');
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName.trim(),
-          phone_number: formattedPhone,
-          notification_preferences: DEFAULT_NOTIFICATION_PREFERENCES
-        }
-      }
-    });
-    if (error) throw error;
-    return {
-      uid: data.user?.id,
-      email: data.user?.email,
-      displayName: fullName || email?.split('@')[0],
-      phoneNumber: formattedPhone,
-      notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES
-    };
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    if (fullName.trim()) {
+      try {
+        await updateFirebaseProfile(cred.user, { displayName: fullName.trim() });
+      } catch {}
+    }
+    return formatUser(cred.user, { fullName: fullName.trim(), phoneNumber: formattedPhone });
   },
 
   updateProfile: async ({ fullName, phoneNumber, notificationPreferences }) => {
-    const updates = {};
-    if (fullName !== undefined) updates.full_name = fullName;
-    if (phoneNumber !== undefined) updates.phone_number = phoneNumber;
-    if (notificationPreferences !== undefined) updates.notification_preferences = notificationPreferences;
+    const user = auth.currentUser;
+    if (!user) throw new Error('Pengguna belum masuk.');
 
-    const { data, error } = await supabase.auth.updateUser({
-      data: updates
-    });
-    if (error) throw error;
-    return {
-      uid: data.user.id,
-      email: data.user.email,
-      displayName: data.user.user_metadata?.full_name || data.user.email?.split('@')[0],
-      phoneNumber: data.user.user_metadata?.phone_number || '',
-      notificationPreferences: data.user.user_metadata?.notification_preferences || DEFAULT_NOTIFICATION_PREFERENCES
-    };
+    if (fullName && fullName.trim()) {
+      await updateFirebaseProfile(user, { displayName: fullName.trim() });
+    }
+
+    return formatUser(user, { fullName, phoneNumber, notificationPreferences });
   },
 
   resetPassword: async (email) => {
-    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    const base = isDev ? window.location.origin : 'https://classy.exars.my.id';
-    const redirectTo = `${base}/reset-password`;
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo
-    });
-    if (error) throw error;
-    return data;
+    await sendPasswordResetEmail(auth, email.trim());
+    return { success: true };
   },
 
   updatePassword: async (newPassword) => {
-    const { data, error } = await supabase.auth.updateUser({
-      password: newPassword
-    });
-    if (error) throw error;
-    return data;
+    const user = auth.currentUser;
+    if (!user) throw new Error('Pengguna belum masuk.');
+    await updateFirebasePassword(user, newPassword);
+    return { success: true };
   },
 
   updateEmail: async (newEmail) => {
-    const cleanEmail = String(newEmail).trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      throw new Error('Alamat email baru tidak valid.');
-    }
-
-    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    const base = isDev ? window.location.origin : 'https://classy.exars.my.id';
-    const emailRedirectTo = `${base}/`;
-
-    const { data, error } = await supabase.auth.updateUser(
-      { email: cleanEmail },
-      { emailRedirectTo }
-    );
-    if (error) throw error;
-    return data;
+    const user = auth.currentUser;
+    if (!user) throw new Error('Pengguna belum masuk.');
+    await updateFirebaseEmail(user, newEmail.trim());
+    return { success: true };
   },
 
   logout: async () => {
-    await supabase.auth.signOut();
+    await firebaseSignOut(auth);
   },
 
   signOut: async () => {
-    await supabase.auth.signOut();
+    await firebaseSignOut(auth);
   }
 };
 
@@ -2094,40 +2344,43 @@ export const dbService = {
     },
 
     subscribeToMaintenance: (callback) => {
-      const channel = supabase
-        .channel('system_maintenance_channel')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'notes',
-            filter: 'id=eq.system_maintenance'
-          },
-          (payload) => {
-            if (payload.new) {
-              let parsed = {};
-              try {
-                parsed = typeof payload.new.content === 'string' && payload.new.content.startsWith('{')
-                  ? JSON.parse(payload.new.content)
-                  : {};
-              } catch {}
-              callback({
-                enabled: Boolean(parsed.enabled),
-                title: payload.new.title || parsed.title || 'Sistem Sedang Dalam Pemeliharaan',
-                message: parsed.message || '',
-                estimatedEndTime: parsed.estimatedEndTime || '',
-                updatedAt: payload.new.updated_at || parsed.updatedAt || null,
-                updatedBy: parsed.updatedBy || null
-              });
-            }
+      try {
+        const unsub = onSnapshot(doc(db, 'notes', 'system_maintenance'), (snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            let parsed = {};
+            try {
+              parsed = typeof data.content === 'string' && data.content.startsWith('{')
+                ? JSON.parse(data.content)
+                : (data.content || {});
+            } catch {}
+            callback({
+              enabled: Boolean(parsed.enabled),
+              title: data.title || parsed.title || 'Sistem Sedang Dalam Pemeliharaan',
+              message: parsed.message || '',
+              estimatedEndTime: parsed.estimatedEndTime || '',
+              updatedAt: data.updated_at || parsed.updatedAt || null,
+              updatedBy: parsed.updatedBy || null
+            });
+          } else {
+            callback({
+              enabled: false,
+              title: 'Sistem Sedang Dalam Pemeliharaan',
+              message: '',
+              estimatedEndTime: '',
+              updatedAt: null,
+              updatedBy: null
+            });
           }
-        )
-        .subscribe();
+        }, (err) => {
+          console.warn('Firestore maintenance snapshot error:', err);
+        });
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
+        return () => unsub();
+      } catch (err) {
+        console.warn('Error establishing maintenance listener:', err);
+        return () => {};
+      }
     }
   }
 };

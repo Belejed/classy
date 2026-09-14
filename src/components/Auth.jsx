@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../utils/db';
-import { supabase } from '../supabase';
 import toast from 'react-hot-toast';
 import { 
   ArrowRight, 
@@ -55,23 +54,12 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
   useEffect(() => {
     const hash = window.location.hash || '';
     const search = window.location.search || '';
-    if (hash.includes('type=recovery') || hash.includes('reset') || search.includes('type=recovery')) {
+    if (hash.includes('type=recovery') || hash.includes('reset') || search.includes('type=recovery') || search.includes('mode=resetPassword')) {
       setMode('update_password');
       if (location.pathname !== '/reset-password') {
         navigate('/reset-password' + hash, { replace: true });
       }
     }
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setMode('update_password');
-        if (location.pathname !== '/reset-password') {
-          navigate('/reset-password', { replace: true });
-        }
-      }
-    });
-
-    return () => subscription?.unsubscribe?.();
   }, [location.pathname]);
 
   const handlePhoneChange = (e) => {
