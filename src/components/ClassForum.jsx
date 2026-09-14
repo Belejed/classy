@@ -217,6 +217,22 @@ export default function ClassForum({
     }
   };
 
+  // Delete Group File
+  const handleDeleteGroupFile = async (fileId) => {
+    if (!selectedGroup) return;
+    if (!window.confirm('Hapus berkas ini dari kelompok?')) return;
+    try {
+      await dbService.groups.deleteFile(classId, selectedGroup.id, fileId);
+      setSelectedGroup(prev => ({
+        ...prev,
+        files: (prev?.files || []).filter(f => f.id !== fileId)
+      }));
+      toast.success('Berkas berhasil dihapus');
+    } catch {
+      toast.error('Gagal menghapus berkas');
+    }
+  };
+
   // Delete Group
   const handleDeleteGroup = async (groupId) => {
     if (!window.confirm('Hapus kelompok ini beserta seluruh diskusi di dalamnya?')) return;
@@ -518,18 +534,28 @@ export default function ClassForum({
                             </div>
                           </div>
 
-                          {file.storageUrl && (
-                            <a
-                              href={file.storageUrl}
-                              download={file.name}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="p-2 rounded-xl text-indigo-600 hover:bg-indigo-50 transition-colors"
-                              title="Unduh Berkas"
+                          <div className="flex items-center gap-1">
+                            {file.storageUrl && (
+                              <a
+                                href={file.storageUrl}
+                                download={file.name}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-2 rounded-xl text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                title="Unduh Berkas"
+                              >
+                                <Download size={15} />
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteGroupFile(file.id)}
+                              className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="Hapus Berkas dari Kelompok"
                             >
-                              <Download size={15} />
-                            </a>
-                          )}
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

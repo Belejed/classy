@@ -2156,6 +2156,25 @@ export const dbService = {
       return newFileObj;
     },
 
+    deleteFile: async (classId, groupId, fileId) => {
+      const { data: existing, error: getErr } = await supabase.from('notes').select('*').eq('id', groupId).maybeSingle();
+      if (getErr || !existing) return;
+
+      let meta = {};
+      try {
+        meta = typeof existing.content === 'string' && existing.content.startsWith('{') ? JSON.parse(existing.content) : {};
+      } catch {
+        meta = {};
+      }
+
+      meta.files = (meta.files || []).filter(f => f.id !== fileId);
+
+      await supabase.from('notes').update({
+        content: JSON.stringify(meta),
+        updated_at: new Date().toISOString()
+      }).eq('id', groupId);
+    },
+
     delete: async (groupId) => {
       await supabase.from('notes').delete().eq('id', groupId);
     }
