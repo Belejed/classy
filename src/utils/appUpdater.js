@@ -5,6 +5,8 @@
  */
 
 const PRESERVED_STORAGE_PREFIXES = [
+  'firebase:', // Firebase Auth persistent user session tokens
+  'firebaseapp', // Firebase app metadata
   'sb-', // Supabase session tokens
   'classy_changelog', // Changelog view state
   'classy_app_build_version', // Version tracker
@@ -29,7 +31,6 @@ export const purgeLegacyStorage = () => {
           key.startsWith('offline_') ||
           key.startsWith('cache_') ||
           key.startsWith('temp_') ||
-          key.startsWith('firebase:') ||
           key === 'app_theme' ||
           key === 'classy_theme' ||
           key === 'noted_files' ||

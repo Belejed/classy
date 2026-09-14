@@ -467,7 +467,7 @@ export const getFriendlyAuthErrorMessage = (err) => {
     return 'Password terlalu singkat atau lemah. Minimal 6 karakter.';
   }
   if (code === 'auth/network-request-failed' || msg.includes('network-request-failed')) {
-    return 'Koneksi internet bermasalah. Periksa jaringan Anda.';
+    return 'Koneksi internet / paket data bermasalah. Pastikan kuota aktif atau coba beberapa saat lagi.';
   }
 
   // Clean raw Firebase error string if any unmapped error code appears
@@ -537,17 +537,28 @@ export const authService = {
   },
 
   login: async (emailOrIdentifier, password) => {
+    const cleanPass = String(password || '').trim();
+    let resolvedEmail = String(emailOrIdentifier || '').trim().toLowerCase();
+
+    if (!resolvedEmail.includes('@')) {
+      resolvedEmail = await resolveEmailFromIdentifier(resolvedEmail);
+    }
+
     try {
-      const cleanPass = String(password || '').trim();
-      let resolvedEmail = String(emailOrIdentifier || '').trim().toLowerCase();
-
-      if (!resolvedEmail.includes('@')) {
-        resolvedEmail = await resolveEmailFromIdentifier(resolvedEmail);
-      }
-
       const cred = await signInWithEmailAndPassword(auth, resolvedEmail, cleanPass);
       return formatUser(cred.user);
     } catch (err) {
+      // Auto-retry once on cellular data network drops (auth/network-request-failed)
+      const isNetworkErr = err?.code === 'auth/network-request-failed' || (err?.message || '').includes('network-request-failed');
+      if (isNetworkErr) {
+        try {
+          await new Promise(r => setTimeout(r, 600)); // wait 600ms backoff
+          const retryCred = await signInWithEmailAndPassword(auth, resolvedEmail, cleanPass);
+          return formatUser(retryCred.user);
+        } catch (retryErr) {
+          throw new Error(getFriendlyAuthErrorMessage(retryErr));
+        }
+      }
       throw new Error(getFriendlyAuthErrorMessage(err));
     }
   },

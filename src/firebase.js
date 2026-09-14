@@ -1,6 +1,11 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from 'firebase/firestore';
 
 // Replace the values below with your Firebase Project Configuration keys
 // To use Firebase, replace placeholders with actual credentials.
@@ -30,8 +35,20 @@ if (isConfigured) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
-    db = getFirestore(app);
-    console.log("Firebase initialized successfully.");
+
+    // Initialize Firestore with IndexedDB persistent offline cache & auto long-polling for cellular data
+    try {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        }),
+        experimentalAutoDetectLongPolling: true
+      });
+    } catch {
+      db = getFirestore(app);
+    }
+
+    console.log("Firebase initialized successfully with offline persistence.");
   } catch (error) {
     console.error("Firebase initialization failed:", error);
   }

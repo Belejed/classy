@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { dbService, isSuperAdmin, isClassBlocked } from '../utils/db';
 import { getRoleDisplayName } from '../utils/permissions';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
 import EmptyState from './EmptyState';
-import SuperadminDashboardModal from './SuperadminDashboardModal';
+const SuperadminDashboardModal = lazy(() => import('./SuperadminDashboardModal'));
 import { 
   Plus, 
   Users, 
@@ -854,13 +854,15 @@ export default function ClassLobby({
 
       {/* MODAL 3: SUPERADMIN COMMAND CENTER */}
       {showSuperadminModal && (
-        <SuperadminDashboardModal
-          currentUser={currentUser}
-          isOpen={showSuperadminModal}
-          onClose={() => setShowSuperadminModal(false)}
-          onSelectClass={onSelectClass}
-          onRefreshParentClasses={onRefreshClasses}
-        />
+        <Suspense fallback={null}>
+          <SuperadminDashboardModal
+            currentUser={currentUser}
+            isOpen={showSuperadminModal}
+            onClose={() => setShowSuperadminModal(false)}
+            onSelectClass={onSelectClass}
+            onRefreshParentClasses={onRefreshClasses}
+          />
+        </Suspense>
       )}
 
     </div>

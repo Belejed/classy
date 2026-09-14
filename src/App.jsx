@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { authService, dbService, isSuperAdmin, isClassBlocked } from './utils/db';
@@ -6,7 +6,7 @@ import { moveFileToDriveTrash, moveFilesToDriveTrash } from './utils/driveUpload
 import { unlockBodyScroll } from './components/ModalPortal';
 import { Lock, ShieldCheck, Mail, ArrowLeft, ShieldAlert, Copy, Check, Wrench } from 'lucide-react';
 
-// Classy Components
+// Classy Core Components (Eagerly loaded for fast immediate navigation)
 import Auth from './components/Auth';
 import ClassLobby from './components/ClassLobby';
 import ClassSidebar from './components/ClassSidebar';
@@ -18,17 +18,20 @@ import ClassFiles from './components/ClassFiles';
 import ClassAnnouncements from './components/ClassAnnouncements';
 import ClassForum from './components/ClassForum';
 import ClassContacts from './components/ClassContacts';
-import ClassActivityLog from './components/ClassActivityLog';
-import ClassSubmissionsManager from './components/ClassSubmissionsManager';
-import UserProfileModal from './components/UserProfileModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import ClassTopHeader from './components/ClassTopHeader';
-import SuperadminDashboardModal from './components/SuperadminDashboardModal';
-import ChangelogModal, { shouldShowChangelogAuto, markChangelogSeen } from './components/ChangelogModal';
-import MaintenanceScreen from './components/MaintenanceScreen';
 import { DashboardSkeleton, TasksSkeleton, ScheduleSkeleton } from './components/SkeletonLoader';
 import { setupGlobalUpdateListeners } from './utils/appUpdater';
 import { canDeleteAnything } from './utils/permissions';
+import { shouldShowChangelogAuto, markChangelogSeen } from './utils/changelogHelper';
+
+// Heavy modals and non-critical sub-tabs: Lazy loaded for optimal mobile performance and small bundle
+const ClassSubmissionsManager = lazy(() => import('./components/ClassSubmissionsManager'));
+const ClassActivityLog = lazy(() => import('./components/ClassActivityLog'));
+const UserProfileModal = lazy(() => import('./components/UserProfileModal'));
+const SuperadminDashboardModal = lazy(() => import('./components/SuperadminDashboardModal'));
+const ChangelogModal = lazy(() => import('./components/ChangelogModal'));
+const MaintenanceScreen = lazy(() => import('./components/MaintenanceScreen'));
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -132,22 +135,21 @@ export default function App() {
     };
   }, []);
 
-  // 1. Auth Listener & Minimum Splash Duration (2 detik)
-  const [minSplashDone, setMinSplashDone] = useState(false);
-
+  // 1. Auth Listener with Mobile Network Safety Timeout (Instant Reveal once resolved)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMinSplashDone(true);
-    }, 2000); // 2 detik
-    return () => clearTimeout(timer);
-  }, []);
+    // Safety timeout: Ensure users on cellular data or poor connections are never trapped on splash screen
+    const safetyTimer = setTimeout(() => {
+      setAuthLoading(false);
+    }, 2500);
 
-  useEffect(() => {
     const unsubscribe = authService.onAuthStateChanged((currentUser) => {
+      clearTimeout(safetyTimer);
       setUser(currentUser);
       setAuthLoading(false);
     });
+
     return () => {
+      clearTimeout(safetyTimer);
       if (typeof unsubscribe === 'function') unsubscribe();
     };
   }, []);
@@ -936,8 +938,8 @@ export default function App() {
     toast.success('Berhasil keluar.');
   };
 
-  // Loading Screen: Minimalist breathing logo without border/box (durasi 2 detik)
-  if (authLoading || !minSplashDone) {
+  // Loading Screen: Minimalist breathing logo while resolving auth session
+  if (authLoading) {
     return (
       <div className="h-screen w-screen bg-[#FDFBF7] flex items-center justify-center font-sans select-none">
         <div className="w-20 h-20 flex items-center justify-center animate-classy-breathing">
@@ -952,16 +954,18 @@ export default function App() {
     return (
       <>
         <Toaster position="top-right" />
-        <MaintenanceScreen
-          config={maintenanceConfig}
-          onRefreshStatus={async () => {
-            const cfg = await dbService.system.getMaintenanceConfig();
-            if (cfg) setMaintenanceConfig(cfg);
-          }}
-          onSuperadminLogin={(u) => {
-            setUser(u);
-          }}
-        />
+        <Suspense fallback={null}>
+          <MaintenanceScreen
+            config={maintenanceConfig}
+            onRefreshStatus={async () => {
+              const cfg = await dbService.system.getMaintenanceConfig();
+              if (cfg) setMaintenanceConfig(cfg);
+            }}
+            onSuperadminLogin={(u) => {
+              setUser(u);
+            }}
+          />
+        </Suspense>
       </>
     );
   }
@@ -1057,12 +1061,14 @@ export default function App() {
 
       {/* Global Superadmin Command Center Modal */}
       {showGlobalSuperadminModal && isSuperAdmin(user) && (
-        <SuperadminDashboardModal
-          isOpen={showGlobalSuperadminModal}
-          onClose={() => setShowGlobalSuperadminModal(false)}
-          currentUser={user}
-          onRefreshParentClasses={loadUserClasses}
-        />
+        <Suspense fallback={null}>
+          <SuperadminDashboardModal
+            isOpen={showGlobalSuperadminModal}
+            onClose={() => setShowGlobalSuperadminModal(false)}
+            currentUser={user}
+            onRefreshParentClasses={loadUserClasses}
+          />
+        </Suspense>
       )}
 
       <Routes>
@@ -1194,22 +1200,26 @@ export default function App() {
 
       {/* Global User Profile Modal */}
       {showProfileModal && (
-        <UserProfileModal
-          currentUser={user}
-          currentClass={currentClass}
-          onClose={() => setShowProfileModal(false)}
-          onLogout={handleLogout}
-          onUpdateUser={(updated) => setUser(updated)}
-          onOpenChangelog={() => setShowChangelogModal(true)}
-        />
+        <Suspense fallback={null}>
+          <UserProfileModal
+            currentUser={user}
+            currentClass={currentClass}
+            onClose={() => setShowProfileModal(false)}
+            onLogout={handleLogout}
+            onUpdateUser={(updated) => setUser(updated)}
+            onOpenChangelog={() => setShowChangelogModal(true)}
+          />
+        </Suspense>
       )}
 
       {/* Global Changelog / What's New Modal (shows once per version when dismissed) */}
       {user && showChangelogModal && (
-        <ChangelogModal
-          isOpen={showChangelogModal}
-          onClose={handleCloseChangelog}
-        />
+        <Suspense fallback={null}>
+          <ChangelogModal
+            isOpen={showChangelogModal}
+            onClose={handleCloseChangelog}
+          />
+        </Suspense>
       )}
     </>
   );
@@ -1597,28 +1607,32 @@ function ClassWorkspace({
             )}
 
             {activeTab === 'logs' && (
-              <ClassActivityLog
-                currentClass={currentClass}
-                currentUser={user}
-                logs={logs || []}
-                loading={contentLoading}
-                onRefresh={onRefreshLogs}
-              />
+              <Suspense fallback={<DashboardSkeleton />}>
+                <ClassActivityLog
+                  currentClass={currentClass}
+                  currentUser={user}
+                  logs={logs || []}
+                  loading={contentLoading}
+                  onRefresh={onRefreshLogs}
+                />
+              </Suspense>
             )}
 
             {activeTab === 'submissions' && (
-              <ClassSubmissionsManager
-                currentClass={currentClass}
-                currentUser={user}
-                tasks={tasks || []}
-                files={files || []}
-                schedules={schedules || []}
-                onUpdateSubmission={handleAdminUpdateSubmission}
-                onMoveSubmission={handleAdminMoveSubmission}
-                onDeleteSubmission={handleDeleteSubmission}
-                onUpdateClassSettings={handleUpdateClassSettings}
-                onRefreshData={handleRefreshSubmissionsData}
-              />
+              <Suspense fallback={<TasksSkeleton />}>
+                <ClassSubmissionsManager
+                  currentClass={currentClass}
+                  currentUser={user}
+                  tasks={tasks || []}
+                  files={files || []}
+                  schedules={schedules || []}
+                  onUpdateSubmission={handleAdminUpdateSubmission}
+                  onMoveSubmission={handleAdminMoveSubmission}
+                  onDeleteSubmission={handleDeleteSubmission}
+                  onUpdateClassSettings={handleUpdateClassSettings}
+                  onRefreshData={handleRefreshSubmissionsData}
+                />
+              </Suspense>
             )}
               </>
             )}
@@ -1628,20 +1642,22 @@ function ClassWorkspace({
 
       {/* Superadmin Command Center Modal */}
       {showSuperadminModal && (
-        <SuperadminDashboardModal
-          currentUser={user}
-          isOpen={showSuperadminModal}
-          onClose={() => setShowSuperadminModal(false)}
-          onSelectClass={(cls) => {
-            setCurrentClass(cls);
-            navigate(`/class/${cls.id}/dashboard`);
-          }}
-          onRefreshParentClasses={async () => {
-            if (typeof onRefreshClasses === 'function') {
-              await onRefreshClasses();
-            }
-          }}
-        />
+        <Suspense fallback={null}>
+          <SuperadminDashboardModal
+            currentUser={user}
+            isOpen={showSuperadminModal}
+            onClose={() => setShowSuperadminModal(false)}
+            onSelectClass={(cls) => {
+              setCurrentClass(cls);
+              navigate(`/class/${cls.id}/dashboard`);
+            }}
+            onRefreshParentClasses={async () => {
+              if (typeof onRefreshClasses === 'function') {
+                await onRefreshClasses();
+              }
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );
