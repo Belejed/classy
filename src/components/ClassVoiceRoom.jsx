@@ -67,6 +67,8 @@ export default function ClassVoiceRoom({
   const myPeerIdRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
   const prevRoleRef = useRef(null);
+  const silentTrackRef = useRef(null);
+  const silentAudioCtxRef = useRef(null);
 
   const myUserId = currentUser?.uid || currentUser?.id;
 
@@ -187,6 +189,39 @@ export default function ClassVoiceRoom({
     prevRoleRef.current = currentRole;
   }, [myStageRole, isConnected]);
 
+  // Helper: Get local microphone track or generate a silent track to ensure full duplex 'sendrecv' negotiation
+  const getOrCreateLocalTrack = () => {
+    if (localStreamRef.current) {
+      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+      if (audioTrack && audioTrack.readyState === 'live') {
+        return audioTrack;
+      }
+    }
+
+    if (silentTrackRef.current && silentTrackRef.current.readyState === 'live') {
+      return silentTrackRef.current;
+    }
+
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        silentAudioCtxRef.current = ctx;
+        const osc = ctx.createOscillator();
+        const dst = ctx.createMediaStreamDestination();
+        osc.connect(dst);
+        osc.start();
+        const track = dst.stream.getAudioTracks()[0];
+        track.enabled = false;
+        silentTrackRef.current = track;
+        return track;
+      }
+    } catch (e) {
+      console.warn('Failed to create silent track:', e);
+    }
+    return null;
+  };
+
   // Helper: Start capturing local microphone & broadcasting
   const startMicrophoneCapture = async () => {
     try {
@@ -202,7 +237,7 @@ export default function ClassVoiceRoom({
       });
       localStreamRef.current = stream;
 
-      // Broadcast audio to all connected peers via instant replaceTrack
+      // Broadcast audio to all connected peers via instant replaceTrack & renegotiate if needed
       const audioTrack = stream.getAudioTracks()[0];
       if (audioTrack) {
         for (const [targetPeerId, pc] of peerConnectionsRef.current.entries()) {
@@ -213,6 +248,18 @@ export default function ClassVoiceRoom({
               audioTransceiver.direction = 'sendrecv';
               if (audioTransceiver.sender) {
                 await audioTransceiver.sender.replaceTrack(audioTrack);
+              }
+              // If current negotiated direction is not sendrecv, renegotiate immediately!
+              if (audioTransceiver.currentDirection !== 'sendrecv' && pc.signalingState === 'stable') {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                if (myPeerIdRef.current) {
+                  await dbService.voice.sendSignal(classId, {
+                    fromPeerId: myPeerIdRef.current,
+                    toPeerId: targetPeerId,
+                    signal: offer
+                  });
+                }
               }
             } else {
               const senders = pc.getSenders ? pc.getSenders() : [];
@@ -247,16 +294,16 @@ export default function ClassVoiceRoom({
       localStreamRef.current = null;
     }
 
-    // Set sender track to null across all peer connections instantly
+    const fallbackTrack = getOrCreateLocalTrack();
     peerConnectionsRef.current.forEach(pc => {
       try {
         const transceivers = pc.getTransceivers ? pc.getTransceivers() : [];
         const audioTransceiver = transceivers.find(t => t.receiver?.track?.kind === 'audio' || t.sender);
-        if (audioTransceiver && audioTransceiver.sender) {
-          audioTransceiver.sender.replaceTrack(null).catch(() => {});
+        if (audioTransceiver && audioTransceiver.sender && fallbackTrack) {
+          audioTransceiver.sender.replaceTrack(fallbackTrack).catch(() => {});
         } else {
           const senders = pc.getSenders ? pc.getSenders() : [];
-          if (senders[0]) senders[0].replaceTrack(null).catch(() => {});
+          if (senders[0] && fallbackTrack) senders[0].replaceTrack(fallbackTrack).catch(() => {});
         }
       } catch (e) {}
     });
@@ -322,6 +369,7 @@ export default function ClassVoiceRoom({
 
   // Helper to ensure remote audio element exists and is playing
   const handleRemoteTrack = (targetPeerId, track, stream) => {
+    if (!track) return;
     let audio = remoteAudiosRef.current.get(targetPeerId);
     if (!audio) {
       audio = document.createElement('audio');
@@ -343,12 +391,8 @@ export default function ClassVoiceRoom({
 
     const mediaStream = (stream && stream.getTracks().length > 0) 
       ? stream 
-      : (audio.srcObject instanceof MediaStream ? audio.srcObject : new MediaStream());
+      : new MediaStream([track]);
     
-    if (track && !mediaStream.getTracks().includes(track)) {
-      mediaStream.addTrack(track);
-    }
-
     audio.srcObject = mediaStream;
     audio.volume = 1.0;
     audio.muted = isDeafenedRef.current;
@@ -356,6 +400,7 @@ export default function ClassVoiceRoom({
     const playAudio = () => {
       if (!isDeafenedRef.current) {
         audio.muted = false;
+        audio.volume = 1.0;
         const p = audio.play();
         if (p && typeof p.catch === 'function') {
           p.catch(playErr => {
@@ -366,12 +411,12 @@ export default function ClassVoiceRoom({
       }
     };
 
-    if (track) {
-      track.onunmute = () => {
-        console.log(`[ClassVoiceRoom] Remote track onunmute from ${targetPeerId}`);
-        playAudio();
-      };
-    }
+    track.onunmute = () => {
+      console.log(`[ClassVoiceRoom] Remote track onunmute from ${targetPeerId}`);
+      // Re-assign fresh MediaStream to ensure Chromium WebMediaPlayer pipeline starts audio output
+      audio.srcObject = new MediaStream([track]);
+      playAudio();
+    };
 
     playAudio();
   };
@@ -386,13 +431,11 @@ export default function ClassVoiceRoom({
     pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnectionsRef.current.set(targetPeerId, pc);
 
-    // If initiator: add track if we have local microphone, or add transceiver so we can both receive and later transmit
+    // If initiator: always add local track (real mic if available, or silent track) so SDP offer ALWAYS negotiates 'sendrecv'!
     if (isInitiator) {
-      if (localStreamRef.current) {
-        const audioTrack = localStreamRef.current.getAudioTracks()[0];
-        if (audioTrack) {
-          pc.addTrack(audioTrack, localStreamRef.current);
-        }
+      const localTrack = getOrCreateLocalTrack();
+      if (localTrack) {
+        pc.addTrack(localTrack, new MediaStream([localTrack]));
       } else {
         pc.addTransceiver('audio', { direction: 'sendrecv' });
       }
@@ -549,22 +592,17 @@ export default function ClassVoiceRoom({
           }
           pendingCandidatesRef.current.delete(fromPeerId);
 
-          // Configure transceiver direction and attach local microphone if available
+          // Configure transceiver direction and attach local track (mic or silent) so answer is ALWAYS sendrecv
           const transceivers = pc.getTransceivers ? pc.getTransceivers() : [];
           const audioTransceiver = transceivers.find(t => t.receiver?.track?.kind === 'audio' || t.sender);
+          const localTrack = getOrCreateLocalTrack();
           if (audioTransceiver) {
             audioTransceiver.direction = 'sendrecv';
-            if (localStreamRef.current) {
-              const audioTrack = localStreamRef.current.getAudioTracks()[0];
-              if (audioTrack && audioTransceiver.sender) {
-                await audioTransceiver.sender.replaceTrack(audioTrack);
-              }
+            if (localTrack && audioTransceiver.sender) {
+              await audioTransceiver.sender.replaceTrack(localTrack);
             }
-          } else if (localStreamRef.current) {
-            const audioTrack = localStreamRef.current.getAudioTracks()[0];
-            if (audioTrack) {
-              pc.addTrack(audioTrack, localStreamRef.current);
-            }
+          } else if (localTrack) {
+            pc.addTrack(localTrack, new MediaStream([localTrack]));
           }
 
           const answer = await pc.createAnswer();
@@ -904,6 +942,15 @@ export default function ClassVoiceRoom({
     pendingCandidatesRef.current.clear();
 
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+
+    if (silentTrackRef.current) {
+      try { silentTrackRef.current.stop(); } catch {}
+      silentTrackRef.current = null;
+    }
+    if (silentAudioCtxRef.current) {
+      try { silentAudioCtxRef.current.close(); } catch {}
+      silentAudioCtxRef.current = null;
+    }
 
     if (classId && myPeerIdRef.current) {
       await dbService.voice.leaveRoom(classId, myPeerIdRef.current);
