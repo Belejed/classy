@@ -11,7 +11,11 @@ import {
   KeyRound, 
   Hand, 
   X, 
-  CalendarDays
+  CalendarDays,
+  Crown,
+  FileSpreadsheet,
+  Layers,
+  MessageSquare
 } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 
@@ -19,8 +23,8 @@ import ModalPortal from './ModalPortal';
  * Current release changelog information
  */
 export const CURRENT_CHANGELOG = {
-  version: 'v2.5.0',
-  title: 'Pembaruan Pekan Ini • v2.5.0',
+  version: 'v2.6.0',
+  title: 'Pembaruan Sistem • v2.6.0',
   releaseDate: '2026-09-14', // Format YYYY-MM-DD
 };
 
@@ -109,13 +113,13 @@ export default function ChangelogModal({ isOpen, onClose }) {
             <div className="space-y-1.5">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[11px] font-bold text-sky-200 shadow-2xs">
                 <Sparkles size={13} className="text-amber-300 animate-pulse" />
-                <span>Pembaruan Pekan Ini • {CURRENT_CHANGELOG.version}</span>
+                <span>Pembaruan Sistem • {CURRENT_CHANGELOG.version}</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
                 Apa yang Baru di Classy? 🚀
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md">
-                Selamat memulai pekan kuliah baru! Berikut rangkuman fitur baru dan peningkatan sistem Classy minggu ini.
+                Berikut rangkuman fitur baru, sistem peran kelas, dan peningkatan kemudahan pengelolaan anggota minggu ini.
               </p>
             </div>
 
@@ -133,109 +137,92 @@ export default function ChangelogModal({ isOpen, onClose }) {
         {/* Changelog Highlights List */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-4.5 custom-scrollbar divide-y divide-slate-100">
           
-          {/* 1. Stage Panggung Suara */}
+          {/* 1. Sistem Peran Baru */}
           <div className="pt-3.5 first:pt-0 space-y-1.5 text-left">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
-                <Radio size={16} />
+                <ShieldCheck size={16} />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Panggung Suara Kelas (Audio Stage)</span>
+                  <span>Sistem Peran Baru: Wakil Komti & Kadiv</span>
                   <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Utama</span>
                 </h4>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
-              Ruang suara kini menggunakan sistem panggung: Komti & Dosen sebagai Host, pembicara di panggung, dan mahasiswa masuk sebagai penonton dalam kondisi bisu (<span className="font-semibold text-slate-700">Mute Default</span>) tanpa popup izin mic. Penonton dapat menekan tombol <span className="font-semibold text-slate-700">✋ Angkat Tangan</span> untuk meminta izin berbicara.
+              Pembagian wewenang kelas kini semakin aman dan terstruktur: <span className="font-semibold text-slate-800">Komti</span> memiliki kendali penuh dan hak menghapus data, <span className="font-semibold text-slate-800">Wakil Komti</span> memiliki wewenang manajerial (jadwal, tugas, pengumuman, materi) dengan proteksi anti-hapus, dan <span className="font-semibold text-slate-800">Kepala Divisi</span> memiliki akses fokus untuk input tugas dan pengunggahan berkas materi kelas.
             </p>
           </div>
 
-          {/* 2. Web Audio Sound Effects */}
+          {/* 2. Redesain Manajemen Anggota & Custom Dropdown */}
           <div className="pt-3.5 space-y-1.5 text-left">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0 border border-violet-100">
-                <Volume2 size={16} />
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+                <Users size={16} />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Sound Effects Interaktif (Web Audio API)</span>
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">Baru</span>
+                  <span>Manajemen Anggota 2.0 & Custom Role Dropdown</span>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Baru</span>
                 </h4>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
-              Dilengkapi efek suara sintetis instan tanpa unduhan: nada masuk & keluar call yang jernih, nada denting angkat tangan, detak roda mekanik kocok nama, dan musik selebrasi kemenangan (<span className="font-semibold text-slate-700">Ta-da! 🎉</span>).
+              Daftar anggota kini dilengkapi <span className="font-semibold text-slate-800">6 kartu metrik interaktif</span> untuk filter instan berdasarkan peran, <span className="font-semibold text-slate-800">dropdown peran kustom melayang</span> yang modern, tombol salin 1-klik email & WhatsApp mahasiswa, serta tombol <span className="font-semibold text-slate-800">Ekspor Rekap Anggota</span> yang siap ditempel langsung ke Excel/Spreadsheet atau pesan WhatsApp.
             </p>
           </div>
 
-          {/* 3. Class Tools Hub (Tab Forum) */}
+          {/* 3. Kirim Perubahan Password Mahasiswa */}
           <div className="pt-3.5 space-y-1.5 text-left">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
-                <Dices size={16} />
+                <KeyRound size={16} />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Pusat Alat Bantu Kelas & Generator Hub</span>
+                  <span>Kirim Perubahan Password & Bantuan Mahasiswa</span>
                   <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Praktis</span>
                 </h4>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
-              Tab Forum kini menjadi generator perkuliahan: <span className="font-semibold text-slate-700">Acak Kelompok</span> (+ pilih ketua otomatis), <span className="font-semibold text-slate-700">Acak Materi Presentasi</span> (+ format WhatsApp 1-klik), <span className="font-semibold text-slate-700">Kocok Giliran Mahasiswa</span>, serta <span className="font-semibold text-slate-700">Indikator Mahasiswa Online Realtime</span>.
+              Komti dan Wakil Komti dapat membantu mahasiswa yang lupa kata sandi langsung dari daftar anggota. Sistem akan mengirim instruksi ganti sandi resmi via email Supabase Auth, disertai template pesan konfirmasi otomatis yang siap dikirim langsung ke WhatsApp mahasiswa bersangkutan.
             </p>
           </div>
 
-          {/* 4. Penyempurnaan Autentikasi */}
-          <div className="pt-3.5 space-y-1.5 text-left">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
-                <KeyRound size={16} />
-              </div>
-              <div>
-                <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Penyempurnaan Autentikasi & Akun Mahasiswa</span>
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Penting</span>
-                </h4>
-              </div>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
-              Pembersihan otomatis spasi liar (<span className="font-semibold text-slate-700">auto-trim</span>) pada email dan sandi akibat keyboard ponsel, tombol intip kata sandi, pesan kesalahan informatif ramah Bahasa Indonesia, serta sinkronisasi penuh akun mahasiswa.
-            </p>
-          </div>
-
-          {/* 5. Rapikan Tugas & PIN Komti */}
+          {/* 4. Panggung Suara Kelas & Multi-Device Isolation */}
           <div className="pt-3.5 space-y-1.5 text-left">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0 border border-sky-100">
-                <ShieldCheck size={16} />
+                <Radio size={16} />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Tab Rapikan Tugas & Proteksi PIN</span>
+                  <span>Panggung Suara Kelas & Isolasi Multi-Device</span>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">Peningkatan</span>
                 </h4>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
-              Khusus pengelola kelas untuk merapikan teman kelompok tugas mahasiswa (1-klik add langsung mengubah status tugas teman jadi "Sudah Dikerjakan"), memindahkan pengumpulan antar tugas, dan diproteksi PIN keamanan.
+              Pembaruan nama resmi menjadi <span className="font-semibold text-slate-800">Panggung Suara Kelas</span>. Arsitektur WebRTC diperkuat dengan isolasi sesi per perangkat sehingga mahasiswa dapat bergabung dari Laptop & HP sekaligus tanpa tabrakan sinyal suara dan tanpa umpan balik dengung (feedback loopback).
             </p>
           </div>
 
-          {/* 6. Multi-File Upload */}
+          {/* 5. Antarmuka Detail Tugas yang Lebih Bersih */}
           <div className="pt-3.5 space-y-1.5 text-left">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
-                <UploadCloud size={16} />
+              <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0 border border-violet-100">
+                <Layers size={16} />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Multi-File Upload & Background Drive Queue</span>
+                  <span>Penyempurnaan Antarmuka & Modal Tugas</span>
                 </h4>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
-              Pilih banyak berkas sekaligus tanpa auto-submit. Pengguna dapat meninjau staging preview berkas sebelum mengklik tombol submit manual, lalu diunggah di latar belakang dengan aman.
+              Menghapus tombol ganda pada header rincian tugas agar tampilan lebih rapi, fokus, dan nyaman dibaca saat mahasiswa meninjau deskripsi atau mengumpulkan tugas kuliah.
             </p>
           </div>
 
