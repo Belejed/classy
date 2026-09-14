@@ -447,10 +447,10 @@ export const getFriendlyAuthErrorMessage = (err) => {
     msg.includes('wrong-password') ||
     msg.includes('user-not-found')
   ) {
-    return 'Email atau password salah. Silakan periksa kembali.';
+    return 'Email/Nomor WhatsApp atau password salah. Password default mahasiswa adalah 123456.';
   }
   if (code === 'auth/invalid-email' || msg.includes('invalid-email')) {
-    return 'Format alamat email tidak valid.';
+    return 'Format email atau no. WhatsApp tidak valid. Pastikan terdaftar.';
   }
   if (code === 'auth/user-disabled' || msg.includes('user-disabled')) {
     return 'Akun ini telah dinonaktifkan. Hubungi admin atau Komti.';
@@ -473,6 +473,47 @@ export const getFriendlyAuthErrorMessage = (err) => {
   return clean || 'Terjadi kesalahan saat memproses akun Anda.';
 };
 
+// Helper to resolve email from phone number or student name if user inputs WhatsApp or name
+export const resolveEmailFromIdentifier = async (rawIdentifier) => {
+  if (!rawIdentifier) return '';
+  const cleanId = String(rawIdentifier).trim().toLowerCase();
+  if (cleanId.includes('@')) return cleanId;
+
+  // Clean digits for phone matching
+  const phoneDigits = cleanId.replace(/\D/g, '');
+  const normalizedPhone = phoneDigits.startsWith('0') 
+    ? '62' + phoneDigits.slice(1) 
+    : (phoneDigits.startsWith('62') ? phoneDigits : (phoneDigits ? '62' + phoneDigits : ''));
+
+  try {
+    const { data: workspaces } = await supabase.from('workspaces').select('members');
+    if (Array.isArray(workspaces)) {
+      for (const ws of workspaces) {
+        const members = ws.members || [];
+        const found = members.find(m => {
+          if (!m) return false;
+          // Match by phone
+          if (normalizedPhone && m.phoneNumber) {
+            const mPhone = String(m.phoneNumber).replace(/\D/g, '');
+            const mNorm = mPhone.startsWith('0') ? '62' + mPhone.slice(1) : (mPhone.startsWith('62') ? mPhone : '62' + mPhone);
+            if (mNorm === normalizedPhone) return true;
+          }
+          // Match by name
+          if (m.name && m.name.toLowerCase().trim() === cleanId) return true;
+          return false;
+        });
+        if (found && found.email) {
+          return String(found.email).toLowerCase().trim();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to resolve email from identifier:', err);
+  }
+
+  return cleanId;
+};
+
 // --- AUTHENTICATION SERVICE (FIREBASE AUTH) ---
 export const authService = {
   getCurrentUser: async () => {
@@ -493,9 +534,16 @@ export const authService = {
     });
   },
 
-  login: async (email, password) => {
+  login: async (emailOrIdentifier, password) => {
     try {
-      const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const cleanPass = String(password || '').trim();
+      let resolvedEmail = String(emailOrIdentifier || '').trim().toLowerCase();
+
+      if (!resolvedEmail.includes('@')) {
+        resolvedEmail = await resolveEmailFromIdentifier(resolvedEmail);
+      }
+
+      const cred = await signInWithEmailAndPassword(auth, resolvedEmail, cleanPass);
       return formatUser(cred.user);
     } catch (err) {
       throw new Error(getFriendlyAuthErrorMessage(err));

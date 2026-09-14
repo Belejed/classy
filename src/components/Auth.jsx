@@ -11,7 +11,9 @@ import {
   User, 
   CheckCircle2, 
   KeyRound,
-  RotateCcw
+  RotateCcw,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
@@ -25,6 +27,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
   }); // 'login' | 'register' | 'forgot' | 'reset_sent' | 'update_password'
 
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form Fields
   const [fullName, setFullName] = useState('');
@@ -160,13 +163,16 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
         toast.success('Akun Classy berhasil dibuat!');
         if (onAuthSuccess) onAuthSuccess(user);
       } else if (mode === 'login') {
-        if (!email.trim() || !password) {
-          toast.error('Email dan password wajib diisi');
+        const cleanIdent = email.trim();
+        const cleanPass = password.trim();
+
+        if (!cleanIdent || !cleanPass) {
+          toast.error('Email/No. WhatsApp dan password wajib diisi');
           setLoading(false);
           return;
         }
 
-        const user = await authService.login(email.trim(), password);
+        const user = await authService.login(cleanIdent, cleanPass);
         toast.success(`Selamat datang kembali!`);
         if (onAuthSuccess) onAuthSuccess(user);
       }
@@ -250,14 +256,23 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                   </>
                 )}
 
-                {/* Email */}
+                {/* Email or WhatsApp Field */}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#334155] block">Email</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-[#334155] block">
+                      {mode === 'login' ? 'Email atau No. WhatsApp' : 'Email'}
+                    </label>
+                    {mode === 'login' && (
+                      <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                        Bisa pakai WA
+                      </span>
+                    )}
+                  </div>
                   <div className="relative">
                     <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
                     <input
-                      type="email"
-                      placeholder="name@university.ac.id"
+                      type={mode === 'login' ? 'text' : 'email'}
+                      placeholder={mode === 'login' ? 'nama@email.com atau 0812...' : 'name@university.ac.id'}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -266,7 +281,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                   </div>
                 </div>
 
-                {/* Password */}
+                {/* Password Field */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-[#334155]">Password</label>
@@ -286,15 +301,41 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                   <div className="relative">
                     <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#CBD5E1] text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] transition-colors"
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-[#CBD5E1] text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] transition-colors"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#0F172A] transition-colors cursor-pointer p-0.5"
+                      title={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
                 </div>
+
+                {/* Quick Default Password Helper */}
+                {mode === 'login' && (
+                  <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/80 text-[11px] text-amber-900 flex items-center justify-between gap-2 shadow-2xs">
+                    <div className="flex items-center gap-1.5 leading-tight">
+                      <span className="text-xs">💡</span>
+                      <span>Password default mahasiswa:</span>
+                      <code className="font-mono font-bold bg-amber-200/70 px-1.5 py-0.5 rounded text-amber-950">123456</code>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPassword('123456')}
+                      className="text-[11px] font-bold text-amber-800 hover:text-amber-950 underline shrink-0 cursor-pointer bg-amber-100/80 hover:bg-amber-200/80 px-2 py-0.5 rounded-lg transition-colors"
+                    >
+                      Isi 123456
+                    </button>
+                  </div>
+                )}
 
                 {/* Confirm Password */}
                 {mode === 'register' && (
