@@ -169,12 +169,22 @@ export default function ClassFiles({
       if (!isSubmission) return true;
 
       // Submission files: only visible if currentUser is the author or in the groupMembers
-      const isOwner = (f.userId && f.userId === currentUser?.uid) || 
-                      (f.uploadedBy && f.uploadedBy.toLowerCase() === (currentUser?.displayName || '').toLowerCase());
-      const isGroupMember = Array.isArray(f.groupMembers) && f.groupMembers.some(m => m.userId === currentUser?.uid);
+      const currentUid = currentUser?.uid;
+      const currentEmail = (currentUser?.email || '').toLowerCase().trim();
+      const currentName = (currentUser?.displayName || '').toLowerCase().trim();
+
+      const isOwner = (currentUid && f.userId === currentUid) || 
+                      (currentEmail && ((f.userEmail && f.userEmail.toLowerCase().trim() === currentEmail) || (f.email && f.email.toLowerCase().trim() === currentEmail))) ||
+                      (currentName && f.uploadedBy && f.uploadedBy.toLowerCase() === currentName);
+
+      const isGroupMember = Array.isArray(f.groupMembers) && f.groupMembers.some(m => {
+        const mUid = m.userId || m.uid || m.id;
+        const mEmail = (m.userEmail || m.email || '').toLowerCase().trim();
+        return (currentUid && mUid === currentUid) || (currentEmail && mEmail === currentEmail);
+      });
       return isOwner || isGroupMember;
     });
-  }, [files, isManager, currentUser?.uid, currentUser?.displayName]);
+  }, [files, isManager, currentUser?.uid, currentUser?.email, currentUser?.displayName]);
 
   // Count files per course for chips and badges
   const courseCountMap = useMemo(() => {

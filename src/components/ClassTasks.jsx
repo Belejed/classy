@@ -126,6 +126,13 @@ export const getAttachmentDirectImageUrl = (att) => {
   return rawUrl;
 };
 
+// Helper to check if a URL is a valid web/Drive/Docs link
+export const isDriveOrDocsUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const clean = url.trim();
+  return clean.startsWith('http://') || clean.startsWith('https://');
+};
+
 // Helper to reliably check if a submission belongs to the current user (by UID or Email, individual or group)
 export const isUserMatchingSubmission = (sub, currentUser) => {
   if (!sub || !currentUser) return false;
@@ -1847,6 +1854,28 @@ export default function ClassTasks({
                   )}
                 </div>
 
+                {/* Student Quick Drive Link if submitted */}
+                {isSubmitted && userSub && isDriveOrDocsUrl(userSub.fileUrl || userSub.files?.[0]?.url) && (
+                  <div 
+                    className="pt-2 border-t border-emerald-100/90 flex items-center justify-between text-xs" 
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="text-[11px] text-emerald-900 font-medium truncate max-w-[190px]" title={userSub.fileName || 'Berkas Tugas'}>
+                      📁 {userSub.fileName || `${userSub.files?.length || 1} Berkas Dikirim`}
+                    </span>
+                    <a
+                      href={userSub.fileUrl || userSub.files?.[0]?.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[11px] flex items-center gap-1 transition-colors shrink-0 shadow-2xs cursor-pointer"
+                      title="Buka berkas tugas di Google Drive"
+                    >
+                      <ExternalLink size={11} />
+                      <span>Buka Drive ↗</span>
+                    </a>
+                  </div>
+                )}
+
                 {/* Manager Quick Submission Count */}
                 {isManager && (() => {
                   const status = getTaskSubmissionStatus(task);
@@ -2962,58 +2991,124 @@ export default function ClassTasks({
                         </span>
                       </div>
                     ) : Array.isArray(userSub.files) && userSub.files.length > 1 ? (
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         <div className="flex items-center justify-between text-[11px] text-emerald-900 font-bold px-0.5">
-                          <span>📁 {userSub.files.length} Berkas Dikumpulkan:</span>
+                          <span className="flex items-center gap-1.5">
+                            <Layers size={13} className="text-emerald-700" />
+                            <span>{userSub.files.length} Berkas Dikumpulkan:</span>
+                          </span>
                           <span className="text-[10px] text-slate-500 font-normal">{userSub.fileSize}</span>
                         </div>
-                        <div className="space-y-1 max-h-48 overflow-y-auto">
-                          {userSub.files.map((f, idx) => (
-                            <div key={idx} className="p-2 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-between gap-2 text-xs">
-                              <div className="min-w-0 flex-1">
-                                <span className="font-mono text-[11px] text-[#0F172A] block truncate" title={f.name}>
-                                  📄 {f.name}
-                                </span>
-                                {f.size && (
-                                  <span className="text-[10px] text-slate-500 block">
-                                    {f.size}
-                                  </span>
+                        <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                          {userSub.files.map((f, idx) => {
+                            const fileUrl = f.url || (idx === 0 ? userSub.fileUrl : null);
+                            const hasLink = isDriveOrDocsUrl(fileUrl);
+                            return (
+                              <div 
+                                key={idx} 
+                                className="p-2.5 rounded-xl bg-white border border-emerald-200 hover:border-emerald-300 flex items-center justify-between gap-2.5 text-xs shadow-2xs transition-all"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+                                    <FileText size={14} />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    {hasLink ? (
+                                      <a
+                                        href={fileUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="font-mono text-[11px] font-semibold text-[#0F172A] hover:text-sky-700 hover:underline block truncate"
+                                        title={`Buka ${f.name} di Google Drive`}
+                                      >
+                                        📄 {f.name}
+                                      </a>
+                                    ) : (
+                                      <span className="font-mono text-[11px] font-semibold text-[#0F172A] block truncate" title={f.name}>
+                                        📄 {f.name}
+                                      </span>
+                                    )}
+                                    {f.size && (
+                                      <span className="text-[10px] text-slate-500 block">
+                                        {f.size}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {hasLink && (
+                                  <a
+                                    href={fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 hover:text-sky-900 border border-sky-200 font-bold text-[11px] flex items-center gap-1.5 shrink-0 transition-colors shadow-2xs cursor-pointer"
+                                    title="Buka berkas ini di Google Drive"
+                                  >
+                                    <ExternalLink size={12} />
+                                    <span>Buka Drive ↗</span>
+                                  </a>
                                 )}
                               </div>
-                              {f.url && f.url.includes('drive.google.com') && (
-                                <a
-                                  href={f.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[11px] font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1 shrink-0 px-2 py-0.5 rounded bg-white border border-sky-200"
-                                >
-                                  <ExternalLink size={10} />
-                                  <span>Drive</span>
-                                </a>
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     ) : (
-                      <p className="font-mono text-xs text-[#0F172A] break-all bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100">
-                        📄 {userSub.fileName}
-                      </p>
-                    )}
-
-                    <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-emerald-100">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        {userSub.fileUrl ? (
-                          <>
-                            {userSub.fileUrl?.includes('drive.google.com') ? (
+                      <div className="p-3 rounded-xl bg-white border border-emerald-200 flex items-center justify-between gap-3 shadow-2xs">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+                            <FileText size={18} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            {isDriveOrDocsUrl(userSub.fileUrl) ? (
                               <a
                                 href={userSub.fileUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-xs font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1"
+                                className="font-mono text-xs font-bold text-[#0F172A] hover:text-sky-700 hover:underline block truncate"
+                                title={`Buka ${userSub.fileName || 'Berkas Tugas'} di Google Drive`}
+                              >
+                                📄 {userSub.fileName || 'Berkas Tugas'}
+                              </a>
+                            ) : (
+                              <span className="font-mono text-xs font-bold text-[#0F172A] block truncate" title={userSub.fileName || 'Berkas Tugas'}>
+                                📄 {userSub.fileName || 'Berkas Tugas'}
+                              </span>
+                            )}
+                            {userSub.fileSize && (
+                              <span className="text-[10px] text-slate-500 block mt-0.5">
+                                {userSub.fileSize}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {isDriveOrDocsUrl(userSub.fileUrl) && (
+                          <a
+                            href={userSub.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 shadow-xs hover:shadow transition-all cursor-pointer"
+                            title="Buka berkas di Google Drive"
+                          >
+                            <ExternalLink size={13} />
+                            <span>Buka di Google Drive ↗</span>
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-emerald-100">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {userSub.fileUrl || (Array.isArray(userSub.files) && userSub.files[0]?.url) ? (
+                          <>
+                            {isDriveOrDocsUrl(userSub.fileUrl || userSub.files?.[0]?.url) ? (
+                              <a
+                                href={userSub.fileUrl || userSub.files?.[0]?.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-bold text-sky-600 hover:text-sky-800 hover:underline flex items-center gap-1 cursor-pointer"
                               >
                                 <ExternalLink size={12} />
-                                <span>{Array.isArray(userSub.files) && userSub.files.length > 1 ? 'Buka Berkas Utama di Drive' : 'Buka di Google Drive'}</span>
+                                <span>{Array.isArray(userSub.files) && userSub.files.length > 1 ? 'Buka Berkas Utama di Drive ↗' : 'Buka di Google Drive ↗'}</span>
                               </a>
                             ) : (
                               <span className="text-[10px] text-[#64748B]">Tersimpan di Sistem</span>

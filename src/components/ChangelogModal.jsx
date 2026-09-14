@@ -150,7 +150,25 @@ export default function ChangelogModal({ isOpen, onClose }) {
             </p>
           </div>
 
-          {/* 5. Antarmuka Detail Tugas yang Lebih Bersih */}
+          {/* 5. Akses Buka Berkas Drive Mahasiswa */}
+          <div className="pt-3.5 space-y-1.5 text-left">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0 border border-sky-100">
+                <ExternalLink size={16} />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <span>Akses Buka Berkas Drive Pengumpulan Mahasiswa</span>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">Baru</span>
+                </h4>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
+              Mahasiswa dan seluruh anggota kelompok kini dapat langsung meninjau dan membuka berkas tugas yang telah dikumpulkan ke Google Drive/Docs dengan tombol <span className="font-semibold text-slate-800">"Buka di Google Drive"</span>, baik langsung dari kartu tugas di beranda maupun dari rincian tugas.
+            </p>
+          </div>
+
+          {/* 6. Antarmuka Detail Tugas yang Lebih Bersih */}
           <div className="pt-3.5 space-y-1.5 text-left">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0 border border-violet-100">

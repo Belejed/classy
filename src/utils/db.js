@@ -1864,7 +1864,8 @@ export const dbService = {
               isGroup: Boolean(s.isGroup),
               groupMembers: s.groupMembers || [],
               taskId: t.id,
-              userId: s.userId
+              userId: s.userId,
+              userEmail: s.userEmail || s.email || ''
             });
           });
         });

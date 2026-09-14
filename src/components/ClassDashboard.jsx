@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseLecturerInfo } from '../utils/db';
-import { isTaskOverdue } from './ClassTasks';
+import { isTaskOverdue, isUserMatchingSubmission } from './ClassTasks';
 import EmptyState from './EmptyState';
 
 export default function ClassDashboard({
@@ -65,7 +65,7 @@ export default function ClassDashboard({
   // Pending tasks that are not submitted yet by current user (including overdue)
   const pendingTasks = safeTasks
     .filter(t => {
-      const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
+      const isSubmitted = t.submissions?.some(s => isUserMatchingSubmission(s, currentUser));
       return !isSubmitted;
     })
     .sort((a, b) => {
@@ -77,21 +77,21 @@ export default function ClassDashboard({
     })
     .slice(0, 4);
 
-  const hasCompletedTasks = safeTasks.some(t => t.submissions?.some(s => s.userId === currentUser?.uid));
+  const hasCompletedTasks = safeTasks.some(t => t.submissions?.some(s => isUserMatchingSubmission(s, currentUser)));
   const pendingTasksCount = safeTasks.filter(t => {
-    const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
+    const isSubmitted = t.submissions?.some(s => isUserMatchingSubmission(s, currentUser));
     return !isSubmitted;
   }).length;
 
   const overdueTasksCount = safeTasks.filter(t => {
-    const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
+    const isSubmitted = t.submissions?.some(s => isUserMatchingSubmission(s, currentUser));
     return !isSubmitted && isTaskOverdue(t.dueDate, t.dueTime);
   }).length;
 
 
   // Overview Counts
   const tasksDueCount = safeTasks.filter(t => {
-    const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
+    const isSubmitted = t.submissions?.some(s => isUserMatchingSubmission(s, currentUser));
     return t.dueDate === todayIsoDate && !isSubmitted;
   }).length;
   const classesTodayCount = todaySchedules.length;
@@ -164,7 +164,7 @@ export default function ClassDashboard({
     const oneDayLater = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     return safeTasks.filter(t => {
-      const isSubmitted = t.submissions?.some(s => s.userId === currentUser?.uid);
+      const isSubmitted = t.submissions?.some(s => isUserMatchingSubmission(s, currentUser));
       if (isSubmitted || !t.dueDate) return false;
 
       try {

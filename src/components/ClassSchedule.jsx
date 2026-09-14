@@ -113,11 +113,25 @@ const isTaskOverdue = (dueDate, dueTime = '23:59') => {
 
 const hasUserSubmitted = (task, user) => {
   if (!task?.submissions || !Array.isArray(task.submissions)) return false;
-  return task.submissions.some(s => 
-    s.userId === user?.uid || 
-    s.userId === user?.id || 
-    s.userName === user?.displayName
-  );
+  const uid = user?.uid || user?.id;
+  const email = (user?.email || '').toLowerCase().trim();
+  const name = (user?.displayName || '').toLowerCase().trim();
+
+  return task.submissions.some(s => {
+    if (uid && s.userId === uid) return true;
+    if (email && ((s.userEmail && s.userEmail.toLowerCase().trim() === email) || (s.email && s.email.toLowerCase().trim() === email))) return true;
+    if (name && s.userName && s.userName.toLowerCase().trim() === name) return true;
+
+    if (Array.isArray(s.groupMembers)) {
+      return s.groupMembers.some(m => {
+        const mUid = m.userId || m.uid || m.id;
+        const mEmail = (m.userEmail || m.email || '').toLowerCase().trim();
+        const mName = (m.userName || m.name || '').toLowerCase().trim();
+        return (uid && mUid === uid) || (email && mEmail === email) || (name && mName === name);
+      });
+    }
+    return false;
+  });
 };
 
 const getTaskDayOfWeek = (dueDate) => {
