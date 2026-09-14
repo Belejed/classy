@@ -56,6 +56,12 @@ export default function ClassMembers({
   const [copiedPhoneId, setCopiedPhoneId] = useState(null);
   const [processingId, setProcessingId] = useState(null);
 
+  // Dedicated Reset Password Modal State
+  const [resetTargetMember, setResetTargetMember] = useState(null);
+  const [sendingReset, setSendingReset] = useState(false);
+  const [resetSuccessInfo, setResetSuccessInfo] = useState(null);
+  const [copiedWaMessage, setCopiedWaMessage] = useState(false);
+
   // Settings Modal State (Komti & Dosen only)
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingName, setSettingName] = useState('');
@@ -170,24 +176,58 @@ export default function ClassMembers({
     toast.success(`Daftar ${approvedMembers.length} anggota berhasil disalin! Siap dipaste ke WA/Excel.`);
   };
 
-  const handleResetPassword = async (member) => {
-    if (!member?.email) {
-      toast.error('Anggota ini tidak memiliki email yang valid.');
+  const handleOpenResetModal = (member) => {
+    setResetTargetMember(member);
+    setResetSuccessInfo(null);
+    setCopiedWaMessage(false);
+  };
+
+  const handleCloseResetModal = () => {
+    if (sendingReset) return;
+    setResetTargetMember(null);
+    setResetSuccessInfo(null);
+    setCopiedWaMessage(false);
+  };
+
+  const getWaResetNoticeText = (target) => {
+    if (!target) return '';
+    const studentName = target.name || target.email.split('@')[0];
+    const email = target.email;
+    const className = currentClass?.name || 'Kelas';
+    const portalUrl = typeof window !== 'undefined' ? window.location.origin : 'https://classy.web.app';
+
+    return `Halo *${studentName}*!\n\nPengurus kelas *${className}* telah mengirimkan *tautan perubahan kata sandi (reset password)* ke alamat email kamu:\n📧 *${email}*\n\nSilakan buka kotak masuk email kamu (atau periksa folder Spam jika belum masuk), lalu buka tautan untuk membuat kata sandi baru.\n\nSetelah berhasil mengganti sandi, kamu bisa langsung login ke portal kelas di:\n🔗 ${portalUrl}\n\nTerima kasih! 🙏`;
+  };
+
+  const handleSendResetPassword = async () => {
+    if (!resetTargetMember?.email) {
+      toast.error('Anggota ini tidak memiliki alamat email yang valid.');
       return;
     }
-    if (!window.confirm(`Kirimkan email resmi untuk reset password ke:\n${member.name || member.email} (${member.email})?`)) {
-      return;
-    }
-    setProcessingId(member.userId);
-    const toastId = toast.loading(`Mengirim link reset password ke ${member.email}...`);
+    setSendingReset(true);
+    const toastId = toast.loading(`Mengirim link perubahan password ke ${resetTargetMember.email}...`);
     try {
-      await authService.resetPassword(member.email);
-      toast.success(`Tautan reset password berhasil dikirim ke ${member.email}!`, { id: toastId, duration: 5000 });
+      await authService.resetPassword(resetTargetMember.email);
+      setResetSuccessInfo({
+        name: resetTargetMember.name || resetTargetMember.email.split('@')[0],
+        email: resetTargetMember.email,
+        phone: resetTargetMember.phoneNumber || ''
+      });
+      toast.success(`Tautan reset password berhasil dikirim ke ${resetTargetMember.email}!`, { id: toastId, duration: 5000 });
     } catch (err) {
       toast.error(err.message || 'Gagal mengirim email reset password', { id: toastId });
     } finally {
-      setProcessingId(null);
+      setSendingReset(false);
     }
+  };
+
+  const handleCopyWaNotice = () => {
+    if (!resetSuccessInfo) return;
+    const text = getWaResetNoticeText(resetSuccessInfo);
+    navigator.clipboard.writeText(text);
+    setCopiedWaMessage(true);
+    toast.success('Template pesan WhatsApp berhasil disalin!');
+    setTimeout(() => setCopiedWaMessage(false), 2500);
   };
 
   const handleOpenSettings = () => {
@@ -930,8 +970,8 @@ export default function ClassMembers({
                           <button
                             type="button"
                             disabled={processingId === member.userId}
-                            onClick={() => handleResetPassword(member)}
-                            title={`Kirim link tautan reset password ke ${member.email}`}
+                            onClick={() => handleOpenResetModal(member)}
+                            title={`Kirim link perubahan password ke ${member.name || member.email}`}
                             className="w-8 h-8 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 disabled:opacity-50"
                           >
                             <KeyRound size={13} className="text-amber-600" />
@@ -1140,6 +1180,157 @@ export default function ClassMembers({
                   </button>
                 </div>
               </form>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* 8. Dedicated Reset Password Modal (Komti & Wakil Komti only) */}
+      {resetTargetMember && (
+        <ModalPortal onClose={handleCloseResetModal} maxWidth="max-w-md">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#E2E8F0] shadow-2xl w-full p-5 sm:p-6 space-y-4 text-left">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-700 border border-amber-500/20 flex items-center justify-center shrink-0">
+                  <KeyRound size={20} className="text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-[#0F172A] tracking-tight">Kirim Perubahan Password</h3>
+                  <p className="text-xs text-[#64748B]">Bantuan lupa sandi akun mahasiswa</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleCloseResetModal}
+                disabled={sendingReset}
+                className="min-w-[36px] min-h-[36px] flex items-center justify-center p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Tutup"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Target Member Card */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-900 text-white font-bold flex items-center justify-center shrink-0">
+                {resetTargetMember.name ? resetTargetMember.name[0].toUpperCase() : 'U'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                  {resetTargetMember.name || resetTargetMember.email?.split('@')[0]}
+                </h4>
+                <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                  📧 {resetTargetMember.email}
+                </p>
+                {resetTargetMember.phoneNumber && (
+                  <p className="text-[11px] font-mono text-emerald-700 mt-0.5">
+                    📱 {resetTargetMember.phoneNumber}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* State A: NOT yet sent */}
+            {!resetSuccessInfo ? (
+              <div className="space-y-4">
+                <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-950 space-y-1.5">
+                  <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                    <span>💡 Cara Kerja:</span>
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-amber-900/90">
+                    Sistem akan mengirimkan email resmi dari <strong>Classy</strong> berisi tautan aman untuk membuat kata sandi baru ke alamat email <strong>{resetTargetMember.email}</strong>.
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-amber-900/80">
+                    Mahasiswa cukup membuka email tersebut dan mengklik tautan untuk mengetikkan password baru mereka.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={handleCloseResetModal}
+                    disabled={sendingReset}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-600 transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendResetPassword}
+                    disabled={sendingReset}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {sendingReset ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Mengirim Tautan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail size={14} />
+                        <span>Kirim Tautan Reset</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* State B: ALREADY sent successfully */
+              <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                      <Check size={14} />
+                    </div>
+                    <h5 className="font-extrabold text-xs sm:text-sm text-emerald-950">
+                      Tautan Berhasil Dikirim!
+                    </h5>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 leading-relaxed pl-8">
+                    Email instruksi reset kata sandi telah dikirim ke <strong>{resetSuccessInfo.email}</strong>. Ingatkan mahasiswa untuk mengecek folder <strong>Kotak Masuk (Inbox)</strong> atau <strong>Spam</strong>.
+                  </p>
+                </div>
+
+                {/* Follow up: Notify via WhatsApp */}
+                <div className="space-y-2 pt-1">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
+                    Pemberitahuan Instan ke Mahasiswa:
+                  </span>
+                  
+                  {resetSuccessInfo.phone ? (
+                    <a
+                      href={`https://wa.me/${resetSuccessInfo.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(getWaResetNoticeText(resetSuccessInfo))}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer"
+                    >
+                      <MessageCircle size={15} />
+                      <span>Kirim Pesan Konfirmasi ke WhatsApp</span>
+                    </a>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={handleCopyWaNotice}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer border border-slate-200"
+                  >
+                    {copiedWaMessage ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                    <span>{copiedWaMessage ? 'Pesan WA Disalin!' : 'Salin Teks Pemberitahuan WA'}</span>
+                  </button>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleCloseResetModal}
+                    className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Selesai
+                  </button>
+                </div>
+              </div>
+            )}
+
           </div>
         </ModalPortal>
       )}
