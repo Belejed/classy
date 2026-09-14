@@ -57,10 +57,25 @@ export default function ClassVoiceRoom({
   const heartbeatIntervalRef = useRef(null);
   const prevRoleRef = useRef(null);
 
+  const myUserId = currentUser?.uid || currentUser?.id;
+
   const myPeerId = useMemo(() => {
     if (!currentUser) return null;
-    return currentUser.uid || currentUser.id || 'usr_' + Math.random().toString(36).substr(2, 6);
-  }, [currentUser]);
+    const uid = currentUser.uid || currentUser.id || 'usr';
+    // Unique session ID per device / browser tab to prevent multi-device signaling clashes
+    let sess = '';
+    const sessionKey = `classy_v_sess_${classId}`;
+    try {
+      sess = sessionStorage.getItem(sessionKey);
+      if (!sess) {
+        sess = Math.random().toString(36).substring(2, 7);
+        sessionStorage.setItem(sessionKey, sess);
+      }
+    } catch {
+      sess = Math.random().toString(36).substring(2, 7);
+    }
+    return `${uid}_${sess}`;
+  }, [currentUser, classId]);
 
   // Is current user a Host by class role or superadmin?
   const isHostByRole = useMemo(() => {
@@ -285,6 +300,12 @@ export default function ClassVoiceRoom({
 
       // 4. Subscribe to WebRTC Signals
       dbService.voice.subscribeSignals(classId, myPeerId, async ({ fromPeerId, signal }) => {
+        // Prevent feedback loop: don't connect audio between two devices belonging to the same user
+        const fromPeer = activePeers.find(p => p.peerId === fromPeerId);
+        if (fromPeer && fromPeer.userId === myUserId) {
+          return;
+        }
+
         let pc = peerConnectionsRef.current.get(fromPeerId);
 
         if (signal.type === 'offer') {
@@ -312,9 +333,9 @@ export default function ClassVoiceRoom({
         }
       });
 
-      // 5. Connect to Existing Peers
+      // 5. Connect to Existing Peers (Don't connect audio between two devices of the SAME user to avoid feedback loop)
       activePeers.forEach((peer) => {
-        if (peer.peerId !== myPeerId) {
+        if (peer.peerId !== myPeerId && peer.userId !== myUserId) {
           initiatePeerConnection(peer.peerId);
         }
       });
@@ -322,13 +343,13 @@ export default function ClassVoiceRoom({
       setIsConnected(true);
       soundFX.playJoinCall();
       if (initialRole === 'host') {
-        toast.success('Memulai Stage Kelas sebagai Host! 👑');
+        toast.success('Membuka Panggung Suara sebagai Host! 👑');
       } else {
-        toast.success('Terhubung ke Stage Kelas (Mode Mendengar) 🎧');
+        toast.success('Terhubung ke Panggung Suara (Mode Mendengar) 🎧');
       }
     } catch (err) {
       console.error('Failed to join stage:', err);
-      toast.error('Gagal terhubung ke Stage Kelas.');
+      toast.error('Gagal terhubung ke panggung suara.');
       handleLeaveStage();
     } finally {
       setIsConnecting(false);
@@ -495,7 +516,7 @@ export default function ClassVoiceRoom({
     setIsDeafened(false);
     prevRoleRef.current = null;
     setShowRequestsModal(false);
-    toast('Keluar dari Stage Kelas', { icon: '👋' });
+    toast('Keluar dari panggung suara', { icon: '👋' });
   };
 
   // Clean up on component unmount
