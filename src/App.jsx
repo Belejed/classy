@@ -189,7 +189,7 @@ export default function App() {
       setContentLoading(true);
     }
     try {
-      const [schData, taskData, fileData, annData, grpData, logData] = await Promise.all([
+      const [schRes, taskRes, fileRes, annRes, grpRes, logRes] = await Promise.allSettled([
         dbService.schedules.list(cls.id),
         dbService.tasks.list(cls.id),
         dbService.files.list(cls.id),
@@ -198,12 +198,12 @@ export default function App() {
         dbService.logs.list(cls.id)
       ]);
 
-      setSchedules(schData || []);
-      setTasks(taskData || []);
-      setFiles(fileData || []);
-      setAnnouncements(annData || []);
-      setGroups(grpData || []);
-      setLogs(logData || []);
+      if (schRes.status === 'fulfilled') setSchedules(schRes.value || []);
+      if (taskRes.status === 'fulfilled') setTasks(taskRes.value || []);
+      if (fileRes.status === 'fulfilled') setFiles(fileRes.value || []);
+      if (annRes.status === 'fulfilled') setAnnouncements(annRes.value || []);
+      if (grpRes.status === 'fulfilled') setGroups(grpRes.value || []);
+      if (logRes.status === 'fulfilled') setLogs(logRes.value || []);
 
       // Auto-sync current user's phone number into class members
       if (user?.uid && user?.phoneNumber && cls?.id) {

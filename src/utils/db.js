@@ -74,6 +74,9 @@ class FirestoreQueryBuilder {
     this.tableName = tableName;
     this.filters = [];
     this.sorts = [];
+    this.limitCount = null;
+    this.rangeFrom = null;
+    this.rangeTo = null;
     this.isSingle = false;
     this.isMaybeSingle = false;
     this.countExact = false;
@@ -93,6 +96,36 @@ class FirestoreQueryBuilder {
 
   ilike(field, pattern) {
     this.filters.push({ field, op: 'ilike', value: pattern });
+    return this;
+  }
+
+  in(field, values) {
+    this.filters.push({ field, op: 'in', value: values });
+    return this;
+  }
+
+  match(obj) {
+    if (obj && typeof obj === 'object') {
+      for (const [k, v] of Object.entries(obj)) {
+        this.filters.push({ field: k, op: 'eq', value: v });
+      }
+    }
+    return this;
+  }
+
+  filter(field, op, value) {
+    this.filters.push({ field, op: op || 'eq', value });
+    return this;
+  }
+
+  limit(n) {
+    this.limitCount = Number(n);
+    return this;
+  }
+
+  range(from, to) {
+    this.rangeFrom = Number(from);
+    this.rangeTo = Number(to);
     return this;
   }
 
@@ -144,6 +177,9 @@ class FirestoreQueryBuilder {
         } else if (filter.op === 'ilike') {
           const cleanVal = String(filter.value || '').toLowerCase().replace(/%/g, '');
           records = records.filter(r => String(r[filter.field] || '').toLowerCase().includes(cleanVal));
+        } else if (filter.op === 'in') {
+          const arr = Array.isArray(filter.value) ? filter.value : [filter.value];
+          records = records.filter(r => arr.map(String).includes(String(r[filter.field] ?? '')));
         }
       }
 
@@ -158,6 +194,15 @@ class FirestoreQueryBuilder {
       }
 
       const totalCount = records.length;
+
+      if (this.rangeFrom !== null || this.rangeTo !== null) {
+        records = records.slice(this.rangeFrom || 0, this.rangeTo !== null ? this.rangeTo + 1 : undefined);
+      }
+
+      if (this.limitCount && this.limitCount > 0) {
+        records = records.slice(0, this.limitCount);
+      }
+
       if (this.isHead) {
         return { data: null, count: totalCount, error: null };
       }
