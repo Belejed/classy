@@ -28,6 +28,7 @@ import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import { parseLecturerInfo } from '../utils/db';
+import { canManageSchedule, canDeleteAnything } from '../utils/permissions';
 
 const DAYS_OF_WEEK = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 const DEFAULT_START_HOUR = 6;  // 06:00
@@ -294,7 +295,9 @@ export default function ClassSchedule({
   const [eventDesc, setEventDesc] = useState('');
 
   const role = currentClass?.userRole;
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isOwner = currentClass?.ownerId === currentUser?.uid;
+  const isManager = canManageSchedule(role, isOwner);
+  const canDeleteSchedule = canDeleteAnything(role, isOwner);
 
   // Dynamic schedule boundaries to fit cleanly on 1 screen without unnecessary vertical scrolling
   const { startHour, endHour } = useMemo(() => {
@@ -491,6 +494,11 @@ export default function ClassSchedule({
 
   const handleConfirmDeleteEvent = async () => {
     if (!eventToDelete) return;
+    if (!canDeleteSchedule) {
+      toast.error('Hanya Komti atau Dosen yang dapat menghapus jadwal.');
+      setEventToDelete(null);
+      return;
+    }
     setIsDeletingEvent(true);
     try {
       await onDeleteSchedule(eventToDelete.id);
@@ -1223,15 +1231,17 @@ export default function ClassSchedule({
                         <Edit2 size={13} />
                         <span>Edit Jadwal</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setEventToDelete(selectedEvent)}
-                        className="py-2 px-3 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center justify-center gap-1 cursor-pointer transition-colors min-h-[38px]"
-                        title="Hapus Jadwal"
-                      >
-                        <Trash2 size={13} />
-                        <span>Hapus</span>
-                      </button>
+                      {canDeleteSchedule && (
+                        <button
+                          type="button"
+                          onClick={() => setEventToDelete(selectedEvent)}
+                          className="py-2 px-3 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center justify-center gap-1 cursor-pointer transition-colors min-h-[38px]"
+                          title="Hapus Jadwal"
+                        >
+                          <Trash2 size={13} />
+                          <span>Hapus</span>
+                        </button>
+                      )}
                     </>
                   )}
                   <button

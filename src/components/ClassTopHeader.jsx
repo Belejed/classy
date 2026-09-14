@@ -15,6 +15,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getRoleDisplayName } from '../utils/permissions';
 
 export default function ClassTopHeader({
   currentClass,
@@ -58,7 +59,7 @@ export default function ClassTopHeader({
   };
 
   const role = currentClass?.userRole || 'student';
-  const roleLabel = role === 'superadmin' ? '⚡ Superadmin' : (role === 'komti' || role === 'coordinator' ? '👑 Komti' : role === 'lecturer' || role === 'dosen' ? '🎓 Dosen' : '👤 Mahasiswa');
+  const roleLabel = getRoleDisplayName(role);
 
   const userInitial = currentUser?.displayName ? currentUser.displayName[0].toUpperCase() : 'U';
 

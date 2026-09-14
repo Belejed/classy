@@ -17,12 +17,19 @@ import {
   X, 
   LogOut,
   History,
-  Phone
+  Phone,
+  Layers
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
 import EmptyState from './EmptyState';
 import { isSuperAdminEmail } from '../utils/db';
+import { 
+  ROLES, 
+  normalizeRole, 
+  isClassManager, 
+  canDeleteAnything 
+} from '../utils/permissions';
 
 export default function ClassMembers({
   currentClass,
@@ -52,7 +59,9 @@ export default function ClassMembers({
   const rawMembers = currentClass?.members || [];
   const members = rawMembers.filter(m => m && m.role !== 'superadmin' && !isSuperAdminEmail(m.email));
   const myRole = currentClass?.userRole || 'student';
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(myRole) || currentClass?.ownerId === currentUser?.uid;
+  const isOwner = currentClass?.ownerId === currentUser?.uid;
+  const isManager = isClassManager(myRole, isOwner);
+  const canKickMember = canDeleteAnything(myRole, isOwner);
 
   // Separate pending join requests from approved members
   const pendingMembers = members.filter(m => m && m.status === 'pending');
@@ -66,17 +75,16 @@ export default function ClassMembers({
     
     if (roleFilter === 'pending') return nameMatch;
 
-    let role = m.role || 'student';
-    if (role === 'coordinator') role = 'komti';
-
+    const role = normalizeRole(m.role);
     const roleMatch = roleFilter === 'all' || role === roleFilter;
     return nameMatch && roleMatch;
   });
 
   // Counts
-  const komtiCount = approvedMembers.filter(m => m && (m.role === 'komti' || m.role === 'coordinator')).length;
+  const komtiCount = approvedMembers.filter(m => m && ['komti', 'coordinator', 'vice_komti', 'wakil_komti'].includes(m.role)).length;
+  const divHeadCount = approvedMembers.filter(m => m && ['division_head', 'kadiv', 'kepala_divisi'].includes(m.role)).length;
   const lecturerCount = approvedMembers.filter(m => m && (m.role === 'lecturer' || m.role === 'dosen')).length;
-  const studentCount = approvedMembers.filter(m => m && !['komti', 'coordinator', 'lecturer', 'dosen'].includes(m.role)).length;
+  const studentCount = approvedMembers.filter(m => m && !['komti', 'coordinator', 'vice_komti', 'wakil_komti', 'division_head', 'kadiv', 'kepala_divisi', 'lecturer', 'dosen'].includes(m.role)).length;
   const pendingCount = pendingMembers.length;
 
   const handleCopyCode = () => {
@@ -185,8 +193,8 @@ export default function ClassMembers({
   };
 
   const handleKickMember = async (member) => {
-    if (!isManager) {
-      toast.error('Hanya Komti atau Dosen yang dapat mengeluarkan anggota.');
+    if (!canKickMember) {
+      toast.error('Wakil Komti dan Kepala Divisi tidak memiliki izin menghapus/mengeluarkan anggota.');
       return;
     }
     if (member.userId === currentUser?.uid) {
@@ -233,7 +241,7 @@ export default function ClassMembers({
   };
 
   const getRoleBadge = (rawRole) => {
-    const role = rawRole === 'coordinator' ? 'komti' : (rawRole || 'student');
+    const role = normalizeRole(rawRole);
 
     if (role === 'komti') {
       return (
@@ -243,7 +251,23 @@ export default function ClassMembers({
         </span>
       );
     }
-    if (role === 'lecturer' || role === 'dosen') {
+    if (role === 'vice_komti') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
+          <Shield size={11} className="text-indigo-600" />
+          <span>Wakil Komti</span>
+        </span>
+      );
+    }
+    if (role === 'division_head') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-violet-50 text-violet-800 border border-violet-200">
+          <Layers size={11} className="text-violet-600" />
+          <span>Kepala Divisi</span>
+        </span>
+      );
+    }
+    if (role === 'lecturer') {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
           <GraduationCap size={11} className="text-emerald-600" />
@@ -316,15 +340,20 @@ export default function ClassMembers({
       </div>
 
       {/* Overview Stats Cards - Compact on mobile */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
         <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-200 hover:border-slate-300 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md transition-all">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block truncate">Total Anggota</span>
           <p className="text-xl sm:text-2xl font-extrabold text-[#0F172A] mt-0.5 tracking-tight">{approvedMembers.length}</p>
         </div>
 
         <div className="bg-gradient-to-br from-white to-amber-50/40 border border-slate-200 hover:border-amber-300 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md transition-all">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block truncate">Komti / Koordinator</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block truncate">Komti & Wakil</span>
           <p className="text-xl sm:text-2xl font-extrabold text-amber-800 mt-0.5 tracking-tight">{komtiCount}</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-white to-violet-50/40 border border-slate-200 hover:border-violet-300 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md transition-all">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 block truncate">Kepala Divisi</span>
+          <p className="text-xl sm:text-2xl font-extrabold text-violet-800 mt-0.5 tracking-tight">{divHeadCount}</p>
         </div>
 
         <div className="bg-gradient-to-br from-white to-emerald-50/40 border border-slate-200 hover:border-emerald-300 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md transition-all">
@@ -332,7 +361,7 @@ export default function ClassMembers({
           <p className="text-xl sm:text-2xl font-extrabold text-emerald-800 mt-0.5 tracking-tight">{lecturerCount}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-white to-indigo-50/40 border border-slate-200 hover:border-indigo-300 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md transition-all">
+        <div className="bg-gradient-to-br from-white to-indigo-50/40 border border-slate-200 hover:border-indigo-300 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs hover:shadow-md transition-all col-span-2 sm:col-span-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 block truncate">Mahasiswa</span>
           <p className="text-xl sm:text-2xl font-extrabold text-slate-800 mt-0.5 tracking-tight">{studentCount}</p>
         </div>
@@ -539,7 +568,9 @@ export default function ClassMembers({
                             className="text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-[#CBD5E1] bg-white text-[#0F172A] focus:outline-none focus:border-[#0F172A] shadow-2xs cursor-pointer disabled:opacity-50"
                           >
                             <option value="student">Mahasiswa</option>
-                            <option value="komti">Komti (Admin)</option>
+                            <option value="komti">Komti (Ketua)</option>
+                            <option value="vice_komti">Wakil Komti</option>
+                            <option value="division_head">Kepala Divisi</option>
                             <option value="lecturer">Dosen (Lecturer)</option>
                           </select>
                         </div>
@@ -549,8 +580,8 @@ export default function ClassMembers({
                         </div>
                       )}
 
-                      {/* Kick / Remove Member Button (Only for Manager, cannot kick owner or self) */}
-                      {isManager && !isTargetSelfOrOwner && (
+                      {/* Kick / Remove Member Button (Only for Komti/Owner, cannot kick owner or self) */}
+                      {canKickMember && !isTargetSelfOrOwner && (
                         <button
                           disabled={processingId === member.userId}
                           onClick={() => handleKickMember(member)}

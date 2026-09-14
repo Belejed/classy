@@ -38,6 +38,7 @@ import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
 import CustomSelect from './CustomSelect';
+import { canDeleteAnything } from '../utils/permissions';
 
 export default function ClassSubmissionsManager({
   currentClass,
@@ -53,6 +54,7 @@ export default function ClassSubmissionsManager({
 }) {
   const classId = currentClass?.id;
   const storageKey = `komti_unlocked_${classId}`;
+  const canDeleteSubmission = canDeleteAnything(currentClass?.userRole, currentClass?.ownerId === currentUser?.uid);
 
   // 1. PIN / Authentication State
   const [isUnlocked, setIsUnlocked] = useState(() => {
@@ -416,6 +418,11 @@ export default function ClassSubmissionsManager({
   // Delete submission
   const handleConfirmDelete = async () => {
     if (!subToDelete) return;
+    if (!canDeleteSubmission) {
+      toast.error('Hanya Komti atau Dosen yang dapat menghapus pengumpulan.');
+      setSubToDelete(null);
+      return;
+    }
     setIsDeletingSub(true);
     try {
       if (onDeleteSubmission) {
@@ -835,13 +842,15 @@ export default function ClassSubmissionsManager({
                         <Edit3 size={13} />
                         <span>Rapikan {needsFixing ? '⚠️' : ''}</span>
                       </button>
-                      <button
-                        onClick={() => setSubToDelete(sub)}
-                        className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                        title="Hapus pengumpulan ini"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      {canDeleteSubmission && (
+                        <button
+                          onClick={() => setSubToDelete(sub)}
+                          className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Hapus pengumpulan ini"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   </div>
 

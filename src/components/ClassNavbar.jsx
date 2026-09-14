@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+import { canAccessSubmissionsManager } from '../utils/permissions';
+
 export default function ClassNavbar({
   currentClass,
   classes = [],
@@ -56,7 +58,8 @@ export default function ClassNavbar({
   };
 
   const role = currentClass?.userRole || 'student';
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isOwner = currentClass?.ownerId === currentUser?.uid;
+  const showSubmissions = canAccessSubmissionsManager(role, isOwner);
 
   const navTabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -66,7 +69,7 @@ export default function ClassNavbar({
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'forum', label: 'Tools Kelas', icon: Dices },
     { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
-    ...(isManager ? [{ id: 'submissions', label: 'Rapikan Tugas', icon: Sparkles }] : [])
+    ...(showSubmissions ? [{ id: 'submissions', label: 'Rapikan Tugas', icon: Sparkles }] : [])
   ];
 
   return (

@@ -43,6 +43,7 @@ import CustomDatePicker from './CustomDatePicker';
 import CustomTimePicker from './CustomTimePicker';
 import CustomSelect from './CustomSelect';
 import { isClassBlocked } from '../utils/db';
+import { canManageTasks, canDeleteAnything } from '../utils/permissions';
 
 // Helper to check if a task deadline has passed
 export const isTaskOverdue = (dueDate, dueTime = '23:59') => {
@@ -685,7 +686,9 @@ export default function ClassTasks({
   }, [selectedTask?.id]);
 
   const role = currentClass?.userRole;
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isOwner = currentClass?.ownerId === currentUser?.uid;
+  const isManager = canManageTasks(role, isOwner);
+  const canDeleteTask = canDeleteAnything(role, isOwner);
 
   // Overdue count for current user (with group member check)
   const overdueTasksCount = useMemo(() => {
@@ -1428,6 +1431,11 @@ export default function ClassTasks({
 
   const handleConfirmDeleteTask = async () => {
     if (!taskToDelete) return;
+    if (!canDeleteTask) {
+      toast.error('Hanya Komti atau Dosen yang dapat menghapus tugas.');
+      setTaskToDelete(null);
+      return;
+    }
     setIsDeletingTask(true);
     try {
       await onDeleteTask(taskToDelete.id);
@@ -3428,14 +3436,16 @@ export default function ClassTasks({
                     <Edit2 size={13} />
                     <span>Edit Tugas</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setTaskToDelete(selectedTask)}
-                    className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3.5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer min-h-[38px] transition-colors border border-rose-200/60 sm:border-transparent"
-                  >
-                    <Trash2 size={13} />
-                    <span className="hidden sm:inline">Hapus Tugas</span>
-                  </button>
+                  {canDeleteTask && (
+                    <button
+                      type="button"
+                      onClick={() => setTaskToDelete(selectedTask)}
+                      className="text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3.5 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer min-h-[38px] transition-colors border border-rose-200/60 sm:border-transparent"
+                    >
+                      <Trash2 size={13} />
+                      <span className="hidden sm:inline">Hapus Tugas</span>
+                    </button>
+                  )}
                 </div>
               ) : <div />}
 

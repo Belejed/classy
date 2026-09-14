@@ -24,6 +24,7 @@ import {
   Dices
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isClassManager, canAccessSubmissionsManager, normalizeRole } from '../utils/permissions';
 
 export default function ClassSidebar({
   currentClass,
@@ -137,7 +138,9 @@ export default function ClassSidebar({
   };
 
   const role = currentClass?.userRole || 'student';
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isOwner = currentClass?.ownerId === currentUser?.uid;
+  const isManager = isClassManager(role, isOwner);
+  const canAccessSubmissions = canAccessSubmissionsManager(role, isOwner);
 
   const navTabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -148,27 +151,39 @@ export default function ClassSidebar({
     { id: 'forum', label: 'Tools Kelas', icon: Dices },
     { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
     { id: 'members', label: role === 'superadmin' ? 'Members' : 'Members (Komti)', icon: Users, isSpecial: true },
+    ...(canAccessSubmissions ? [
+      { id: 'submissions', label: 'Rapikan Tugas', icon: Sparkles, isSpecial: true }
+    ] : []),
     ...(isManager ? [
-      { id: 'submissions', label: 'Rapikan Tugas', icon: Sparkles, isSpecial: true },
       { id: 'logs', label: 'Log Aktivitas', icon: History, isSpecial: true }
     ] : [])
   ];
 
   const getRoleLabel = () => {
-    if (role === 'superadmin') return '⚡ Superadmin';
-    if (role === 'komti' || role === 'coordinator') return 'Komti';
-    if (role === 'lecturer' || role === 'dosen') return 'Dosen';
+    const r = normalizeRole(role);
+    if (r === 'superadmin') return '⚡ Superadmin';
+    if (r === 'komti') return 'Komti';
+    if (r === 'vice_komti') return 'Wakil Komti';
+    if (r === 'division_head') return 'Kepala Divisi';
+    if (r === 'lecturer') return 'Dosen';
     return 'Mahasiswa';
   };
 
   const getRoleBadgeStyle = () => {
-    if (role === 'superadmin') {
+    const r = normalizeRole(role);
+    if (r === 'superadmin') {
       return 'bg-slate-900 text-white border-slate-900';
     }
-    if (role === 'komti' || role === 'coordinator') {
+    if (r === 'komti') {
       return 'bg-amber-50 text-amber-800 border-amber-200';
     }
-    if (role === 'lecturer' || role === 'dosen') {
+    if (r === 'vice_komti') {
+      return 'bg-indigo-50 text-indigo-800 border-indigo-200';
+    }
+    if (r === 'division_head') {
+      return 'bg-violet-50 text-violet-800 border-violet-200';
+    }
+    if (r === 'lecturer') {
       return 'bg-emerald-50 text-emerald-800 border-emerald-200';
     }
     return 'bg-slate-100 text-slate-700 border-slate-200';

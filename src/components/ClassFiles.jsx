@@ -34,6 +34,7 @@ import {
 import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
 import { dbService } from '../utils/db';
+import { canManageFiles, canDeleteAnything, isClassManager } from '../utils/permissions';
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
@@ -153,7 +154,10 @@ export default function ClassFiles({
   }, [availableCourses, uploadCourse]);
 
   const role = currentClass?.userRole;
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isOwner = currentClass?.ownerId === currentUser?.uid;
+  const isManager = isClassManager(role, isOwner);
+  const canUpload = canManageFiles(role, isOwner);
+  const canDeleteFile = canDeleteAnything(role, isOwner);
 
   // Filter files so regular students cannot see other students' submissions in the Files tab
   const visibleFiles = useMemo(() => {
@@ -693,6 +697,11 @@ export default function ClassFiles({
 
   const handleConfirmDelete = async () => {
     if (!fileToDelete) return;
+    if (!canDeleteFile) {
+      toast.error('Hanya Komti atau Dosen yang dapat menghapus berkas.');
+      setFileToDelete(null);
+      return;
+    }
     setIsDeleting(true);
     toast.loading('Menghapus berkas...', { id: 'delete-file' });
     try {
@@ -890,13 +899,15 @@ export default function ClassFiles({
             <span className="hidden sm:inline">{isSyncing ? 'Menyinkronkan...' : 'Sinkronkan Drive'}</span>
           </button>
 
-          <button
-            onClick={() => handleOpenUpload()}
-            className="flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[38px]"
-          >
-            <Upload size={13} />
-            <span>Upload Berkas</span>
-          </button>
+          {canUpload && (
+            <button
+              onClick={() => handleOpenUpload()}
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[38px]"
+            >
+              <Upload size={13} />
+              <span>Upload Berkas</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1214,8 +1225,8 @@ export default function ClassFiles({
 
             {/* Modal Footer Actions */}
             <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-3 border-t border-[#F1F5F9] shrink-0">
-              {/* Delete Button (Manager or Owner) */}
-              {(isManager || selectedFile.uploadedBy === currentUser?.displayName || selectedFile.uploadedBy === currentUser?.email) ? (
+              {/* Delete Button (Only for Komti / Dosen / Owner) */}
+              {canDeleteFile ? (
                 <button
                   type="button"
                   onClick={() => setFileToDelete(selectedFile)}

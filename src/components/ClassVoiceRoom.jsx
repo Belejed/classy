@@ -22,6 +22,7 @@ import {
 import toast from 'react-hot-toast';
 import { dbService, isSuperAdmin } from '../utils/db';
 import soundFX from '../utils/soundEffects';
+import { isClassManager } from '../utils/permissions';
 
 const ICE_SERVERS = {
   iceServers: [
@@ -66,7 +67,8 @@ export default function ClassVoiceRoom({
     if (!currentUser) return false;
     if (isSuperAdmin(currentUser)) return true;
     const role = currentClass?.userRole;
-    return role === 'komti' || role === 'coordinator' || role === 'lecturer';
+    const isOwner = currentClass?.ownerId === (currentUser.uid || currentUser.id);
+    return isClassManager(role, isOwner);
   }, [currentUser, currentClass]);
 
   // My current peer entry in active room

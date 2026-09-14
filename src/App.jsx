@@ -28,6 +28,7 @@ import ChangelogModal, { shouldShowChangelogAuto, markChangelogSeen } from './co
 import MaintenanceScreen from './components/MaintenanceScreen';
 import { DashboardSkeleton, TasksSkeleton, ScheduleSkeleton } from './components/SkeletonLoader';
 import { setupGlobalUpdateListeners } from './utils/appUpdater';
+import { canDeleteAnything } from './utils/permissions';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -366,6 +367,11 @@ export default function App() {
   };
 
   const handleDeleteSchedule = async (scheduleId) => {
+    const isOwner = currentClass?.ownerId === user?.uid;
+    if (!canDeleteAnything(currentClass?.userRole, isOwner)) {
+      toast.error('Wakil Komti dan Kepala Divisi tidak memiliki izin menghapus jadwal.');
+      return;
+    }
     await dbService.schedules.delete(scheduleId);
     setSchedules(prev => prev.filter(s => s.id !== scheduleId));
   };
@@ -606,6 +612,11 @@ export default function App() {
   };
 
   const handleDeleteTask = async (taskId) => {
+    const isOwner = currentClass?.ownerId === user?.uid;
+    if (!canDeleteAnything(currentClass?.userRole, isOwner)) {
+      toast.error('Wakil Komti dan Kepala Divisi tidak memiliki izin menghapus tugas.');
+      return;
+    }
     const taskToDelete = tasks?.find(t => t.id === taskId);
 
     // If this task has submissions with Google Drive URLs, move them to Trash in Drive
@@ -657,6 +668,11 @@ export default function App() {
   };
 
   const handleDeleteFile = async (fileId, fileObj = null) => {
+    const isOwner = currentClass?.ownerId === user?.uid;
+    if (!canDeleteAnything(currentClass?.userRole, isOwner)) {
+      toast.error('Wakil Komti dan Kepala Divisi tidak memiliki izin menghapus berkas.');
+      return;
+    }
     const targetFile = fileObj || files?.find(f => f.id === fileId);
 
     // Extract storageUrl or drive fileId
@@ -736,6 +752,11 @@ export default function App() {
   };
 
   const handleDeleteAnnouncement = async (id) => {
+    const isOwner = currentClass?.ownerId === user?.uid;
+    if (!canDeleteAnything(currentClass?.userRole, isOwner)) {
+      toast.error('Wakil Komti tidak memiliki izin menghapus pengumuman.');
+      return;
+    }
     const annToDelete = announcements?.find(a => a.id === id);
     await dbService.announcements.delete(id);
     setAnnouncements(prev => prev.filter(a => a.id !== id));
@@ -839,6 +860,11 @@ export default function App() {
 
   const handleRemoveMember = async (classId, targetUserId) => {
     const isSelf = targetUserId === user?.uid;
+    const isOwner = currentClass?.ownerId === user?.uid;
+    if (!isSelf && !canDeleteAnything(currentClass?.userRole, isOwner)) {
+      toast.error('Wakil Komti dan Kepala Divisi tidak memiliki izin mengeluarkan anggota.');
+      return;
+    }
     const targetMember = currentClass?.members?.find(m => m.userId === targetUserId);
     const updatedMembers = await dbService.classes.removeMember(classId, targetUserId);
 

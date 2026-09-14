@@ -23,6 +23,7 @@ import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
 import { isClassBlocked } from '../utils/db';
+import { canManageAnnouncements, canDeleteAnything } from '../utils/permissions';
 
 export default function ClassAnnouncements({
   currentClass,
@@ -64,7 +65,9 @@ export default function ClassAnnouncements({
   }, [fullscreenPhoto]);
 
   const role = currentClass?.userRole;
-  const isManager = ['komti', 'coordinator', 'lecturer', 'dosen', 'superadmin'].includes(role) || currentClass?.ownerId === currentUser?.uid;
+  const isOwner = currentClass?.ownerId === currentUser?.uid;
+  const isManager = canManageAnnouncements(role, isOwner);
+  const canDeleteAnnouncement = canDeleteAnything(role, isOwner);
 
   const handlePhotoSelect = (e) => {
     const file = e.target.files?.[0];
@@ -292,6 +295,11 @@ export default function ClassAnnouncements({
 
   const handleConfirmDeleteAnnouncement = async () => {
     if (!announcementToDelete) return;
+    if (!canDeleteAnnouncement) {
+      toast.error('Hanya Komti atau Dosen yang dapat menghapus pengumuman.');
+      setAnnouncementToDelete(null);
+      return;
+    }
     setIsDeletingAnnouncement(true);
     try {
       await onDeleteAnnouncement(announcementToDelete.id);
@@ -574,7 +582,7 @@ export default function ClassAnnouncements({
                   <span>{isSendingEmail ? 'Mengirim...' : 'Tes / Kirim Email'}</span>
                 </button>
 
-                {isManager && (
+                {canDeleteAnnouncement && (
                   <button
                     type="button"
                     onClick={() => setAnnouncementToDelete(selectedAnnouncement)}

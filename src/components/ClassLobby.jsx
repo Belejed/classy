@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { dbService, isSuperAdmin, isClassBlocked } from '../utils/db';
+import { getRoleDisplayName } from '../utils/permissions';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
 import EmptyState from './EmptyState';
@@ -424,7 +425,7 @@ export default function ClassLobby({
                             </span>
                           )}
                           <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                            {cls.userRole === 'superadmin' ? '⚡ Superadmin' : (cls.userRole === 'komti' || cls.userRole === 'coordinator' ? '👑 Komti' : cls.userRole === 'lecturer' ? '🎓 Dosen' : '👤 Mahasiswa')}
+                            {getRoleDisplayName(cls.userRole)}
                           </span>
                         </div>
                       </div>
