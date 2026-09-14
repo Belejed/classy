@@ -214,25 +214,6 @@ export default function App() {
     }
   }, [user]);
 
-  // Auto-forward student directly into their class workspace if they only belong to 1 class
-  useEffect(() => {
-    if (
-      user &&
-      classes.length === 1 &&
-      !classesLoading &&
-      (location.pathname === '/lobby' || location.pathname === '/' || location.pathname === '/login')
-    ) {
-      const stayInLobby = sessionStorage.getItem(`classy_stay_lobby_${user.uid}`);
-      if (!stayInLobby) {
-        const cls = classes[0];
-        if ((cls.membershipStatus === 'approved' || !cls.membershipStatus) && !cls.isBlocked) {
-          setCurrentClass(cls);
-          navigate(`/class/${cls.id}/dashboard`, { replace: true });
-        }
-      }
-    }
-  }, [user, classes, classesLoading, location.pathname]);
-
   // 3. Load Class Content when currentClass changes
   const loadClassContent = async (cls = currentClass, isSilent = false) => {
     if (!cls?.id) return;
@@ -964,11 +945,6 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    try {
-      if (user?.uid) {
-        sessionStorage.removeItem(`classy_stay_lobby_${user.uid}`);
-      }
-    } catch {}
     await authService.logout();
     setUser(null);
     setCurrentClass(null);
@@ -1167,9 +1143,6 @@ export default function App() {
                   classes={classes}
                   classesLoading={classesLoading}
                   onSelectClass={(cls) => {
-                    try {
-                      if (user?.uid) sessionStorage.removeItem(`classy_stay_lobby_${user.uid}`);
-                    } catch {}
                     setCurrentClass(cls);
                     navigate(`/class/${cls.id}/dashboard`);
                   }}
@@ -1471,9 +1444,6 @@ function ClassWorkspace({
           navigate(`/class/${cls.id}/dashboard`);
         }}
         onBackToLobby={() => {
-          try {
-            if (user?.uid) sessionStorage.setItem(`classy_stay_lobby_${user.uid}`, '1');
-          } catch {}
           setCurrentClass(null);
           navigate('/lobby');
         }}
