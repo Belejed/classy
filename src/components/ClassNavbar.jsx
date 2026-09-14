@@ -15,7 +15,8 @@ import {
   LogOut,
   Settings,
   Phone,
-  Sparkles
+  Sparkles,
+  Dices
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -63,7 +64,7 @@ export default function ClassNavbar({
     { id: 'tasks', label: 'Tasks', icon: CheckSquare },
     { id: 'files', label: 'Files', icon: Folder },
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
-    { id: 'forum', label: 'Forum', icon: MessageSquare },
+    { id: 'forum', label: 'Tools Kelas', icon: Dices },
     { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
     ...(isManager ? [{ id: 'submissions', label: 'Rapikan Tugas', icon: Sparkles }] : [])
   ];

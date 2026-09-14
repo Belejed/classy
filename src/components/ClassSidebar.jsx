@@ -20,7 +20,8 @@ import {
   BookOpen,
   Phone,
   History,
-  Sparkles
+  Sparkles,
+  Dices
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -144,7 +145,7 @@ export default function ClassSidebar({
     { id: 'tasks', label: 'Tasks', icon: CheckSquare },
     { id: 'files', label: 'Files', icon: Folder },
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
-    { id: 'forum', label: 'Forum', icon: MessageSquare },
+    { id: 'forum', label: 'Tools Kelas', icon: Dices },
     { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
     { id: 'members', label: role === 'superadmin' ? 'Members' : 'Members (Komti)', icon: Users, isSpecial: true },
     ...(isManager ? [
@@ -681,19 +682,19 @@ export default function ClassSidebar({
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                         activeTab === 'forum' ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-700'
                       }`}>
-                        <MessageSquare size={18} />
+                        <Dices size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-bold text-xs truncate">Forum Diskusi</p>
+                        <p className="font-bold text-xs truncate">Tools Kelas</p>
                         <p className={`text-[10px] truncate ${activeTab === 'forum' ? 'text-white/80' : 'text-[#64748B]'}`}>
-                          Grup obrolan kelas
+                          Acak kelompok, materi & voice
                         </p>
                       </div>
                     </div>
                     <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md uppercase tracking-wider shrink-0 ml-1 ${
-                      activeTab === 'forum' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                      activeTab === 'forum' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
                     }`}>
-                      Info
+                      Live
                     </span>
                   </button>
 
