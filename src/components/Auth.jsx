@@ -368,20 +368,22 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                 </button>
               </form>
 
-              {/* Toggle Login / Register */}
-              <div className="pt-2 border-t border-[#F1F5F9] text-center">
+              {/* Registration is restricted to pre-registered class accounts */}
+              <div className="pt-3 border-t border-[#F1F5F9] text-center space-y-1">
+                <p className="text-[11px] text-[#64748B]">
+                  Akun mahasiswa telah didaftarkan langsung oleh Komti kelas.
+                </p>
                 <p className="text-xs text-[#64748B]">
-                  {mode === 'register' ? 'Already have an account?' : "Don't have an account?"}{' '}
+                  Lupa password atau akun bermasalah?{' '}
                   <button
                     type="button"
                     onClick={() => {
-                      setMode(mode === 'register' ? 'login' : 'register');
-                      setPassword('');
-                      setConfirmPassword('');
+                      setMode('forgot');
+                      navigate('/forgot-password');
                     }}
                     className="font-bold text-[#0F172A] hover:underline cursor-pointer"
                   >
-                    {mode === 'register' ? 'Log in' : 'Create an account'}
+                    Reset Password
                   </button>
                 </p>
               </div>
