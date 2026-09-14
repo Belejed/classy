@@ -192,7 +192,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
         const cleanPass = password.trim();
 
         if (!cleanIdent || !cleanPass) {
-          toast.error('Email/No. WhatsApp dan password wajib diisi');
+          toast.error('Email dan password wajib diisi');
           setLoading(false);
           return;
         }
@@ -281,23 +281,18 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                   </>
                 )}
 
-                {/* Email or WhatsApp Field */}
+                {/* Email Field */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-[#334155] block">
-                      {mode === 'login' ? 'Email atau No. WhatsApp' : 'Email'}
+                      Email
                     </label>
-                    {mode === 'login' && (
-                      <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
-                        Bisa pakai WA
-                      </span>
-                    )}
                   </div>
                   <div className="relative">
                     <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
                     <input
-                      type={mode === 'login' ? 'text' : 'email'}
-                      placeholder={mode === 'login' ? 'nama@email.com atau 0812...' : 'name@university.ac.id'}
+                      type="email"
+                      placeholder={mode === 'login' ? 'nama@email.com' : 'name@university.ac.id'}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -343,24 +338,6 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                     </button>
                   </div>
                 </div>
-
-                {/* Quick Default Password Helper */}
-                {mode === 'login' && (
-                  <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/80 text-[11px] text-amber-900 flex items-center justify-between gap-2 shadow-2xs">
-                    <div className="flex items-center gap-1.5 leading-tight">
-                      <span className="text-xs">💡</span>
-                      <span>Password default mahasiswa:</span>
-                      <code className="font-mono font-bold bg-amber-200/70 px-1.5 py-0.5 rounded text-amber-950">123456</code>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setPassword('123456')}
-                      className="text-[11px] font-bold text-amber-800 hover:text-amber-950 underline shrink-0 cursor-pointer bg-amber-100/80 hover:bg-amber-200/80 px-2 py-0.5 rounded-lg transition-colors"
-                    >
-                      Isi 123456
-                    </button>
-                  </div>
-                )}
 
                 {/* Confirm Password */}
                 {mode === 'register' && (
@@ -598,7 +575,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
 
       {/* Minimal Footer */}
       <div className="w-full max-w-5xl mx-auto py-4 text-center text-xs text-[#94A3B8]">
-        Classy · Modern College Class Portal · WhatsApp-connected
+        Classy · Modern College Class Portal
       </div>
     </div>
   );

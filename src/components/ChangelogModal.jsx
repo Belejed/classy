@@ -187,7 +187,7 @@ export default function ChangelogModal({ isOpen, onClose }) {
             </p>
           </div>
 
-          {/* 4. Login Fleksibel (WhatsApp / Email & 123456) */}
+          {/* 4. Penyempurnaan Autentikasi */}
           <div className="pt-3.5 space-y-1.5 text-left">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
@@ -195,13 +195,13 @@ export default function ChangelogModal({ isOpen, onClose }) {
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Login Fleksibel (No. WhatsApp / Email)</span>
+                  <span>Penyempurnaan Autentikasi & Akun Mahasiswa</span>
                   <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Penting</span>
                 </h4>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
-              Mahasiswa kini bisa login menggunakan <span className="font-semibold text-slate-700">No. WhatsApp</span> atau alamat Email. Dilengkapi tombol cepat <span className="font-semibold text-slate-700">"Isi 123456"</span>, pembersihan otomatis spasi liar keyboard ponsel, dan tombol intip kata sandi.
+              Pembersihan otomatis spasi liar (<span className="font-semibold text-slate-700">auto-trim</span>) pada email dan sandi akibat keyboard ponsel, tombol intip kata sandi, pesan kesalahan informatif ramah Bahasa Indonesia, serta sinkronisasi penuh akun mahasiswa.
             </p>
           </div>
 

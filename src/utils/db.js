@@ -449,10 +449,10 @@ export const getFriendlyAuthErrorMessage = (err) => {
     msg.includes('wrong-password') ||
     msg.includes('user-not-found')
   ) {
-    return 'Email/Nomor WhatsApp atau password salah. Password default mahasiswa adalah 123456.';
+    return 'Email atau password salah. Silakan periksa kembali.';
   }
   if (code === 'auth/invalid-email' || msg.includes('invalid-email')) {
-    return 'Format email atau no. WhatsApp tidak valid. Pastikan terdaftar.';
+    return 'Format alamat email tidak valid.';
   }
   if (code === 'auth/user-disabled' || msg.includes('user-disabled')) {
     return 'Akun ini telah dinonaktifkan. Hubungi admin atau Komti.';

@@ -60,20 +60,18 @@ Format changelog ini mengacu pada [Keep a Changelog](https://keepachangelog.com/
 ---
 
 ### 🔐 Autentikasi & Akun Mahasiswa (Firebase Auth Migration)
-- **Dukungan Login Fleksibel (Email ATAU No. WhatsApp)**:
-  - Input form login otomatis mengenali apakah pengguna mengetik alamat email atau nomor WhatsApp (misal `0812...` atau `+62812...`).
-  - Sistem otomatis mencocokkan nomor WA ke profil kelas dan mengarahkan ke akun mahasiswa terkait.
+- **Login Email Standar & Aman**:
+  - Input form login standar menggunakan alamat email resmi pengguna.
 - **Auto-Trim Whitespace**:
-  - Pembersihan otomatis spasi liar di awal/akhir email dan password akibat autofill keyboard ponsel atau salin-tempel dari WhatsApp.
-- **Bantuan Password Default `123456`**:
-  - Tombol pintas sekali klik *"Isi 123456"* dan indikator badge pengingat sandi default.
-  - Toggle visibilitas sandi (*Show/Hide Password*) dengan ikon mata.
+  - Pembersihan otomatis spasi liar di awal/akhir email dan password akibat autofill keyboard ponsel atau salin-tempel.
+- **Toggle Visibilitas Kata Sandi**:
+  - Tombol lihat/sembunyikan sandi (*Show/Hide Password*) dengan ikon mata untuk mempermudah pengecekan karakter.
 - **Pesan Kesalahan Ramah Berbahasa Indonesia**:
-  - Mengubah kode error mentah Firebase (`auth/invalid-credential`, dll.) menjadi pesan yang informatif dan ramah pengguna dalam Bahasa Indonesia.
+  - Mengubah kode error mentah Firebase (`auth/invalid-credential`, dll.) menjadi pesan yang informatif dan ramah pengguna dalam Bahasa Indonesia tanpa membocorkan kredensial.
 - **Migrasi Penuh Reset Password**:
   - Seluruh alur lupa kata sandi dialihkan 100% menggunakan Firebase Auth (`sendPasswordResetEmail`), menghapus seluruh dependensi legacy Supabase.
 - **Sinkronisasi Akun Mahasiswa & Riwayat Pengumpulan**:
-  - Seluruh 36 akun mahasiswa telah disinkronkan ke Firebase Auth dengan sandi bawaan `123456`.
+  - Seluruh 36 akun mahasiswa telah disinkronkan ke Firebase Auth.
   - 62 rekaman pengumpulan tugas di seluruh mata kuliah berhasil dipetakan ke UID Firebase baru dengan verifikasi ganda (`userId` + `userEmail`), memastikan tidak ada data tugas yang hilang.
 
 ---
