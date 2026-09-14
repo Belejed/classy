@@ -344,12 +344,13 @@ export default function ClassForum({
         </div>
       </div>
 
-      {/* 2. DISCORD-STYLE VOICE LOUNGE (WEBRTC AUDIO) */}
+      {/* 2. DISCORD-STYLE STAGE CHANNEL (WEBRTC AUDIO) */}
       <ClassVoiceRoom 
         classId={classId} 
         currentUser={currentUser} 
-        roomId={`room_${classId}`} 
-        roomName={`🔊 Voice Lounge - ${currentClass?.name || 'Kelas'}`} 
+        currentClass={currentClass}
+        roomId={`stage_${classId}`} 
+        roomName={`🎙️ Stage Kelas - ${currentClass?.name || 'Kelas'}`} 
       />
 
       {/* 3. TOOL NAVIGATION TABS */}

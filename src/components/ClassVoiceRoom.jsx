@@ -10,12 +10,17 @@ import {
   Radio, 
   Users, 
   Sparkles,
-  Signal,
-  CheckCircle2,
+  Hand,
+  Crown,
+  Check,
+  X,
+  UserCheck,
+  Volume1,
+  ArrowDownCircle,
   AlertCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { dbService } from '../utils/db';
+import { dbService, isSuperAdmin } from '../utils/db';
 
 const ICE_SERVERS = {
   iceServers: [
@@ -27,8 +32,9 @@ const ICE_SERVERS = {
 export default function ClassVoiceRoom({
   classId,
   currentUser,
-  roomId = 'main_lounge',
-  roomName = 'Voice Lounge Kelas'
+  currentClass,
+  roomId = 'main_stage',
+  roomName = 'Stage Kelas'
 }) {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -36,6 +42,7 @@ export default function ClassVoiceRoom({
   const [isDeafened, setIsDeafened] = useState(false);
   const [isSpeakingLocal, setIsSpeakingLocal] = useState(false);
   const [activePeers, setActivePeers] = useState([]);
+  const [showRequestsModal, setShowRequestsModal] = useState(false);
 
   // WebRTC Refs
   const localStreamRef = useRef(null);
@@ -46,11 +53,47 @@ export default function ClassVoiceRoom({
   const remoteAudiosRef = useRef(new Map()); // peerId -> HTMLAudioElement
   const myPeerIdRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
+  const prevRoleRef = useRef(null);
 
   const myPeerId = useMemo(() => {
     if (!currentUser) return null;
     return currentUser.uid || currentUser.id || 'usr_' + Math.random().toString(36).substr(2, 6);
   }, [currentUser]);
+
+  // Is current user a Host by class role or superadmin?
+  const isHostByRole = useMemo(() => {
+    if (!currentUser) return false;
+    if (isSuperAdmin(currentUser)) return true;
+    const role = currentClass?.userRole;
+    return role === 'komti' || role === 'coordinator' || role === 'lecturer';
+  }, [currentUser, currentClass]);
+
+  // My current peer entry in active room
+  const myPeerData = useMemo(() => {
+    return activePeers.find(p => p.peerId === myPeerId);
+  }, [activePeers, myPeerId]);
+
+  // My active stage role: 'host' | 'speaker' | 'listener'
+  const myStageRole = useMemo(() => {
+    if (myPeerData?.role) return myPeerData.role;
+    return isHostByRole ? 'host' : 'listener';
+  }, [myPeerData, isHostByRole]);
+
+  const canSpeak = myStageRole === 'host' || myStageRole === 'speaker';
+  const isRaisingHand = Boolean(myPeerData?.raisingHand);
+
+  // Separate participants into Stage Speakers vs Audience Listeners
+  const speakers = useMemo(() => {
+    return activePeers.filter(p => p.role === 'host' || p.role === 'speaker');
+  }, [activePeers]);
+
+  const listeners = useMemo(() => {
+    return activePeers.filter(p => p.role !== 'host' && p.role !== 'speaker');
+  }, [activePeers]);
+
+  const handsRaisedList = useMemo(() => {
+    return listeners.filter(p => p.raisingHand);
+  }, [listeners]);
 
   // Subscribe to live peers in room
   useEffect(() => {
@@ -65,18 +108,38 @@ export default function ClassVoiceRoom({
     };
   }, [classId, roomId]);
 
-  // Handle joining voice room
-  const handleJoinVoice = async () => {
-    if (!classId || !currentUser) {
-      toast.error('Silakan login terlebih dahulu untuk masuk ke ruang suara.');
-      return;
+  // Watch for role promotions / demotions while connected
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const currentRole = myStageRole;
+    const previousRole = prevRoleRef.current;
+
+    if (previousRole && previousRole !== currentRole) {
+      if ((currentRole === 'speaker' || currentRole === 'host') && previousRole === 'listener') {
+        // Promoted to Stage Speaker!
+        toast.success('🎉 Anda sekarang berada di panggung! Mikrofon Anda telah diaktifkan.', {
+          duration: 5000,
+          icon: '🎙️'
+        });
+        startMicrophoneCapture();
+      } else if (currentRole === 'listener' && (previousRole === 'speaker' || previousRole === 'host')) {
+        // Demoted to Listener!
+        toast('Anda dipindahkan kembali ke barisan penonton (Muted).', {
+          icon: '👥'
+        });
+        stopMicrophoneCapture();
+      }
     }
 
-    setIsConnecting(true);
-    myPeerIdRef.current = myPeerId;
+    prevRoleRef.current = currentRole;
+  }, [myStageRole, isConnected]);
 
+  // Helper: Start capturing local microphone & broadcasting
+  const startMicrophoneCapture = async () => {
     try {
-      // 1. Get User Media (Microphone)
+      if (localStreamRef.current) return;
+
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -87,65 +150,136 @@ export default function ClassVoiceRoom({
       });
       localStreamRef.current = stream;
 
-      // 2. Setup AudioContext for Live Speaking Indicator (Discord Green Ring)
-      try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioCtx();
-        audioContextRef.current = ctx;
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        analyserRef.current = analyser;
+      // Add track to all existing peer connections
+      stream.getTracks().forEach(track => {
+        peerConnectionsRef.current.forEach(pc => {
+          pc.addTrack(track, stream);
+        });
+      });
 
-        const source = ctx.createMediaStreamSource(stream);
-        source.connect(analyser);
+      // Setup audio analyser for green speaking ring
+      setupAudioAnalyser(stream);
+      setIsMuted(false);
+      if (classId && myPeerIdRef.current) {
+        dbService.voice.updatePeerState(classId, myPeerIdRef.current, { isMuted: false });
+      }
+    } catch (err) {
+      console.warn('Microphone access denied or failed:', err);
+      toast.error('Gagal mengakses mikrofon. Pastikan izin mikrofon browser aktif.');
+    }
+  };
 
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        let speakingDebounce = false;
+  // Helper: Stop capturing local microphone
+  const stopMicrophoneCapture = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+    }
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close(); } catch {}
+      audioContextRef.current = null;
+    }
+    setIsSpeakingLocal(false);
+    setIsMuted(true);
+    if (classId && myPeerIdRef.current) {
+      dbService.voice.updatePeerState(classId, myPeerIdRef.current, { isMuted: true, isSpeaking: false });
+    }
+  };
 
-        const checkVolume = () => {
-          if (!analyserRef.current) return;
-          analyserRef.current.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            sum += dataArray[i];
+  // Setup Audio Analyser for Discord-style Speaking Ring
+  const setupAudioAnalyser = (stream) => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      audioContextRef.current = ctx;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+
+      const source = ctx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let speakingDebounce = false;
+
+      const checkVolume = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / dataArray.length;
+        const isNowSpeaking = avg > 14 && !isMuted;
+
+        if (isNowSpeaking !== speakingDebounce) {
+          speakingDebounce = isNowSpeaking;
+          setIsSpeakingLocal(isNowSpeaking);
+          if (classId && myPeerIdRef.current) {
+            dbService.voice.updatePeerState(classId, myPeerIdRef.current, { isSpeaking: isNowSpeaking });
           }
-          const avg = sum / dataArray.length;
-          const isNowSpeaking = avg > 14 && !isMuted;
+        }
 
-          if (isNowSpeaking !== speakingDebounce) {
-            speakingDebounce = isNowSpeaking;
-            setIsSpeakingLocal(isNowSpeaking);
-            // Broadcast speaking state
-            dbService.voice.updatePeerState(classId, myPeerId, { isSpeaking: isNowSpeaking });
-          }
+        animFrameRef.current = requestAnimationFrame(checkVolume);
+      };
+      checkVolume();
+    } catch (e) {
+      console.warn('AudioContext setup skipped:', e);
+    }
+  };
 
-          animFrameRef.current = requestAnimationFrame(checkVolume);
-        };
-        checkVolume();
-      } catch (audioErr) {
-        console.warn('AudioContext setup skipped:', audioErr);
+  // Handle Joining Stage
+  const handleJoinStage = async () => {
+    if (!classId || !currentUser) {
+      toast.error('Silakan login terlebih dahulu untuk masuk ke Stage.');
+      return;
+    }
+
+    setIsConnecting(true);
+    myPeerIdRef.current = myPeerId;
+
+    const initialRole = isHostByRole ? 'host' : 'listener';
+    prevRoleRef.current = initialRole;
+
+    try {
+      // 1. If Host, capture mic right away. If Listener, join silently (listen only)
+      if (initialRole === 'host') {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
+            video: false 
+          });
+          localStreamRef.current = stream;
+          setupAudioAnalyser(stream);
+        } catch (micErr) {
+          console.warn('Host microphone permission issue:', micErr);
+          toast('Masuk ke panggung tanpa mic (bisa diaktifkan nanti).', { icon: 'ℹ️' });
+        }
       }
 
-      // 3. Register Peer in Firestore
+      // 2. Register Peer in Firestore
       await dbService.voice.joinRoom(classId, roomId, {
         peerId: myPeerId,
         userId: currentUser.uid || currentUser.id,
         userName: currentUser.displayName || currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'Mahasiswa'),
         userEmail: currentUser.email || '',
         avatar: currentUser.photoURL || currentUser.avatar || '',
-        isMuted: false,
+        role: initialRole,
+        raisingHand: false,
+        isMuted: initialRole === 'listener',
         isDeafened: false
       });
 
-      // 4. Heartbeat to maintain active status
+      // 3. Heartbeat
       heartbeatIntervalRef.current = setInterval(() => {
         if (myPeerIdRef.current) {
           dbService.voice.updatePeerState(classId, myPeerIdRef.current, { lastSeen: Date.now() });
         }
       }, 15000);
 
-      // 5. Subscribe to WebRTC Signals
-      const unsubSignals = dbService.voice.subscribeSignals(classId, myPeerId, async ({ fromPeerId, signal }) => {
+      // 4. Subscribe to WebRTC Signals
+      dbService.voice.subscribeSignals(classId, myPeerId, async ({ fromPeerId, signal }) => {
         let pc = peerConnectionsRef.current.get(fromPeerId);
 
         if (signal.type === 'offer') {
@@ -167,25 +301,29 @@ export default function ClassVoiceRoom({
             try {
               await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
             } catch (candErr) {
-              console.warn('Error adding ICE candidate:', candErr);
+              console.warn('Error adding candidate:', candErr);
             }
           }
         }
       });
 
-      // 6. Connect to Existing Peers
-      activePeers.forEach(async (peer) => {
+      // 5. Connect to Existing Peers
+      activePeers.forEach((peer) => {
         if (peer.peerId !== myPeerId) {
           initiatePeerConnection(peer.peerId);
         }
       });
 
       setIsConnected(true);
-      toast.success('Terhubung ke Voice Lounge!');
+      if (initialRole === 'host') {
+        toast.success('Memulai Stage Kelas sebagai Host! 👑');
+      } else {
+        toast.success('Terhubung ke Stage Kelas (Mode Mendengar) 🎧');
+      }
     } catch (err) {
-      console.error('Failed to join voice:', err);
-      toast.error('Tidak dapat mengakses mikrofon. Pastikan izin mikrofon aktif.');
-      handleLeaveVoice();
+      console.error('Failed to join stage:', err);
+      toast.error('Gagal terhubung ke Stage Kelas.');
+      handleLeaveStage();
     } finally {
       setIsConnecting(false);
     }
@@ -196,14 +334,13 @@ export default function ClassVoiceRoom({
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnectionsRef.current.set(targetPeerId, pc);
 
-    // Add local tracks
+    // Add local tracks if available (only speakers broadcast audio)
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
         pc.addTrack(track, localStreamRef.current);
       });
     }
 
-    // ICE Candidate Handler
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         dbService.voice.sendSignal(classId, {
@@ -214,7 +351,6 @@ export default function ClassVoiceRoom({
       }
     };
 
-    // Remote Audio Stream Handler
     pc.ontrack = (event) => {
       let audio = remoteAudiosRef.current.get(targetPeerId);
       if (!audio) {
@@ -236,7 +372,6 @@ export default function ClassVoiceRoom({
     return pc;
   };
 
-  // Initiate call to an existing peer
   const initiatePeerConnection = async (targetPeerId) => {
     try {
       const pc = createPeerConnection(targetPeerId);
@@ -248,11 +383,11 @@ export default function ClassVoiceRoom({
         signal: offer
       });
     } catch (err) {
-      console.warn('Error initiating peer connection:', err);
+      console.warn('Error initiating peer:', err);
     }
   };
 
-  // Toggle Mute
+  // Toggle Mute (For Host & Speakers)
   const handleToggleMute = () => {
     if (!localStreamRef.current) return;
     const nextMuted = !isMuted;
@@ -260,7 +395,9 @@ export default function ClassVoiceRoom({
       track.enabled = !nextMuted;
     });
     setIsMuted(nextMuted);
-    dbService.voice.updatePeerState(classId, myPeerId, { isMuted: nextMuted });
+    if (classId && myPeerIdRef.current) {
+      dbService.voice.updatePeerState(classId, myPeerIdRef.current, { isMuted: nextMuted });
+    }
     toast(nextMuted ? 'Mikrofon dimatikan (Muted)' : 'Mikrofon aktif (Unmuted)', {
       icon: nextMuted ? '🔇' : '🎙️'
     });
@@ -271,51 +408,76 @@ export default function ClassVoiceRoom({
     const nextDeafen = !isDeafened;
     setIsDeafened(nextDeafen);
 
-    // Mute all remote audios
     remoteAudiosRef.current.forEach(audio => {
       if (audio) audio.muted = nextDeafen;
     });
 
-    // If deafening, also mute own mic
-    if (nextDeafen && !isMuted) {
+    if (nextDeafen && !isMuted && canSpeak) {
       handleToggleMute();
     }
 
-    dbService.voice.updatePeerState(classId, myPeerId, { isDeafened: nextDeafen });
-    toast(nextDeafen ? 'Audio dimatikan (Deafened)' : 'Audio aktif', {
+    if (classId && myPeerIdRef.current) {
+      dbService.voice.updatePeerState(classId, myPeerIdRef.current, { isDeafened: nextDeafen });
+    }
+    toast(nextDeafen ? 'Audio panggung dimatikan' : 'Audio panggung aktif', {
       icon: nextDeafen ? '🎧🔇' : '🎧'
     });
   };
 
-  // Leave Voice Room
-  const handleLeaveVoice = async () => {
-    // 1. Stop local audio stream
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(t => t.stop());
-      localStreamRef.current = null;
+  // Toggle Raise Hand (Request to Speak)
+  const handleToggleRaiseHand = async () => {
+    if (!isConnected || canSpeak) return;
+    const nextRaising = !isRaisingHand;
+    await dbService.voice.requestToSpeak(classId, myPeerId, nextRaising);
+    if (nextRaising) {
+      toast('Tangan diangkat! Menunggu izin Host untuk berbicara ✋', {
+        icon: '✋',
+        duration: 4000
+      });
+    } else {
+      toast('Permintaan berbicara dibatalkan.', { icon: '👌' });
     }
+  };
 
-    // 2. Stop audio analysis
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    if (audioContextRef.current) {
-      try { audioContextRef.current.close(); } catch {}
-      audioContextRef.current = null;
-    }
+  // Host Action: Approve Request to Speak (Promote to Speaker)
+  const handleApproveSpeaker = async (peerId, peerName) => {
+    await dbService.voice.promoteToSpeaker(classId, peerId);
+    toast.success(`${peerName} diizinkan ke panggung sebagai pembicara! 🎙️`);
+  };
 
-    // 3. Close peer connections
+  // Host Action: Reject Request to Speak
+  const handleRejectSpeaker = async (peerId) => {
+    await dbService.voice.requestToSpeak(classId, peerId, false);
+    toast('Permintaan bicara ditolak.', { icon: '❌' });
+  };
+
+  // Host Action: Move Speaker Back to Audience
+  const handleDemoteSpeaker = async (peerId, peerName) => {
+    await dbService.voice.demoteToListener(classId, peerId);
+    toast(`${peerName} diturunkan kembali ke penonton.`);
+  };
+
+  // Speaker Self-Demote: Step Down from Stage
+  const handleStepDown = async () => {
+    await dbService.voice.demoteToListener(classId, myPeerId);
+    stopMicrophoneCapture();
+    toast('Anda telah turun dari panggung ke penonton.', { icon: '👥' });
+  };
+
+  // Leave Stage
+  const handleLeaveStage = async () => {
+    stopMicrophoneCapture();
+
     peerConnectionsRef.current.forEach(pc => pc.close());
     peerConnectionsRef.current.clear();
 
-    // 4. Remove remote audios
     remoteAudiosRef.current.forEach(audio => {
       audio.srcObject = null;
     });
     remoteAudiosRef.current.clear();
 
-    // 5. Clear heartbeat
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
 
-    // 6. Delete peer record in Firestore
     if (classId && myPeerIdRef.current) {
       await dbService.voice.leaveRoom(classId, myPeerIdRef.current);
     }
@@ -323,89 +485,122 @@ export default function ClassVoiceRoom({
     setIsConnected(false);
     setIsMuted(false);
     setIsDeafened(false);
-    setIsSpeakingLocal(false);
-    toast('Keluar dari Voice Lounge', { icon: '👋' });
+    prevRoleRef.current = null;
+    setShowRequestsModal(false);
+    toast('Keluar dari Stage Kelas', { icon: '👋' });
   };
 
   // Clean up on component unmount
   useEffect(() => {
     return () => {
       if (isConnected) {
-        handleLeaveVoice();
+        handleLeaveStage();
       }
     };
   }, [isConnected]);
 
   return (
-    <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-slate-700/60 space-y-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-slate-700/60 space-y-5">
       
-      {/* Voice Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-700/50">
+      {/* 1. STAGE HEADER */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-700/60">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${
             isConnected 
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm shadow-emerald-500/20' 
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-md shadow-emerald-500/20' 
               : 'bg-slate-800 text-slate-400 border border-slate-700'
           }`}>
-            <Radio size={20} className={isConnected ? 'animate-pulse' : ''} />
+            <Radio size={22} className={isConnected ? 'animate-pulse text-emerald-400' : ''} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
                 {roomName}
               </h3>
-              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+              <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
                 isConnected 
-                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' 
-                  : 'bg-slate-700/50 text-slate-400 border-slate-600/50'
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40' 
+                  : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'
               }`}>
-                {isConnected ? '🟢 Terhubung' : 'Discord Style WebRTC'}
+                {isConnected ? '🔴 LIVE STAGE' : 'Discord Stage Channel'}
               </span>
             </div>
-            <p className="text-xs text-slate-400">
-              Obrolan suara real-time antar anggota kelas tanpa aplikasi pihak ketiga.
+            <p className="text-xs text-slate-400 mt-0.5">
+              Format panggung: pembicara diizinkan bicara, penonton menyimak & dapat mengangkat tangan (Raise Hand).
             </p>
           </div>
         </div>
 
-        {/* Action Connect / Disconnect */}
+        {/* Action Button: Connect / Controls */}
         <div className="flex items-center gap-2">
           {!isConnected ? (
             <button
               type="button"
-              onClick={handleJoinVoice}
+              onClick={handleJoinStage}
               disabled={isConnecting}
               className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <PhoneCall size={14} />
-              <span>{isConnecting ? 'Menghubungkan...' : 'Masuk Voice Lounge'}</span>
+              <span>{isConnecting ? 'Menghubungkan...' : (isHostByRole ? 'Mulai Stage (Host)' : 'Masuk Stage (Menyimak)')}</span>
             </button>
           ) : (
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              {/* Mute Button */}
-              <button
-                type="button"
-                onClick={handleToggleMute}
-                className={`p-2.5 rounded-2xl border transition-all cursor-pointer ${
-                  isMuted 
-                    ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 hover:bg-rose-500/30' 
-                    : 'bg-slate-800/80 text-white border-slate-700 hover:bg-slate-700'
-                }`}
-                title={isMuted ? 'Buka Mikrofon' : 'Matikan Mikrofon'}
-              >
-                {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
-              </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+              {/* Speaker Mic Toggle */}
+              {canSpeak && (
+                <button
+                  type="button"
+                  onClick={handleToggleMute}
+                  className={`px-3.5 py-2 rounded-2xl border transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+                    isMuted 
+                      ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 hover:bg-rose-500/30' 
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                  }`}
+                  title={isMuted ? 'Buka Mikrofon' : 'Matikan Mikrofon'}
+                >
+                  {isMuted ? <MicOff size={15} /> : <Mic size={15} />}
+                  <span>{isMuted ? 'Muted' : 'Mic Aktif'}</span>
+                </button>
+              )}
+
+              {/* Speaker Step Down Button */}
+              {myStageRole === 'speaker' && (
+                <button
+                  type="button"
+                  onClick={handleStepDown}
+                  className="px-3 py-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Turun dari panggung ke penonton"
+                >
+                  <ArrowDownCircle size={14} />
+                  <span>Turun</span>
+                </button>
+              )}
+
+              {/* Listener Raise Hand Button */}
+              {!canSpeak && (
+                <button
+                  type="button"
+                  onClick={handleToggleRaiseHand}
+                  className={`px-4 py-2 rounded-2xl border transition-all cursor-pointer flex items-center gap-2 text-xs font-extrabold ${
+                    isRaisingHand
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/30 animate-pulse'
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 shadow-xs'
+                  }`}
+                >
+                  <Hand size={15} className={isRaisingHand ? 'animate-bounce' : ''} />
+                  <span>{isRaisingHand ? '✋ Menunggu Izin...' : '✋ Minta Izin Bicara'}</span>
+                </button>
+              )}
 
               {/* Deafen Button */}
               <button
                 type="button"
                 onClick={handleToggleDeafen}
-                className={`p-2.5 rounded-2xl border transition-all cursor-pointer ${
+                className={`p-2 rounded-2xl border transition-all cursor-pointer ${
                   isDeafened 
                     ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 hover:bg-rose-500/30' 
                     : 'bg-slate-800/80 text-white border-slate-700 hover:bg-slate-700'
                 }`}
-                title={isDeafened ? 'Hidupkan Suara' : 'Matikan Suara (Deafen)'}
+                title={isDeafened ? 'Hidupkan Suara Panggung' : 'Matikan Suara (Deafen)'}
               >
                 {isDeafened ? <VolumeX size={16} /> : <Headphones size={16} />}
               </button>
@@ -413,59 +608,94 @@ export default function ClassVoiceRoom({
               {/* Leave Button */}
               <button
                 type="button"
-                onClick={handleLeaveVoice}
-                className="px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                onClick={handleLeaveStage}
+                className="px-4 py-2 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <PhoneOff size={14} />
-                <span>Putuskan</span>
+                <span>Keluar</span>
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Participants Grid */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-          <span className="flex items-center gap-1.5 font-medium">
-            <Users size={13} />
-            Peserta di Ruang Suara ({activePeers.length})
-          </span>
-          {isConnected && (
-            <span className="text-emerald-400 font-semibold flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              Audio Aktif (Mesh P2P)
+      {/* 2. HOST NOTIFICATION BANNER (HANDS RAISED ALERT) */}
+      {isHostByRole && isConnected && handsRaisedList.length > 0 && (
+        <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-2.5 text-xs font-bold">
+            <span className="w-6 h-6 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-extrabold text-xs shrink-0">
+              ✋
             </span>
-          )}
+            <span>
+              {handsRaisedList.length} mahasiswa meminta izin berbicara di panggung:
+            </span>
+            <div className="hidden sm:flex items-center gap-1.5">
+              {handsRaisedList.slice(0, 3).map(p => (
+                <span key={p.peerId} className="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-100 text-[11px] font-semibold truncate max-w-[120px]">
+                  {p.userName}
+                </span>
+              ))}
+              {handsRaisedList.length > 3 && (
+                <span className="text-[11px] text-amber-300">+{handsRaisedList.length - 3} lainnya</span>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowRequestsModal(true)}
+            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold cursor-pointer transition-colors shrink-0 shadow-xs"
+          >
+            Tinjau Permintaan ({handsRaisedList.length})
+          </button>
+        </div>
+      )}
+
+      {/* 3. SECTION: 🎤 PEMBICARA DI PANGGUNG (THE STAGE SPEAKERS) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-xs text-slate-300 font-semibold px-1">
+          <span className="flex items-center gap-2 text-indigo-300 font-bold uppercase tracking-wider text-[11px]">
+            <Radio size={14} className="text-emerald-400" />
+            Panggung Pembicara ({speakers.length})
+          </span>
+          <span className="text-[11px] text-slate-400">
+            Hanya pembicara yang memiliki mikrofon aktif
+          </span>
         </div>
 
-        {activePeers.length === 0 ? (
-          <div className="py-6 text-center rounded-2xl bg-slate-800/40 border border-slate-700/40 text-slate-400 text-xs">
-            Belum ada yang masuk ke ruang suara. Jadilah yang pertama bergabung!
+        {speakers.length === 0 ? (
+          <div className="py-8 text-center rounded-2xl bg-slate-800/40 border border-slate-700/50 text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+            <MicOff size={20} className="text-slate-500" />
+            <span>Belum ada pembicara di panggung. Host dapat memulai atau penonton dapat mengangkat tangan!</span>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {activePeers.map((peer) => {
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
+            {speakers.map((peer) => {
               const isMe = peer.peerId === myPeerId;
               const isSpeaking = isMe ? isSpeakingLocal : Boolean(peer.isSpeaking);
+              const isHost = peer.role === 'host';
 
               return (
                 <div 
                   key={peer.peerId}
-                  className={`relative p-3 rounded-2xl bg-slate-800/80 border transition-all flex flex-col items-center text-center space-y-2 ${
+                  className={`relative p-3.5 rounded-2xl bg-slate-800/90 border transition-all flex flex-col items-center text-center space-y-2.5 ${
                     isSpeaking 
-                      ? 'border-emerald-400 shadow-lg shadow-emerald-500/20 scale-[1.02]' 
-                      : 'border-slate-700/60'
+                      ? 'border-emerald-400 shadow-xl shadow-emerald-500/25 scale-[1.02] bg-slate-800' 
+                      : isHost 
+                        ? 'border-amber-500/40 shadow-xs' 
+                        : 'border-slate-700/70'
                   }`}
                 >
-                  {/* Avatar with Discord Speaking Ring */}
+                  {/* Speaker Avatar with Discord Ring */}
                   <div className="relative">
-                    <div className={`w-12 h-12 rounded-full overflow-hidden flex items-center justify-center font-bold text-sm transition-all ${
+                    <div className={`w-14 h-14 rounded-full overflow-hidden flex items-center justify-center font-bold text-base transition-all ${
                       isSpeaking 
-                        ? 'ring-4 ring-emerald-400 ring-offset-2 ring-offset-slate-900 shadow-md shadow-emerald-400/50' 
-                        : 'ring-1 ring-slate-600'
+                        ? 'ring-4 ring-emerald-400 ring-offset-2 ring-offset-slate-900 shadow-lg shadow-emerald-400/60' 
+                        : isHost
+                          ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-slate-900'
+                          : 'ring-1 ring-slate-600'
                     } ${
-                      peer.avatar ? 'bg-slate-700' : 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white'
+                      peer.avatar ? 'bg-slate-700' : isHost ? 'bg-gradient-to-tr from-amber-600 to-orange-600 text-white' : 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white'
                     }`}>
                       {peer.avatar ? (
                         <img src={peer.avatar} alt={peer.userName} className="w-full h-full object-cover" />
@@ -474,40 +704,251 @@ export default function ClassVoiceRoom({
                       )}
                     </div>
 
-                    {/* Mute Indicator Badge */}
+                    {/* Role Badge (Crown for Host, Mic for Speaker) */}
+                    <div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center shadow-md text-white ${
+                      isHost ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-indigo-600'
+                    }`} title={isHost ? 'Host Panggung' : 'Pembicara'}>
+                      {isHost ? <Crown size={12} className="fill-slate-950" /> : <Mic size={12} />}
+                    </div>
+
+                    {/* Mute Indicator */}
                     {peer.isMuted && (
                       <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-xs">
                         <MicOff size={10} />
                       </div>
                     )}
-                    {peer.isDeafened && (
-                      <div className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center shadow-xs">
-                        <VolumeX size={10} />
-                      </div>
-                    )}
                   </div>
 
-                  {/* Name & Status */}
+                  {/* Name & Role */}
                   <div className="w-full">
-                    <p className="text-xs font-bold text-white truncate max-w-full">
-                      {peer.userName} {isMe && '(Anda)'}
-                    </p>
-                    <span className="text-[10px] text-slate-400">
+                    <div className="flex items-center justify-center gap-1">
+                      <p className="text-xs font-bold text-white truncate max-w-[120px]">
+                        {peer.userName}
+                      </p>
+                      {isMe && <span className="text-[10px] text-emerald-400 font-semibold">(Anda)</span>}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
                       {isSpeaking ? (
-                        <span className="text-emerald-400 font-semibold animate-pulse">Berbicara...</span>
+                        <span className="text-emerald-400 font-bold animate-pulse">Berbicara... 🎙️</span>
                       ) : peer.isMuted ? (
-                        <span className="text-rose-400">Muted</span>
+                        <span className="text-rose-400 font-medium">Muted</span>
+                      ) : isHost ? (
+                        <span className="text-amber-300 font-medium">Host Panggung</span>
                       ) : (
-                        'Mendengarkan'
+                        <span className="text-indigo-300 font-medium">Pembicara</span>
                       )}
-                    </span>
+                    </p>
                   </div>
+
+                  {/* Host Quick Control for Speaker */}
+                  {isHostByRole && !isMe && (
+                    <div className="pt-1.5 w-full border-t border-slate-700/50 flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleDemoteSpeaker(peer.peerId, peer.userName)}
+                        className="text-[10px] text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 px-2 py-0.5 rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                        title="Turunkan ke penonton"
+                      >
+                        <ArrowDownCircle size={11} />
+                        <span>Turunkan</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* 4. SECTION: 👥 PENONTON & PENDENGAR (AUDIENCE - LISTENERS) */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between text-xs text-slate-300 font-semibold px-1">
+          <span className="flex items-center gap-2 text-slate-300 font-bold uppercase tracking-wider text-[11px]">
+            <Users size={14} className="text-slate-400" />
+            Penonton & Pendengar ({listeners.length})
+          </span>
+          <span className="text-[11px] text-slate-400">
+            Otomatis senyap / mendengarkan
+          </span>
+        </div>
+
+        {listeners.length === 0 ? (
+          <div className="py-4 text-center rounded-2xl bg-slate-800/30 border border-slate-700/40 text-slate-500 text-xs">
+            Belum ada penonton di ruang ini.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {listeners.map((peer) => {
+              const isMe = peer.peerId === myPeerId;
+              const hasRaisedHand = Boolean(peer.raisingHand);
+
+              return (
+                <div 
+                  key={peer.peerId}
+                  className={`relative p-3 rounded-2xl bg-slate-800/60 border transition-all flex flex-col items-center text-center space-y-2 ${
+                    hasRaisedHand 
+                      ? 'border-amber-400/80 bg-amber-500/10 shadow-md shadow-amber-500/15' 
+                      : 'border-slate-700/50'
+                  }`}
+                >
+                  {/* Listener Avatar */}
+                  <div className="relative">
+                    <div className={`w-11 h-11 rounded-full overflow-hidden flex items-center justify-center font-bold text-xs transition-all ${
+                      hasRaisedHand 
+                        ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-slate-900' 
+                        : 'ring-1 ring-slate-700'
+                    } ${
+                      peer.avatar ? 'bg-slate-700' : 'bg-slate-700 text-slate-300'
+                    }`}>
+                      {peer.avatar ? (
+                        <img src={peer.avatar} alt={peer.userName} className="w-full h-full object-cover" />
+                      ) : (
+                        (peer.userName || 'M').charAt(0).toUpperCase()
+                      )}
+                    </div>
+
+                    {/* Raised Hand Badge */}
+                    {hasRaisedHand && (
+                      <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-amber-500 text-slate-950 font-bold flex items-center justify-center shadow-xs animate-bounce" title="Meminta izin berbicara">
+                        ✋
+                      </div>
+                    )}
+
+                    {/* Muted Icon */}
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center shadow-xs">
+                      <MicOff size={8} />
+                    </div>
+                  </div>
+
+                  {/* Name */}
+                  <div className="w-full">
+                    <p className="text-xs font-semibold text-slate-200 truncate max-w-full">
+                      {peer.userName} {isMe && '(Anda)'}
+                    </p>
+                    <span className="text-[10px] text-slate-400">
+                      {hasRaisedHand ? (
+                        <span className="text-amber-300 font-semibold animate-pulse">✋ Minta bicara</span>
+                      ) : (
+                        'Mendengarkan'
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Host Quick Approval for Raised Hand */}
+                  {isHostByRole && hasRaisedHand && (
+                    <div className="w-full pt-1 border-t border-slate-700/60 flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveSpeaker(peer.peerId, peer.userName)}
+                        className="px-2 py-0.5 rounded-md bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-extrabold transition-colors cursor-pointer"
+                        title="Izinkan bicara di panggung"
+                      >
+                        Izinkan 🎙️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectSpeaker(peer.peerId)}
+                        className="p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        title="Tolak permintaan"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Host Invite Listener Directly */}
+                  {isHostByRole && !hasRaisedHand && (
+                    <button
+                      type="button"
+                      onClick={() => handleApproveSpeaker(peer.peerId, peer.userName)}
+                      className="text-[10px] text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                      title="Undang ke panggung"
+                    >
+                      + Panggung
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 5. MODAL: HOST REVIEW SPEAK REQUESTS */}
+      {showRequestsModal && (
+        <div className="fixed inset-0 z-[99999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 text-white rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">✋</span>
+                <h4 className="text-base font-bold text-white">Permintaan Bicara Panggung</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRequestsModal(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1">
+              {handsRaisedList.length === 0 ? (
+                <p className="text-center py-6 text-xs text-slate-400">
+                  Tidak ada permintaan bicara saat ini.
+                </p>
+              ) : (
+                handsRaisedList.map(peer => (
+                  <div 
+                    key={peer.peerId}
+                    className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs text-white shrink-0">
+                        {(peer.userName || 'M').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-white truncate">{peer.userName}</p>
+                        <p className="text-[10px] text-amber-300 font-medium">Ingin berbicara di panggung</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveSpeaker(peer.peerId, peer.userName)}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                      >
+                        <Check size={13} />
+                        <span>Izinkan</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectSpeaker(peer.peerId)}
+                        className="p-1.5 rounded-xl bg-slate-700 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 transition-colors cursor-pointer"
+                        title="Tolak"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowRequestsModal(false)}
+                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

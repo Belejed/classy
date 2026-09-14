@@ -2645,12 +2645,15 @@ export const dbService = {
       if (!classId || !peerInfo?.peerId) return;
       const peerDoc = doc(db, 'workspaces', classId, 'voice_peers', peerInfo.peerId);
       await setDoc(peerDoc, {
-        roomId,
         peerId: peerInfo.peerId,
+        roomId,
         userId: peerInfo.userId || peerInfo.peerId,
         userName: peerInfo.userName || 'Mahasiswa',
         userEmail: peerInfo.userEmail || '',
         avatar: peerInfo.avatar || '',
+        role: peerInfo.role || 'listener', // 'host' | 'speaker' | 'listener'
+        raisingHand: Boolean(peerInfo.raisingHand),
+        raisedAt: peerInfo.raisedAt || null,
         isMuted: Boolean(peerInfo.isMuted),
         isDeafened: Boolean(peerInfo.isDeafened),
         isSpeaking: false,
@@ -2664,6 +2667,46 @@ export const dbService = {
       try {
         const peerDoc = doc(db, 'workspaces', classId, 'voice_peers', peerId);
         await setDoc(peerDoc, { ...updates, lastSeen: Date.now() }, { merge: true });
+      } catch {}
+    },
+
+    requestToSpeak: async (classId, peerId, isRaising) => {
+      if (!classId || !peerId) return;
+      try {
+        const peerDoc = doc(db, 'workspaces', classId, 'voice_peers', peerId);
+        await setDoc(peerDoc, { 
+          raisingHand: Boolean(isRaising), 
+          raisedAt: isRaising ? Date.now() : null,
+          lastSeen: Date.now() 
+        }, { merge: true });
+      } catch {}
+    },
+
+    promoteToSpeaker: async (classId, peerId) => {
+      if (!classId || !peerId) return;
+      try {
+        const peerDoc = doc(db, 'workspaces', classId, 'voice_peers', peerId);
+        await setDoc(peerDoc, { 
+          role: 'speaker', 
+          raisingHand: false, 
+          raisedAt: null,
+          isMuted: false,
+          lastSeen: Date.now() 
+        }, { merge: true });
+      } catch {}
+    },
+
+    demoteToListener: async (classId, peerId) => {
+      if (!classId || !peerId) return;
+      try {
+        const peerDoc = doc(db, 'workspaces', classId, 'voice_peers', peerId);
+        await setDoc(peerDoc, { 
+          role: 'listener', 
+          raisingHand: false,
+          isMuted: true,
+          isSpeaking: false,
+          lastSeen: Date.now() 
+        }, { merge: true });
       } catch {}
     },
 
