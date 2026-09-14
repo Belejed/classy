@@ -281,23 +281,18 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                   </>
                 )}
 
-                {/* Email or Phone/Identifier Field */}
+                {/* Email Field */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-[#334155] flex items-center justify-between w-full">
-                      <span>{mode === 'login' ? 'Email atau No. WhatsApp' : 'Email Kampus'}</span>
-                      {mode === 'login' && (
-                        <span className="text-[10px] text-indigo-600 font-medium bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-full border border-indigo-150 dark:border-indigo-800/60">
-                          Bisa pakai No. WA / Nama
-                        </span>
-                      )}
+                    <label className="text-xs font-semibold text-[#334155] block">
+                      Email
                     </label>
                   </div>
                   <div className="relative">
                     <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
                     <input
                       type={mode === 'login' ? 'text' : 'email'}
-                      placeholder={mode === 'login' ? 'nama@email.com atau 0812...' : 'name@university.ac.id'}
+                      placeholder={mode === 'login' ? 'nama@email.com' : 'name@university.ac.id'}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -342,21 +337,6 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
-                  {mode === 'login' && (
-                    <div className="flex items-center justify-between text-[11px] bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 rounded-xl px-3 py-2 text-indigo-950 dark:text-indigo-200 mt-1.5 shadow-2xs">
-                      <span className="flex items-center gap-1.5">
-                        <span>💡</span>
-                        <span>Password default: <strong className="font-mono text-indigo-700 dark:text-indigo-300 font-bold">123456</strong></span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setPassword('123456')}
-                        className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 dark:text-indigo-300 hover:underline cursor-pointer ml-2 px-2.5 py-0.5 rounded-lg bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 shadow-2xs transition-all"
-                      >
-                        Isi 123456
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 {/* Confirm Password */}
