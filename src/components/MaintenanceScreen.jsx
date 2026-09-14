@@ -6,7 +6,8 @@ import {
   CheckCircle2,
   Lock,
   ArrowRight,
-  X
+  X,
+  LogIn
 } from 'lucide-react';
 import { authService, isSuperAdmin } from '../utils/db';
 import toast from 'react-hot-toast';
@@ -105,12 +106,23 @@ export default function MaintenanceScreen({
           </div>
         </div>
 
-        {/* Clean minimal indicator */}
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-          <span className="text-xs font-semibold text-slate-600 hidden sm:inline">
-            Pemeliharaan Sistem
-          </span>
+        {/* Top Right Controls: Status indicator & Small Login button */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-xs font-semibold text-slate-500 hidden sm:inline">
+              Pemeliharaan Sistem
+            </span>
+          </div>
+
+          <button
+            onClick={() => setShowSecretModal(true)}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 hover:text-slate-900 flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer active:scale-95"
+            title="Masuk ke Akun"
+          >
+            <LogIn size={13} className="text-slate-500" />
+            <span>Login</span>
+          </button>
         </div>
       </header>
 
@@ -197,12 +209,12 @@ export default function MaintenanceScreen({
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
                 <Lock size={18} />
               </div>
               <div>
-                <h3 className="font-extrabold text-slate-900 text-base">Akses Pengelola</h3>
-                <p className="text-xs text-slate-500">Masuk untuk mengelola sistem.</p>
+                <h3 className="font-extrabold text-slate-900 text-base">Masuk Akun</h3>
+                <p className="text-xs text-slate-500">Masukkan email dan kata sandi Anda.</p>
               </div>
             </div>
 
@@ -215,7 +227,7 @@ export default function MaintenanceScreen({
                   type="email"
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
-                  placeholder="arya@exars.my.id"
+                  placeholder="nama@email.com"
                   required
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-emerald-500 transition-colors"
                 />
