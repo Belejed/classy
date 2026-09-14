@@ -168,37 +168,6 @@ export default function App() {
       clearTimeout(safetyTimer);
 
       if (currentUser) {
-        // Enforce baseline session reset cutoff: any session created prior to this timestamp must re-authenticate
-        const BASELINE_FORCE_LOGOUT_EPOCH = 1789398027650;
-        let lastLoginEpoch = 0;
-        let isTabSession = false;
-        try {
-          isTabSession = Boolean(sessionStorage.getItem('classy_last_login_epoch'));
-          lastLoginEpoch = Number(localStorage.getItem('classy_last_login_epoch') || 0);
-        } catch {}
-
-        // Only invalidate old restored/persisted sessions, never a fresh login in the current tab
-        if (!isTabSession && lastLoginEpoch < BASELINE_FORCE_LOGOUT_EPOCH) {
-          console.warn('[Security] Session invalidated by global security reset');
-          try {
-            await authService.logout();
-          } catch {}
-          try {
-            localStorage.removeItem('classy_last_login_epoch');
-            localStorage.removeItem('classy_must_change_temp_password');
-            sessionStorage.removeItem('classy_must_change_temp_password');
-          } catch {}
-          setUser(null);
-          setAuthLoading(false);
-          toast('Sesi Anda telah direset demi pembaruan keamanan. Silakan login kembali dengan password sementara (123456).', {
-            icon: '🔐',
-            duration: 7000,
-            id: 'force-logout-toast'
-          });
-          navigate('/login', { replace: true });
-          return;
-        }
-
         // Sync mustChangePassword state immediately
         const isMustChange = localStorage.getItem('classy_must_change_temp_password') === 'true' || 
                              sessionStorage.getItem('classy_must_change_temp_password') === 'true';
@@ -216,50 +185,6 @@ export default function App() {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
   }, [navigate]);
-
-  // Realtime Global Force Logout Listener (triggers across all open client tabs when admin executes force logout)
-  useEffect(() => {
-    let unsub = null;
-    try {
-      unsub = dbService.system.subscribeToAuthSession(async (sessionConfig) => {
-        if (!sessionConfig || !sessionConfig.force_logout_at) return;
-        const forceEpoch = Number(sessionConfig.force_logout_at);
-        if (!forceEpoch) return;
-
-        let lastLoginEpoch = 0;
-        try {
-          lastLoginEpoch = Number(localStorage.getItem('classy_last_login_epoch') || 0);
-        } catch {}
-
-        if (user && lastLoginEpoch < forceEpoch) {
-          console.warn('[Security] Active session terminated by realtime global force logout');
-          try {
-            await authService.logout();
-          } catch {}
-          try {
-            localStorage.removeItem('classy_last_login_epoch');
-            localStorage.removeItem('classy_must_change_temp_password');
-            sessionStorage.removeItem('classy_must_change_temp_password');
-          } catch {}
-          setUser(null);
-          setCurrentClass(null);
-          setClasses([]);
-          toast('Sesi Anda telah direset demi pembaruan keamanan. Silakan login kembali dengan password sementara (123456).', {
-            icon: '🔐',
-            duration: 7000,
-            id: 'force-logout-toast'
-          });
-          navigate('/login', { replace: true });
-        }
-      });
-    } catch (e) {
-      console.warn('Failed to subscribe to auth session:', e);
-    }
-
-    return () => {
-      if (unsub) unsub();
-    };
-  }, [user, navigate]);
 
   // 20-Minute Inactivity / Idle Auto-Logout Watcher (Session Expired)
   useEffect(() => {
