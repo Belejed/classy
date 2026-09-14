@@ -1602,7 +1602,8 @@ function ClassWorkspace({
               />
             )}
 
-            {activeTab === 'forum' && (
+            {/* Forum & Panggung Suara kept mounted so audio stays active when navigating between class tabs */}
+            <div className={activeTab === 'forum' ? 'contents' : 'hidden'}>
               <ClassForum
                 currentClass={currentClass}
                 currentUser={user}
@@ -1612,7 +1613,7 @@ function ClassWorkspace({
                 handleAddGroupFile={handleAddGroupFile}
                 onDeleteGroup={handleDeleteGroup}
               />
-            )}
+            </div>
 
             {activeTab === 'contacts' && (
               <ClassContacts

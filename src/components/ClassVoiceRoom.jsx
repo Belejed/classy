@@ -61,6 +61,8 @@ export default function ClassVoiceRoom({
   const pendingCandidatesRef = useRef(new Map()); // peerId -> RTCIceCandidateInit[]
   const signalsUnsubRef = useRef(null);
   const audioContainerRef = useRef(null);
+  const silentAudioRef = useRef(null);
+  const wakeLockRef = useRef(null);
   const myPeerIdRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
   const prevRoleRef = useRef(null);
@@ -290,6 +292,33 @@ export default function ClassVoiceRoom({
     }
   };
 
+  // Background Audio Keep-Alive: Plays a continuous silent loop so mobile and desktop browsers never suspend background WebRTC audio
+  const startSilentKeepAlive = () => {
+    try {
+      if (silentAudioRef.current) return;
+      // 1-second silent WAV base64
+      const silentWav = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
+      const audio = new Audio(silentWav);
+      audio.loop = true;
+      audio.volume = 0.001; // subtle audible token so browser marks tab as active media player
+      audio.setAttribute('playsinline', '');
+      audio.play().catch(() => {});
+      silentAudioRef.current = audio;
+    } catch (e) {
+      console.warn('Silent keepalive setup skipped:', e);
+    }
+  };
+
+  const stopSilentKeepAlive = () => {
+    if (silentAudioRef.current) {
+      try {
+        silentAudioRef.current.pause();
+        silentAudioRef.current.src = '';
+      } catch {}
+      silentAudioRef.current = null;
+    }
+  };
+
   // Create RTCPeerConnection Helper
   const createPeerConnection = (targetPeerId) => {
     let pc = peerConnectionsRef.current.get(targetPeerId);
@@ -502,6 +531,7 @@ export default function ClassVoiceRoom({
       });
 
       setIsConnected(true);
+      startSilentKeepAlive();
       soundFX.playJoinCall();
       if (initialRole === 'host') {
         toast.success('Membuka Panggung Suara sebagai Host! 👑');
@@ -549,6 +579,87 @@ export default function ClassVoiceRoom({
       }
     });
   }, [activePeers, isConnected, myPeerId, myUserId]);
+
+  // MediaSession API & Background Tab Audio Management
+  useEffect(() => {
+    if (!isConnected) {
+      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'none';
+      }
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: roomName || 'Panggung Suara',
+          artist: currentClass?.name || 'Classy Live Stage',
+          album: 'Ruang Suara Kelas',
+          artwork: [
+            { src: '/logo.png', sizes: '192x192', type: 'image/png' },
+            { src: '/logo.png', sizes: '512x512', type: 'image/png' }
+          ]
+        });
+        navigator.mediaSession.playbackState = 'playing';
+
+        navigator.mediaSession.setActionHandler('pause', () => {
+          handleToggleDeafen();
+        });
+        navigator.mediaSession.setActionHandler('play', () => {
+          handleToggleDeafen();
+        });
+        navigator.mediaSession.setActionHandler('stop', () => {
+          handleLeaveStage();
+        });
+      } catch (msErr) {
+        console.warn('MediaSession handler error:', msErr);
+      }
+    }
+
+    // Screen Wake Lock API (keeps mobile browser awake during call)
+    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+      navigator.wakeLock.request('screen').then(lock => {
+        wakeLockRef.current = lock;
+      }).catch(() => {});
+    }
+
+    return () => {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current = null;
+      }
+    };
+  }, [isConnected, roomName, currentClass]);
+
+  // Browser Tab Switching (Visibility Change & Window Focus) Listeners
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const handleTabSwitch = () => {
+      // Resume AudioContext if browser suspended it during tab switch
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(() => {});
+      }
+      // Ensure all remote audio elements are actively playing
+      remoteAudiosRef.current.forEach(audio => {
+        if (audio && audio.paused && !isDeafened) {
+          audio.play().catch(() => {});
+        }
+      });
+      // Ping presence heartbeat so connection stays fresh
+      if (classId && myPeerIdRef.current) {
+        dbService.voice.updatePeerState(classId, myPeerIdRef.current, { lastSeen: Date.now() });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleTabSwitch);
+    window.addEventListener('focus', handleTabSwitch);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleTabSwitch);
+      window.removeEventListener('focus', handleTabSwitch);
+    };
+  }, [isConnected, isDeafened, classId]);
 
   // Toggle Mute (For Host & Speakers)
   const handleToggleMute = () => {
@@ -643,6 +754,7 @@ export default function ClassVoiceRoom({
   const handleLeaveStage = async () => {
     soundFX.playLeaveCall();
     stopMicrophoneCapture();
+    stopSilentKeepAlive();
 
     if (signalsUnsubRef.current) {
       signalsUnsubRef.current();
