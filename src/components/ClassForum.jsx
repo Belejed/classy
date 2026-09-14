@@ -24,6 +24,7 @@ import {
 import toast from 'react-hot-toast';
 import ClassVoiceRoom from './ClassVoiceRoom';
 import { dbService } from '../utils/db';
+import soundFX from '../utils/soundEffects';
 
 export default function ClassForum({
   currentClass,
@@ -114,6 +115,7 @@ export default function ClassForum({
       return;
     }
 
+    soundFX.playDiceRoll();
     setGrpIsShuffling(true);
     setTimeout(() => {
       // Fisher-Yates
@@ -217,6 +219,7 @@ export default function ClassForum({
       return;
     }
 
+    soundFX.playDiceRoll();
     setTopicIsShuffling(true);
 
     setTimeout(() => {
@@ -299,12 +302,18 @@ export default function ClassForum({
       setPickerRollingName(eligibleStudents[randomIndex]?.name || 'Mahasiswa');
       counter++;
 
+      // Play tick sound with gradual pitch rise for excitement
+      soundFX.playPickerTick(0.85 + (counter / 22) * 0.45);
+
       if (counter > 20) {
         clearInterval(interval);
         const finalWinner = eligibleStudents[Math.floor(Math.random() * eligibleStudents.length)];
         setPickerSelectedStudent(finalWinner);
         setPickerRollingName('');
         setPickerIsSpinning(false);
+
+        // Play glorious winner fanfare
+        soundFX.playWinnerFanfare();
 
         // Add to excluded list so they don't get chosen twice
         const key = String(finalWinner.userId || finalWinner.email || finalWinner.name);

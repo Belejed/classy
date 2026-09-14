@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { dbService, isSuperAdmin } from '../utils/db';
+import soundFX from '../utils/soundEffects';
 
 const ICE_SERVERS = {
   iceServers: [
@@ -117,6 +118,7 @@ export default function ClassVoiceRoom({
 
     if (previousRole && previousRole !== currentRole) {
       if ((currentRole === 'speaker' || currentRole === 'host') && previousRole === 'listener') {
+        soundFX.playJoinCall();
         // Promoted to Stage Speaker!
         toast.success('🎉 Anda sekarang berada di panggung! Mikrofon Anda telah diaktifkan.', {
           duration: 5000,
@@ -124,6 +126,7 @@ export default function ClassVoiceRoom({
         });
         startMicrophoneCapture();
       } else if (currentRole === 'listener' && (previousRole === 'speaker' || previousRole === 'host')) {
+        soundFX.playLeaveCall();
         // Demoted to Listener!
         toast('Anda dipindahkan kembali ke barisan penonton (Muted).', {
           icon: '👥'
@@ -315,6 +318,7 @@ export default function ClassVoiceRoom({
       });
 
       setIsConnected(true);
+      soundFX.playJoinCall();
       if (initialRole === 'host') {
         toast.success('Memulai Stage Kelas sebagai Host! 👑');
       } else {
@@ -430,6 +434,7 @@ export default function ClassVoiceRoom({
     const nextRaising = !isRaisingHand;
     await dbService.voice.requestToSpeak(classId, myPeerId, nextRaising);
     if (nextRaising) {
+      soundFX.playRaiseHand();
       toast('Tangan diangkat! Menunggu izin Host untuk berbicara ✋', {
         icon: '✋',
         duration: 4000
@@ -466,6 +471,7 @@ export default function ClassVoiceRoom({
 
   // Leave Stage
   const handleLeaveStage = async () => {
+    soundFX.playLeaveCall();
     stopMicrophoneCapture();
 
     peerConnectionsRef.current.forEach(pc => pc.close());
