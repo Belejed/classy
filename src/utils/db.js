@@ -2490,5 +2490,164 @@ export const dbService = {
         return () => {};
       }
     }
+  },
+
+  // 12. REALTIME ONLINE PRESENCE
+  presence: {
+    heartbeat: async (classId, user) => {
+      if (!classId || (!user?.id && !user?.uid)) return;
+      try {
+        const uid = user.id || user.uid;
+        const presenceRef = doc(db, 'workspaces', classId, 'presence', uid);
+        await setDoc(presenceRef, {
+          userId: uid,
+          userName: user.displayName || user.name || user.fullName || (user.email ? user.email.split('@')[0] : 'Mahasiswa'),
+          userEmail: user.email || '',
+          avatar: user.photoURL || user.avatar || '',
+          isOnline: true,
+          lastSeen: Date.now(),
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (err) {
+        console.warn('Presence heartbeat error:', err);
+      }
+    },
+
+    setOffline: async (classId, userId) => {
+      if (!classId || !userId) return;
+      try {
+        const presenceRef = doc(db, 'workspaces', classId, 'presence', userId);
+        await setDoc(presenceRef, { isOnline: false, lastSeen: Date.now() }, { merge: true });
+      } catch {}
+    },
+
+    subscribe: (classId, callback) => {
+      if (!classId) return () => {};
+      try {
+        const presCol = collection(db, 'workspaces', classId, 'presence');
+        return onSnapshot(presCol, (snap) => {
+          const now = Date.now();
+          const activeUsers = [];
+          snap.docs.forEach(d => {
+            const data = d.data();
+            // Count online if last seen within 75 seconds and not explicitly offline
+            if (data.isOnline !== false && data.lastSeen && (now - Number(data.lastSeen)) < 75000) {
+              activeUsers.push({ id: d.id, ...data });
+            }
+          });
+          callback(activeUsers);
+        }, (err) => {
+          console.warn('Presence subscription error:', err);
+        });
+      } catch (err) {
+        console.warn('Error subscribing to presence:', err);
+        return () => {};
+      }
+    }
+  },
+
+  // 13. VOICE CHAT SIGNALING (WEBRTC DISCORD-STYLE)
+  voice: {
+    joinRoom: async (classId, roomId = 'main', peerInfo) => {
+      if (!classId || !peerInfo?.peerId) return;
+      const peerDoc = doc(db, 'workspaces', classId, 'voice_peers', peerInfo.peerId);
+      await setDoc(peerDoc, {
+        roomId,
+        peerId: peerInfo.peerId,
+        userId: peerInfo.userId || peerInfo.peerId,
+        userName: peerInfo.userName || 'Mahasiswa',
+        userEmail: peerInfo.userEmail || '',
+        avatar: peerInfo.avatar || '',
+        isMuted: Boolean(peerInfo.isMuted),
+        isDeafened: Boolean(peerInfo.isDeafened),
+        isSpeaking: false,
+        joinedAt: Date.now(),
+        lastSeen: Date.now()
+      }, { merge: true });
+    },
+
+    updatePeerState: async (classId, peerId, updates) => {
+      if (!classId || !peerId) return;
+      try {
+        const peerDoc = doc(db, 'workspaces', classId, 'voice_peers', peerId);
+        await setDoc(peerDoc, { ...updates, lastSeen: Date.now() }, { merge: true });
+      } catch {}
+    },
+
+    leaveRoom: async (classId, peerId) => {
+      if (!classId || !peerId) return;
+      try {
+        const peerDoc = doc(db, 'workspaces', classId, 'voice_peers', peerId);
+        await deleteDoc(peerDoc);
+      } catch {}
+    },
+
+    subscribePeers: (classId, roomId = 'main', callback) => {
+      if (!classId) return () => {};
+      try {
+        const peersCol = collection(db, 'workspaces', classId, 'voice_peers');
+        return onSnapshot(peersCol, (snap) => {
+          const now = Date.now();
+          const peers = [];
+          snap.docs.forEach(d => {
+            const data = d.data();
+            if (data.roomId === roomId && (now - Number(data.lastSeen || 0)) < 45000) {
+              peers.push({ id: d.id, ...data });
+            }
+          });
+          callback(peers);
+        }, (err) => {
+          console.warn('Voice peers subscription error:', err);
+        });
+      } catch (err) {
+        console.warn('Error subscribing to voice peers:', err);
+        return () => {};
+      }
+    },
+
+    sendSignal: async (classId, { fromPeerId, toPeerId, signal }) => {
+      if (!classId || !fromPeerId || !toPeerId) return;
+      try {
+        const sigId = `${fromPeerId}_to_${toPeerId}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+        const sigDoc = doc(db, 'workspaces', classId, 'voice_signals', sigId);
+        await setDoc(sigDoc, {
+          fromPeerId,
+          toPeerId,
+          signal: JSON.stringify(signal),
+          createdAt: Date.now()
+        });
+      } catch (err) {
+        console.warn('Failed to send voice signal:', err);
+      }
+    },
+
+    subscribeSignals: (classId, myPeerId, callback) => {
+      if (!classId || !myPeerId) return () => {};
+      try {
+        const sigCol = collection(db, 'workspaces', classId, 'voice_signals');
+        return onSnapshot(sigCol, (snap) => {
+          snap.docChanges().forEach(change => {
+            if (change.type === 'added') {
+              const data = change.doc.data();
+              if (data.toPeerId === myPeerId) {
+                try {
+                  const parsedSignal = JSON.parse(data.signal);
+                  callback({
+                    id: change.doc.id,
+                    fromPeerId: data.fromPeerId,
+                    signal: parsedSignal
+                  });
+                  // Clean up delivered signal
+                  deleteDoc(change.doc.ref).catch(() => {});
+                } catch {}
+              }
+            }
+          });
+        });
+      } catch (err) {
+        console.warn('Error subscribing to voice signals:', err);
+        return () => {};
+      }
+    }
   }
 };

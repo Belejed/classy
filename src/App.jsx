@@ -1316,6 +1316,29 @@ function ClassWorkspace({
     window.scrollTo(0, 0);
   }, [activeTab]);
 
+  // Realtime Presence Heartbeat (Who's Online)
+  useEffect(() => {
+    if (!currentClass?.id || !user) return;
+
+    // Send immediate heartbeat
+    dbService.presence.heartbeat(currentClass.id, user);
+
+    const interval = setInterval(() => {
+      dbService.presence.heartbeat(currentClass.id, user);
+    }, 25000);
+
+    const handleUnload = () => {
+      dbService.presence.setOffline(currentClass.id, user.uid || user.id);
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleUnload);
+      dbService.presence.setOffline(currentClass.id, user.uid || user.id);
+    };
+  }, [currentClass?.id, user]);
+
   const isDataReady = schedules !== null && tasks !== null && files !== null && announcements !== null;
 
   if (!currentClass) {

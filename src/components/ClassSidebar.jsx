@@ -350,9 +350,9 @@ export default function ClassSidebar({
                 )}
                 {tab.id === 'forum' && (
                   <span className={`text-[9px] px-1.5 py-0.2 rounded-md font-bold uppercase tracking-wider ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                    isActive ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                   }`}>
-                    Maintenance
+                    Live
                   </span>
                 )}
               </button>
