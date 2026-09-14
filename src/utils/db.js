@@ -2718,6 +2718,20 @@ export const dbService = {
   voice: {
     joinRoom: async (classId, roomId = 'main', peerInfo) => {
       if (!classId || !peerInfo?.peerId) return;
+      try {
+        // Automatically prune any previous sessions of the same user in this workspace
+        const peersCol = collection(db, 'workspaces', classId, 'voice_peers');
+        const q = query(peersCol, where('userId', '==', peerInfo.userId || peerInfo.peerId));
+        const existingSnap = await getDocs(q);
+        existingSnap.forEach(d => {
+          if (d.id !== peerInfo.peerId) {
+            deleteDoc(d.ref).catch(() => {});
+          }
+        });
+      } catch (cleanErr) {
+        console.warn('Failed to clean previous session docs:', cleanErr);
+      }
+
       const peerDoc = doc(db, 'workspaces', classId, 'voice_peers', peerInfo.peerId);
       await setDoc(peerDoc, {
         peerId: peerInfo.peerId,
@@ -2777,7 +2791,7 @@ export const dbService = {
         const peerDoc = doc(db, 'workspaces', classId, 'voice_peers', peerId);
         await setDoc(peerDoc, { 
           role: 'listener', 
-          raisingHand: false,
+          raisingHand: false, 
           isMuted: true,
           isSpeaking: false,
           lastSeen: Date.now() 
@@ -2802,9 +2816,15 @@ export const dbService = {
           const peers = [];
           snap.docs.forEach(d => {
             const data = d.data();
-            // Allow up to 5 minutes before marking peer stale (vital for mobile background tabs and device clock skew)
-            const diff = Math.abs(now - Number(data.lastSeen || 0));
-            if (data.roomId === roomId && diff < 300000) {
+            const lastSeen = Number(data.lastSeen || data.joinedAt || 0);
+            const age = now - lastSeen;
+            // If peer hasn't sent heartbeat in > 35s, peer has closed Chrome or disconnected
+            if (age > 35000) {
+              deleteDoc(d.ref).catch(() => {});
+              return;
+            }
+
+            if (data.roomId === roomId) {
               peers.push({ id: d.id, ...data });
             }
           });

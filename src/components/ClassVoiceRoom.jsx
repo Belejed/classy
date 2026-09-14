@@ -124,7 +124,7 @@ export default function ClassVoiceRoom({
     return listeners.filter(p => p.raisingHand);
   }, [listeners]);
 
-  // Subscribe to live peers in room
+  // Subscribe to live peers in room + auto-prune stale peers
   useEffect(() => {
     if (!classId) return;
 
@@ -132,8 +132,29 @@ export default function ClassVoiceRoom({
       setActivePeers(peers);
     });
 
+    // Local prune interval: instantly drops ghost peers if inactive > 35s
+    const pruneInterval = setInterval(() => {
+      const now = Date.now();
+      setActivePeers(prev => {
+        let hasStale = false;
+        const fresh = prev.filter(p => {
+          const lastSeen = Number(p.lastSeen || p.joinedAt || 0);
+          const isStale = (now - lastSeen) > 35000;
+          if (isStale) {
+            hasStale = true;
+            if (classId) {
+              dbService.voice.leaveRoom(classId, p.peerId);
+            }
+          }
+          return !isStale;
+        });
+        return hasStale ? fresh : prev;
+      });
+    }, 5000);
+
     return () => {
       unsubscribe();
+      clearInterval(pruneInterval);
     };
   }, [classId, roomId]);
 
@@ -487,12 +508,12 @@ export default function ClassVoiceRoom({
         isDeafened: false
       });
 
-      // 3. Heartbeat
+      // 3. Heartbeat (every 10s so stale sessions are detected within 35s)
       heartbeatIntervalRef.current = setInterval(() => {
         if (myPeerIdRef.current) {
           dbService.voice.updatePeerState(classId, myPeerIdRef.current, { lastSeen: Date.now() });
         }
-      }, 15000);
+      }, 10000);
 
       // 4. Subscribe to WebRTC Signals
       signalsUnsubRef.current = dbService.voice.subscribeSignals(classId, myPeerId, async ({ fromPeerId, signal }) => {
@@ -844,6 +865,12 @@ export default function ClassVoiceRoom({
     toast(`${peerName} diturunkan kembali ke penonton.`);
   };
 
+  // Host Action: Kick / Remove Peer from Stage
+  const handleKickPeer = async (peerId, peerName) => {
+    await dbService.voice.leaveRoom(classId, peerId);
+    toast(`${peerName} telah dikeluarkan dari panggung.`, { icon: '👋' });
+  };
+
   // Speaker Self-Demote: Step Down from Stage
   const handleStepDown = async () => {
     await dbService.voice.demoteToListener(classId, myPeerId);
@@ -891,6 +918,27 @@ export default function ClassVoiceRoom({
     setShowRequestsModal(false);
     toast('Keluar dari panggung suara', { icon: '👋' });
   };
+
+  // Leave voice room immediately when closing tab, closing Chrome, or navigating away
+  useEffect(() => {
+    if (!isConnected || !classId) return;
+
+    const handleBeforeUnload = () => {
+      if (myPeerIdRef.current) {
+        try {
+          dbService.voice.leaveRoom(classId, myPeerIdRef.current);
+        } catch {}
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    };
+  }, [isConnected, classId]);
 
   // Clean up on component unmount
   useEffect(() => {
@@ -1160,15 +1208,24 @@ export default function ClassVoiceRoom({
 
                   {/* Host Quick Control for Speaker */}
                   {isHostByRole && !isMe && (
-                    <div className="pt-1.5 w-full border-t border-slate-700/50 flex items-center justify-center gap-1">
+                    <div className="pt-1.5 w-full border-t border-slate-700/50 flex items-center justify-center gap-1.5 flex-wrap">
                       <button
                         type="button"
                         onClick={() => handleDemoteSpeaker(peer.peerId, peer.userName)}
-                        className="text-[10px] text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 px-2 py-0.5 rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                        className="text-[10px] text-slate-300 hover:text-amber-300 hover:bg-amber-500/10 px-1.5 py-0.5 rounded-md transition-colors cursor-pointer flex items-center gap-1 font-medium"
                         title="Turunkan ke penonton"
                       >
                         <ArrowDownCircle size={11} />
                         <span>Turunkan</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleKickPeer(peer.peerId, peer.userName)}
+                        className="text-[10px] text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 px-1.5 py-0.5 rounded-md transition-colors cursor-pointer flex items-center gap-0.5"
+                        title="Keluarkan dari panggung"
+                      >
+                        <X size={11} />
+                        <span>Keluarkan</span>
                       </button>
                     </div>
                   )}
