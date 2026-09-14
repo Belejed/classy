@@ -46,11 +46,15 @@ export default function ClassVoiceRoom({
 
   // WebRTC Refs
   const localStreamRef = useRef(null);
-  const audioContextRef = useRef(null);
+  const audioContextRef = useRef(null); // For local mic analyser
+  const mixerContextRef = useRef(null); // Centralized Web Audio mixer for all peers
+  const masterGainRef = useRef(null); // Master GainNode connected to speaker output
+  const remoteAudioNodesRef = useRef(new Map()); // peerId -> { sourceNode, gainNode, trackId, stream }
+  const remoteAudiosRef = useRef(new Map()); // peerId -> HTMLAudioElement (muted RTP keepalive)
+  const bgSilentAudioRef = useRef(null); // Silent loop to prevent tab throttling
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
   const peerConnectionsRef = useRef(new Map()); // peerId -> RTCPeerConnection
-  const remoteAudiosRef = useRef(new Map()); // peerId -> HTMLAudioElement
   const pendingCandidatesRef = useRef(new Map()); // peerId -> RTCIceCandidateInit[]
   const signalsUnsubRef = useRef(null);
   const wakeLockRef = useRef(null);
@@ -168,64 +172,112 @@ export default function ClassVoiceRoom({
     }
   };
 
-  // Helper to ensure remote audio element exists and is playing
+  // Clean up remote audio nodes and dummy elements
+  const cleanupRemoteAudio = (targetPeerId) => {
+    const audioNode = remoteAudioNodesRef.current.get(targetPeerId);
+    if (audioNode) {
+      try {
+        audioNode.sourceNode.disconnect();
+        audioNode.gainNode.disconnect();
+      } catch {}
+      remoteAudioNodesRef.current.delete(targetPeerId);
+    }
+    const dummyAudio = remoteAudiosRef.current.get(targetPeerId);
+    if (dummyAudio) {
+      try {
+        dummyAudio.pause();
+        dummyAudio.srcObject = null;
+        dummyAudio.remove();
+      } catch {}
+      remoteAudiosRef.current.delete(targetPeerId);
+    }
+    pendingCandidatesRef.current.delete(targetPeerId);
+  };
+
+  // Centralized Web Audio Mixer: routes remote tracks through Web Audio API
   const handleRemoteTrack = (targetPeerId, track, stream) => {
     if (!track) return;
-    let audio = remoteAudiosRef.current.get(targetPeerId);
-    if (!audio) {
-      audio = document.createElement('audio');
-      audio.autoplay = true;
-      audio.playsInline = true;
-      audio.setAttribute('playsinline', '');
-      audio.setAttribute('autoplay', '');
-      // Append directly to document.body so CSS display:none on any container NEVER silences the audio
-      audio.style.position = 'fixed';
-      audio.style.top = '-9999px';
-      audio.style.left = '-9999px';
-      audio.style.width = '1px';
-      audio.style.height = '1px';
-      audio.style.opacity = '0.001';
-      audio.style.pointerEvents = 'none';
-      document.body.appendChild(audio);
-      remoteAudiosRef.current.set(targetPeerId, audio);
-    }
 
-    const mediaStream = (stream && stream.getTracks().length > 0) 
+    // 1. Prepare MediaStream
+    const mediaStream = (stream && stream.getAudioTracks().length > 0) 
       ? stream 
       : new MediaStream([track]);
-    
-    audio.srcObject = mediaStream;
-    audio.volume = 1.0;
-    audio.muted = isDeafenedRef.current;
 
-    const playAudio = () => {
-      if (!isDeafenedRef.current) {
-        audio.muted = false;
-        audio.volume = 1.0;
-        const p = audio.play();
-        if (p && typeof p.catch === 'function') {
-          p.catch(playErr => {
-            console.warn(`[ClassVoiceRoom] Audio play error from ${targetPeerId}:`, playErr);
-            setAutoplayBlocked(true);
+    // 2. Connect to Web Audio Mixer
+    const ctx = mixerContextRef.current;
+    if (ctx && ctx.state !== 'closed') {
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+
+      const existing = remoteAudioNodesRef.current.get(targetPeerId);
+      if (!existing || existing.trackId !== track.id) {
+        if (existing) {
+          try {
+            existing.sourceNode.disconnect();
+            existing.gainNode.disconnect();
+          } catch {}
+        }
+
+        try {
+          const sourceNode = ctx.createMediaStreamSource(mediaStream);
+          const gainNode = ctx.createGain();
+          gainNode.gain.value = 1.0;
+          sourceNode.connect(gainNode);
+
+          if (masterGainRef.current) {
+            gainNode.connect(masterGainRef.current);
+          } else {
+            gainNode.connect(ctx.destination);
+          }
+
+          remoteAudioNodesRef.current.set(targetPeerId, {
+            sourceNode,
+            gainNode,
+            trackId: track.id,
+            stream: mediaStream
           });
+          console.log(`[ClassVoiceRoom] Web Audio Mixer connected stream from ${targetPeerId}`);
+        } catch (err) {
+          console.warn(`[ClassVoiceRoom] Web Audio connect failed for ${targetPeerId}:`, err);
         }
       }
-    };
+    }
 
-    track.onunmute = () => {
-      console.log(`[ClassVoiceRoom] Remote track onunmute from ${targetPeerId}`);
-      audio.srcObject = new MediaStream([track]);
-      playAudio();
-    };
-
-    playAudio();
+    // 3. Keep Chromium WebRTC audio pipeline alive with a muted dummy element
+    let dummy = remoteAudiosRef.current.get(targetPeerId);
+    if (!dummy) {
+      dummy = document.createElement('audio');
+      dummy.muted = true; // Muted: prevents OS audio focus stealing & double sound
+      dummy.autoplay = true;
+      dummy.playsInline = true;
+      dummy.setAttribute('playsinline', '');
+      dummy.setAttribute('autoplay', '');
+      dummy.style.position = 'fixed';
+      dummy.style.top = '-9999px';
+      dummy.style.left = '-9999px';
+      dummy.style.width = '1px';
+      dummy.style.height = '1px';
+      dummy.style.opacity = '0.001';
+      dummy.style.pointerEvents = 'none';
+      document.body.appendChild(dummy);
+      remoteAudiosRef.current.set(targetPeerId, dummy);
+    }
+    dummy.srcObject = mediaStream;
+    dummy.play().catch(() => {});
   };
 
   // Create RTCPeerConnection Helper
   const createPeerConnection = (targetPeerId) => {
     let pc = peerConnectionsRef.current.get(targetPeerId);
-    if (pc && pc.connectionState !== 'closed') {
+    if (pc && pc.connectionState !== 'closed' && pc.connectionState !== 'failed') {
       return pc;
+    }
+
+    if (pc) {
+      try { pc.close(); } catch {}
+      peerConnectionsRef.current.delete(targetPeerId);
+      cleanupRemoteAudio(targetPeerId);
     }
 
     pc = new RTCPeerConnection(ICE_SERVERS);
@@ -257,6 +309,17 @@ export default function ClassVoiceRoom({
       console.log(`[ClassVoiceRoom] Connection state with ${targetPeerId}: ${pc.connectionState}`);
       if (pc.connectionState === 'failed') {
         try { pc.restartIce(); } catch {}
+        setTimeout(() => {
+          const cur = peerConnectionsRef.current.get(targetPeerId);
+          if (cur && cur.connectionState === 'failed') {
+            try { cur.close(); } catch {}
+            peerConnectionsRef.current.delete(targetPeerId);
+            cleanupRemoteAudio(targetPeerId);
+            if (myPeerIdRef.current && myPeerIdRef.current < targetPeerId) {
+              initiatePeerConnection(targetPeerId);
+            }
+          }
+        }, 4000);
       }
     };
 
@@ -288,31 +351,42 @@ export default function ClassVoiceRoom({
       return;
     }
 
-    // Immediately trigger user-gesture audio unlock so browser won't block incoming WebRTC audio later
+    // Play join call chime
     soundFX.playJoinCall();
+
+    // 1. Initialize Web Audio Mixer during user-gesture click
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) {
-        const tempCtx = new AudioCtx();
-        tempCtx.resume().then(() => {
-          try { tempCtx.close(); } catch {}
-        }).catch(() => {});
+      if (!mixerContextRef.current || mixerContextRef.current.state === 'closed') {
+        mixerContextRef.current = new AudioCtx();
       }
-    } catch {}
+      if (mixerContextRef.current.state === 'suspended') {
+        await mixerContextRef.current.resume();
+      }
+      const masterGain = mixerContextRef.current.createGain();
+      masterGain.gain.value = isDeafenedRef.current ? 0 : 1.0;
+      masterGain.connect(mixerContextRef.current.destination);
+      masterGainRef.current = masterGain;
+    } catch (e) {
+      console.warn('Mixer AudioContext init:', e);
+    }
 
-    try {
-      const dummyAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-      dummyAudio.volume = 0.01;
-      dummyAudio.play().then(() => {
-        try { dummyAudio.pause(); dummyAudio.remove(); } catch {}
-      }).catch(() => {});
-    } catch {}
+    // Keep mobile / desktop tab audio alive
+    if (!bgSilentAudioRef.current) {
+      try {
+        const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+        silentAudio.loop = true;
+        silentAudio.volume = 0.01;
+        silentAudio.play().catch(() => {});
+        bgSilentAudioRef.current = silentAudio;
+      } catch {}
+    }
 
     setIsConnecting(true);
     myPeerIdRef.current = myPeerId;
 
     try {
-      // 1. Capture microphone immediately
+      // 2. Capture microphone immediately
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
         video: false 
@@ -320,7 +394,7 @@ export default function ClassVoiceRoom({
       localStreamRef.current = stream;
       setupAudioAnalyser(stream);
 
-      // 2. Register Peer in Firestore
+      // 3. Register Peer in Firestore
       await dbService.voice.joinRoom(classId, roomId, {
         peerId: myPeerId,
         userId: currentUser.uid || currentUser.id,
@@ -332,21 +406,23 @@ export default function ClassVoiceRoom({
         isDeafened: false
       });
 
-      // 3. Heartbeat every 10s so stale sessions are detected within 35s
+      // 4. Heartbeat every 10s so stale sessions are detected within 35s
       heartbeatIntervalRef.current = setInterval(() => {
         if (myPeerIdRef.current) {
           dbService.voice.updatePeerState(classId, myPeerIdRef.current, { lastSeen: Date.now() });
         }
       }, 10000);
 
-      // 4. Subscribe to WebRTC Signals
+      // 5. Subscribe to WebRTC Signals
       signalsUnsubRef.current = dbService.voice.subscribeSignals(classId, myPeerId, async ({ fromPeerId, signal }) => {
         if (fromPeerId === myPeerId) return;
 
         let pc = peerConnectionsRef.current.get(fromPeerId);
 
         if (signal.type === 'offer') {
-          if (!pc) pc = createPeerConnection(fromPeerId);
+          if (!pc || pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+            pc = createPeerConnection(fromPeerId);
+          }
 
           // Handle offer glare/collision gracefully
           if (pc.signalingState !== 'stable') {
@@ -449,27 +525,20 @@ export default function ClassVoiceRoom({
     activePeers.forEach((peer) => {
       if (peer.peerId === myPeerId) return;
 
-      if (!peerConnectionsRef.current.has(peer.peerId)) {
+      const existingPc = peerConnectionsRef.current.get(peer.peerId);
+      if (!existingPc || existingPc.connectionState === 'closed' || existingPc.connectionState === 'failed') {
         if (myPeerId < peer.peerId) {
           initiatePeerConnection(peer.peerId);
         }
       }
     });
 
-    // Cleanup closed peer connections
+    // Cleanup closed / failed peer connections
     peerConnectionsRef.current.forEach((pc, pId) => {
-      if (pc.connectionState === 'closed') {
+      if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+        try { pc.close(); } catch {}
         peerConnectionsRef.current.delete(pId);
-        const audioEl = remoteAudiosRef.current.get(pId);
-        if (audioEl) {
-          try {
-            audioEl.pause();
-            audioEl.srcObject = null;
-            audioEl.remove();
-          } catch {}
-          remoteAudiosRef.current.delete(pId);
-        }
-        pendingCandidatesRef.current.delete(pId);
+        cleanupRemoteAudio(pId);
       }
     });
   }, [activePeers, isConnected, myPeerId]);
@@ -522,14 +591,12 @@ export default function ClassVoiceRoom({
     if (!isConnected) return;
 
     const handleTabSwitch = () => {
+      if (mixerContextRef.current && mixerContextRef.current.state === 'suspended') {
+        mixerContextRef.current.resume().catch(() => {});
+      }
       if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
         audioContextRef.current.resume().catch(() => {});
       }
-      remoteAudiosRef.current.forEach(audio => {
-        if (audio && audio.paused && !isDeafened) {
-          audio.play().catch(() => {});
-        }
-      });
       if (classId && myPeerIdRef.current) {
         dbService.voice.updatePeerState(classId, myPeerIdRef.current, { lastSeen: Date.now() });
       }
@@ -542,7 +609,7 @@ export default function ClassVoiceRoom({
       document.removeEventListener('visibilitychange', handleTabSwitch);
       window.removeEventListener('focus', handleTabSwitch);
     };
-  }, [isConnected, isDeafened, classId]);
+  }, [isConnected, classId]);
 
   // Toggle Mute
   const handleToggleMute = () => {
@@ -567,33 +634,27 @@ export default function ClassVoiceRoom({
     setIsDeafened(nextDeafen);
     isDeafenedRef.current = nextDeafen;
 
-    remoteAudiosRef.current.forEach(audio => {
-      if (audio) audio.muted = nextDeafen;
-    });
+    if (masterGainRef.current) {
+      masterGainRef.current.gain.value = nextDeafen ? 0 : 1.0;
+    }
 
     if (classId && myPeerIdRef.current) {
       dbService.voice.updatePeerState(classId, myPeerIdRef.current, { isDeafened: nextDeafen });
     }
-    toast(nextDeafen ? 'Audio dinonaktifkan' : 'Audio diaktifkan', {
+    toast(nextDeafen ? 'Audio dinonaktifkan (Bisu)' : 'Audio diaktifkan', {
       icon: nextDeafen ? '🎧🔇' : '🎧'
     });
   };
 
   // Unlock Audio if blocked by browser autoplay policy
   const handleUnlockAudio = () => {
+    if (mixerContextRef.current && mixerContextRef.current.state === 'suspended') {
+      mixerContextRef.current.resume().catch(() => {});
+    }
     if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
       audioContextRef.current.resume().catch(() => {});
     }
     soundFX.getAudioContext();
-
-    remoteAudiosRef.current.forEach(audio => {
-      if (audio) {
-        audio.muted = false;
-        audio.volume = 1.0;
-        audio.play().catch(e => console.warn('[ClassVoiceRoom] Unlock play error:', e));
-      }
-    });
-
     setAutoplayBlocked(false);
     toast.success('Audio obrolan diaktifkan! 🔊');
   };
@@ -617,6 +678,19 @@ export default function ClassVoiceRoom({
       try { audioContextRef.current.close(); } catch {}
       audioContextRef.current = null;
     }
+    if (mixerContextRef.current) {
+      try { mixerContextRef.current.close(); } catch {}
+      mixerContextRef.current = null;
+    }
+    masterGainRef.current = null;
+
+    if (bgSilentAudioRef.current) {
+      try {
+        bgSilentAudioRef.current.pause();
+        bgSilentAudioRef.current.src = '';
+      } catch {}
+      bgSilentAudioRef.current = null;
+    }
 
     if (signalsUnsubRef.current) {
       signalsUnsubRef.current();
@@ -627,6 +701,14 @@ export default function ClassVoiceRoom({
       try { pc.close(); } catch {}
     });
     peerConnectionsRef.current.clear();
+
+    remoteAudioNodesRef.current.forEach(node => {
+      try {
+        node.sourceNode.disconnect();
+        node.gainNode.disconnect();
+      } catch {}
+    });
+    remoteAudioNodesRef.current.clear();
 
     remoteAudiosRef.current.forEach(audio => {
       try {

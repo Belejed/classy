@@ -2858,31 +2858,32 @@ export const dbService = {
       if (!classId || !myPeerId) return () => {};
       try {
         const sigCol = collection(db, 'workspaces', classId, 'voice_signals');
-        return onSnapshot(sigCol, (snap) => {
+        const q = query(sigCol, where('toPeerId', '==', myPeerId));
+        return onSnapshot(q, (snap) => {
           const now = Date.now();
           snap.docChanges().forEach(change => {
             if (change.type === 'added') {
               const data = change.doc.data();
-              if (data.toPeerId === myPeerId) {
-                // Ignore stale signals older than 10 minutes (prevents clock skew from deleting live signals)
-                const age = Math.abs(now - Number(data.createdAt || 0));
-                if (data.createdAt && age > 600000) {
-                  deleteDoc(change.doc.ref).catch(() => {});
-                  return;
-                }
-                try {
-                  const parsedSignal = JSON.parse(data.signal);
-                  callback({
-                    id: change.doc.id,
-                    fromPeerId: data.fromPeerId,
-                    signal: parsedSignal
-                  });
-                  // Clean up delivered signal
-                  deleteDoc(change.doc.ref).catch(() => {});
-                } catch {}
+              // Ignore stale signals older than 10 minutes
+              const age = Math.abs(now - Number(data.createdAt || 0));
+              if (data.createdAt && age > 600000) {
+                deleteDoc(change.doc.ref).catch(() => {});
+                return;
               }
+              try {
+                const parsedSignal = JSON.parse(data.signal);
+                callback({
+                  id: change.doc.id,
+                  fromPeerId: data.fromPeerId,
+                  signal: parsedSignal
+                });
+                // Clean up delivered signal
+                deleteDoc(change.doc.ref).catch(() => {});
+              } catch {}
             }
           });
+        }, (err) => {
+          console.warn('Voice signals subscription error:', err);
         });
       } catch (err) {
         console.warn('Error subscribing to voice signals:', err);
