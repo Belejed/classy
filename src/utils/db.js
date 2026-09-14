@@ -17,6 +17,8 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged as onFirebaseAuthStateChanged,
   sendPasswordResetEmail,
+  confirmPasswordReset as confirmFirebasePasswordReset,
+  verifyPasswordResetCode as verifyFirebasePasswordResetCode,
   updatePassword as updateFirebasePassword,
   updateEmail as updateFirebaseEmail,
   updateProfile as updateFirebaseProfile
@@ -583,8 +585,32 @@ export const authService = {
 
   resetPassword: async (email) => {
     try {
-      await sendPasswordResetEmail(auth, email.trim());
+      // Direct reset email to the current domain's reset password page if in browser
+      const actionCodeSettings = (typeof window !== 'undefined' && window.location?.origin) ? {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: true
+      } : undefined;
+
+      await sendPasswordResetEmail(auth, email.trim(), actionCodeSettings);
       return { success: true };
+    } catch (err) {
+      throw new Error(getFriendlyAuthErrorMessage(err));
+    }
+  },
+
+  confirmPasswordReset: async (oobCode, newPassword) => {
+    try {
+      await confirmFirebasePasswordReset(auth, oobCode, newPassword);
+      return { success: true };
+    } catch (err) {
+      throw new Error(getFriendlyAuthErrorMessage(err));
+    }
+  },
+
+  verifyPasswordResetCode: async (oobCode) => {
+    try {
+      const email = await verifyFirebasePasswordResetCode(auth, oobCode);
+      return email;
     } catch (err) {
       throw new Error(getFriendlyAuthErrorMessage(err));
     }

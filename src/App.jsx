@@ -144,12 +144,19 @@ export default function App() {
     };
   }, []);
 
-  // Intercept recovery tokens arriving on any path (e.g. /login#access_token=...&type=recovery)
+  // Intercept recovery tokens arriving on any path (Firebase oobCode or reset tokens)
   useEffect(() => {
     const hash = window.location.hash || '';
     const search = window.location.search || '';
-    if (hash.includes('type=recovery') || search.includes('type=recovery') || hash.includes('reset')) {
-      navigate('/reset-password' + hash, { replace: true });
+    if (
+      hash.includes('type=recovery') || 
+      hash.includes('reset') || 
+      hash.includes('oobCode') ||
+      search.includes('type=recovery') || 
+      search.includes('mode=resetPassword') ||
+      search.includes('oobCode')
+    ) {
+      navigate('/reset-password' + search + hash, { replace: true });
     }
   }, []);
 

@@ -53,14 +53,21 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
     }
   }, [location.pathname]);
 
-  // Detect recovery event or URL hash on load
+  // Detect recovery event or URL hash / query on load
   useEffect(() => {
     const hash = window.location.hash || '';
     const search = window.location.search || '';
-    if (hash.includes('type=recovery') || hash.includes('reset') || search.includes('type=recovery') || search.includes('mode=resetPassword')) {
+    if (
+      hash.includes('type=recovery') || 
+      hash.includes('reset') || 
+      hash.includes('oobCode') ||
+      search.includes('type=recovery') || 
+      search.includes('mode=resetPassword') ||
+      search.includes('oobCode')
+    ) {
       setMode('update_password');
       if (location.pathname !== '/reset-password') {
-        navigate('/reset-password' + hash, { replace: true });
+        navigate('/reset-password' + search + hash, { replace: true });
       }
     }
   }, [location.pathname]);
@@ -106,20 +113,38 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
 
     setLoading(true);
     try {
-      await authService.updatePassword(newPassword);
-      toast.success('Password berhasil diperbarui!');
-      
-      const currentUser = await authService.getCurrentUser();
-      if (currentUser && onAuthSuccess) {
-        onAuthSuccess(currentUser);
-      } else {
+      // Check if URL contains Firebase oobCode (from email reset link)
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, '?'));
+      const oobCode = searchParams.get('oobCode') || hashParams.get('oobCode') || searchParams.get('code') || hashParams.get('code');
+
+      if (oobCode) {
+        await authService.confirmPasswordReset(oobCode, newPassword);
+        toast.success('Password berhasil diperbarui! Silakan login dengan password baru.');
+        setMode('login');
         navigate('/login');
+        return;
       }
+
+      // If user is already authenticated in session
+      const currentUser = await authService.getCurrentUser();
+      if (currentUser) {
+        await authService.updatePassword(newPassword);
+        toast.success('Password berhasil diperbarui!');
+        if (onAuthSuccess) {
+          onAuthSuccess(currentUser);
+        } else {
+          navigate('/lobby');
+        }
+        return;
+      }
+
+      toast.error('Tautan reset password tidak valid atau kedaluwarsa. Silakan minta tautan baru.');
     } catch (err) {
       console.error('Update password error:', err);
       const msg = err.message || '';
-      if (msg.toLowerCase().includes('session') || msg.toLowerCase().includes('token') || msg.toLowerCase().includes('missing')) {
-        toast.error('Sesi pemulihan tidak ditemukan atau kedaluwarsa. Silakan minta tautan baru di Lupa Password.');
+      if (msg.toLowerCase().includes('session') || msg.toLowerCase().includes('token') || msg.toLowerCase().includes('code') || msg.toLowerCase().includes('expired')) {
+        toast.error('Tautan pemulihan tidak valid atau kedaluwarsa. Silakan minta tautan baru di Lupa Password.');
       } else {
         toast.error(msg || 'Gagal memperbarui password');
       }
@@ -462,8 +487,8 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
 
               <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] text-[11px] text-[#475569] text-left space-y-1">
                 <p className="font-semibold text-[#0F172A]">Petunjuk:</p>
-                <p>1. Buka email dari Classy / Supabase Auth.</p>
-                <p>2. Klik tombol tautan <strong>Reset Password</strong> di dalam email.</p>
+                <p>1. Buka email reset password yang dikirimkan oleh Classy.</p>
+                <p>2. Klik tautan <strong>Reset Password</strong> di dalam email.</p>
                 <p>3. Anda akan diarahkan ke halaman pembuatan password baru.</p>
               </div>
 
