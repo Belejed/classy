@@ -530,11 +530,11 @@ export default function ClassVoiceRoom({
                   ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40' 
                   : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'
               }`}>
-                {isConnected ? '🔴 LIVE STAGE' : 'Discord Stage Channel'}
+                {isConnected ? '🔴 LIVE' : 'Panggung Suara'}
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Format panggung: pembicara diizinkan bicara, penonton menyimak & dapat mengangkat tangan (Raise Hand).
+              Format panggung: pembicara diizinkan bicara, penonton menyimak & dapat mengangkat tangan untuk berbicara.
             </p>
           </div>
         </div>
@@ -549,7 +549,7 @@ export default function ClassVoiceRoom({
               className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <PhoneCall size={14} />
-              <span>{isConnecting ? 'Menghubungkan...' : (isHostByRole ? 'Mulai Stage (Host)' : 'Masuk Stage (Menyimak)')}</span>
+              <span>{isConnecting ? 'Menghubungkan...' : (isHostByRole ? 'Buka Panggung (Host)' : 'Masuk (Menyimak)')}</span>
             </button>
           ) : (
             <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">

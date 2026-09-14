@@ -133,7 +133,7 @@ export default function ChangelogModal({ isOpen, onClose }) {
         {/* Changelog Highlights List */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-4.5 custom-scrollbar divide-y divide-slate-100">
           
-          {/* 1. Stage Channel Discord */}
+          {/* 1. Stage Panggung Suara */}
           <div className="pt-3.5 first:pt-0 space-y-1.5 text-left">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
@@ -141,7 +141,7 @@ export default function ChangelogModal({ isOpen, onClose }) {
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span>Discord-Style Stage Channel (Voice 2.0)</span>
+                  <span>Panggung Suara Kelas (Audio Stage)</span>
                   <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Utama</span>
                 </h4>
               </div>
@@ -165,7 +165,7 @@ export default function ChangelogModal({ isOpen, onClose }) {
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed pl-10.5">
-              Dilengkapi efek suara sintetis instan tanpa unduhan: nada masuk & keluar call khas Discord, nada denting angkat tangan, detak roda mekanik kocok nama, dan musik selebrasi kemenangan (<span className="font-semibold text-slate-700">Ta-da! 🎉</span>).
+              Dilengkapi efek suara sintetis instan tanpa unduhan: nada masuk & keluar call yang jernih, nada denting angkat tangan, detak roda mekanik kocok nama, dan musik selebrasi kemenangan (<span className="font-semibold text-slate-700">Ta-da! 🎉</span>).
             </p>
           </div>
 

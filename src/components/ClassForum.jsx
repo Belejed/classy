@@ -348,18 +348,18 @@ export default function ClassForum({
                 {onlineUsers.length} Online
               </span>
             </div>
-            <p className="text-xs text-[#64748B]">Kumpulan alat bantu Komti & mahasiswa: acak kelompok, acak materi, kocok giliran, dan voice lounge.</p>
+            <p className="text-xs text-[#64748B]">Kumpulan alat bantu Komti & mahasiswa: acak kelompok, acak materi, kocok giliran, dan panggung suara kelas.</p>
           </div>
         </div>
       </div>
 
-      {/* 2. DISCORD-STYLE STAGE CHANNEL (WEBRTC AUDIO) */}
+      {/* 2. PANGGUNG SUARA KELAS (WEBRTC AUDIO) */}
       <ClassVoiceRoom 
         classId={classId} 
         currentUser={currentUser} 
         currentClass={currentClass}
         roomId={`stage_${classId}`} 
-        roomName={`🎙️ Stage Kelas - ${currentClass?.name || 'Kelas'}`} 
+        roomName={`🎙️ Panggung Suara - ${currentClass?.name || 'Kelas'}`} 
       />
 
       {/* 3. TOOL NAVIGATION TABS */}
