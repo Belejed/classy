@@ -15,7 +15,8 @@ import {
   Crown,
   FileSpreadsheet,
   Layers,
-  MessageSquare
+  MessageSquare,
+  ExternalLink
 } from 'lucide-react';
 import ModalPortal from './ModalPortal';
 import { 
