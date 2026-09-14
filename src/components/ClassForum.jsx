@@ -747,12 +747,11 @@ export default function ClassForum({
 
       {/* 4. MODAL: CREATE GROUP MANUAL */}
       {showCreateGroupModal && (
-        <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-            <div 
-              className="bg-white rounded-3xl shadow-2xl border border-[#E2E8F0] w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-              onClick={(e) => e.stopPropagation()}
-            >
+        <ModalPortal onClose={() => setShowCreateGroupModal(false)} maxWidth="max-w-md">
+          <div 
+            className="bg-white rounded-3xl shadow-2xl border border-[#E2E8F0] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
               <div className="px-6 py-5 border-b border-[#E2E8F0] flex items-center justify-between">
                 <h3 className="text-base font-bold text-[#0F172A]">Buat Kelompok Baru</h3>
                 <button
@@ -805,7 +804,6 @@ export default function ClassForum({
                 </div>
               </form>
             </div>
-          </div>
         </ModalPortal>
       )}
 

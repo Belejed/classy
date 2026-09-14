@@ -29,7 +29,11 @@ export default function ClassGroupRandomizerModal({
 
   // 1. Selection State
   const [selectedEmails, setSelectedEmails] = useState(() => {
-    return new Set(members.map(m => (m.email || m.userId || m.name).toLowerCase().trim()));
+    return new Set(
+      (members || [])
+        .map(m => String(m?.email || m?.userId || m?.id || m?.name || '').toLowerCase().trim())
+        .filter(Boolean)
+    );
   });
   const [searchMember, setSearchMember] = useState('');
 
@@ -47,24 +51,25 @@ export default function ClassGroupRandomizerModal({
 
   // Filtered members list for checklist
   const filteredMembers = useMemo(() => {
-    if (!searchMember.trim()) return members;
+    if (!searchMember.trim()) return members || [];
     const q = searchMember.toLowerCase().trim();
-    return members.filter(m => 
-      (m.name || '').toLowerCase().includes(q) ||
-      (m.email || '').toLowerCase().includes(q) ||
-      (m.studentId || m.nim || '').toLowerCase().includes(q)
+    return (members || []).filter(m => 
+      String(m?.name || '').toLowerCase().includes(q) ||
+      String(m?.email || '').toLowerCase().includes(q) ||
+      String(m?.studentId || m?.nim || '').toLowerCase().includes(q)
     );
   }, [members, searchMember]);
 
   const activePool = useMemo(() => {
-    return members.filter(m => {
-      const key = (m.email || m.userId || m.name).toLowerCase().trim();
-      return selectedEmails.has(key);
+    return (members || []).filter(m => {
+      const key = String(m?.email || m?.userId || m?.id || m?.name || '').toLowerCase().trim();
+      return key && selectedEmails.has(key);
     });
   }, [members, selectedEmails]);
 
   const toggleMember = (m) => {
-    const key = (m.email || m.userId || m.name).toLowerCase().trim();
+    const key = String(m?.email || m?.userId || m?.id || m?.name || '').toLowerCase().trim();
+    if (!key) return;
     const next = new Set(selectedEmails);
     if (next.has(key)) {
       next.delete(key);
@@ -75,7 +80,11 @@ export default function ClassGroupRandomizerModal({
   };
 
   const selectAll = () => {
-    setSelectedEmails(new Set(members.map(m => (m.email || m.userId || m.name).toLowerCase().trim())));
+    setSelectedEmails(new Set(
+      (members || [])
+        .map(m => String(m?.email || m?.userId || m?.id || m?.name || '').toLowerCase().trim())
+        .filter(Boolean)
+    ));
   };
 
   const deselectAll = () => {
@@ -187,12 +196,11 @@ export default function ClassGroupRandomizerModal({
   };
 
   return (
-    <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-        <div 
-          className="bg-white rounded-3xl shadow-2xl border border-[#E2E8F0] w-full max-w-3xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200"
-          onClick={(e) => e.stopPropagation()}
-        >
+    <ModalPortal onClose={onClose} maxWidth="max-w-2xl sm:max-w-3xl">
+      <div 
+        className="bg-white rounded-3xl shadow-2xl border border-[#E2E8F0] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
           {/* Header */}
           <div className="px-6 py-5 border-b border-[#E2E8F0] flex items-center justify-between bg-gradient-to-r from-amber-50/50 via-white to-orange-50/30">
             <div className="flex items-center gap-3">
@@ -508,9 +516,7 @@ export default function ClassGroupRandomizerModal({
               )}
             </div>
           </div>
-
         </div>
-      </div>
     </ModalPortal>
   );
 }
