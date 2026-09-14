@@ -59,10 +59,32 @@
 
     <!-- Microsoft / Windows Tile -->
     <meta name="msapplication-TileColor" content="#FDFBF7" />
-    <meta name="msapplication-TileImage" content="/icon-192.png" />
+    <script>
+      // Automatically refresh if browser cached an old bundle that 404s after new deployment
+      window.addEventListener('error', function(e) {
+        var msg = (e && e.message) ? String(e.message).toLowerCase() : '';
+        if (msg.includes('dynamically imported module') || msg.includes('loading chunk') || msg.includes('importing a module script failed')) {
+          var key = 'classy_last_chunk_reload';
+          var last = parseInt(sessionStorage.getItem(key) || '0', 10);
+          if (Date.now() - last > 8000) {
+            sessionStorage.setItem(key, String(Date.now()));
+            window.location.reload();
+          }
+        }
+      });
+    </script>
   </head>
   <body class="notranslate" translate="no">
-    <div id="root" class="notranslate" translate="no"></div>
+    <div id="root" class="notranslate" translate="no">
+      <div style="min-height:100vh;width:100vw;display:flex;align-items:center;justify-content:center;background:#FDFBF7;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+          <img src="/logo.png" alt="Classy" style="width:48px;height:48px;object-fit:contain;" onerror="this.style.display='none'" />
+          <div style="width:22px;height:22px;border:2.5px solid #E2E8F0;border-top-color:#4F46E5;border-radius:50%;animation:classySpin 0.8s linear infinite;"></div>
+          <span style="font-size:12px;color:#64748B;font-weight:500;">Memuat Classy...</span>
+        </div>
+      </div>
+      <style>@keyframes classySpin{to{transform:rotate(360deg)}}</style>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

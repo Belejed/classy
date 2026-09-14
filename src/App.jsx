@@ -140,7 +140,7 @@ export default function App() {
     // Safety timeout: Ensure users on cellular data or poor connections are never trapped on splash screen
     const safetyTimer = setTimeout(() => {
       setAuthLoading(false);
-    }, 2500);
+    }, 800);
 
     const unsubscribe = authService.onAuthStateChanged((currentUser) => {
       clearTimeout(safetyTimer);
@@ -954,12 +954,26 @@ export default function App() {
     toast.success('Berhasil keluar.');
   };
 
-  // Loading Screen: Minimalist breathing logo while resolving auth session
+  // Loading Screen: Visible loading spinner and logo with manual bypass if connection lags
   if (authLoading) {
     return (
-      <div className="h-screen w-screen bg-[#FDFBF7] flex items-center justify-center font-sans select-none">
-        <div className="w-20 h-20 flex items-center justify-center animate-classy-breathing">
-          <img src="/logo.png" alt="Classy" className="w-full h-full object-contain" />
+      <div className="min-h-screen w-full bg-[#FDFBF7] flex flex-col items-center justify-center font-sans select-none p-4">
+        <div className="flex flex-col items-center gap-3">
+          <img 
+            src="/logo.png" 
+            alt="Classy" 
+            className="w-12 h-12 object-contain" 
+            onError={(e) => { e.target.style.display = 'none'; }} 
+          />
+          <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+          <span className="text-xs text-slate-500 font-medium tracking-tight">Memuat Classy...</span>
+          <button
+            type="button"
+            onClick={() => setAuthLoading(false)}
+            className="mt-3 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-[11px] font-semibold text-slate-600 transition-colors cursor-pointer shadow-2xs"
+          >
+            Lanjut ke Halaman Login &rarr;
+          </button>
         </div>
       </div>
     );
