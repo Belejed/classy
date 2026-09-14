@@ -125,6 +125,27 @@ export const getAttachmentDirectImageUrl = (att) => {
   return rawUrl;
 };
 
+// Helper to reliably check if a submission belongs to the current user (by UID or Email, individual or group)
+export const isUserMatchingSubmission = (sub, currentUser) => {
+  if (!sub || !currentUser) return false;
+  const uid = currentUser.uid || currentUser.id;
+  const email = (currentUser.email || '').toLowerCase().trim();
+
+  if (uid && sub.userId === uid) return true;
+  if (email && ((sub.userEmail && sub.userEmail.toLowerCase().trim() === email) || (sub.email && sub.email.toLowerCase().trim() === email))) return true;
+
+  if (Array.isArray(sub.groupMembers)) {
+    return sub.groupMembers.some(m => {
+      const mId = m.userId || m.uid || m.id;
+      const mEmail = (m.userEmail || m.email || '').toLowerCase().trim();
+      if (uid && mId === uid) return true;
+      if (email && mEmail === email) return true;
+      return false;
+    });
+  }
+  return false;
+};
+
 export default function ClassTasks({
   currentClass,
   currentUser,
@@ -669,7 +690,7 @@ export default function ClassTasks({
   // Overdue count for current user (with group member check)
   const overdueTasksCount = useMemo(() => {
     return (tasks || []).filter(t => {
-      const userSub = t.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => m.userId === currentUser?.uid));
+      const userSub = t.submissions?.find(s => isUserMatchingSubmission(s, currentUser));
       const isFileMissing = userSub && isSubmissionFileMissing(userSub);
       const isSubmitted = !!userSub && !isFileMissing;
       return !isSubmitted && isTaskOverdue(t.dueDate, t.dueTime);
@@ -681,7 +702,7 @@ export default function ClassTasks({
     const matchesSearch = (t.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                           (t.course || '').toLowerCase().includes(searchQuery.toLowerCase());
     
-    const userSub = t.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => m.userId === currentUser?.uid));
+    const userSub = t.submissions?.find(s => isUserMatchingSubmission(s, currentUser));
     const isFileMissing = userSub && isSubmissionFileMissing(userSub);
     const isSubmitted = !!userSub && !isFileMissing;
     const isOverdue = isTaskOverdue(t.dueDate, t.dueTime);
@@ -1714,7 +1735,7 @@ export default function ClassTasks({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredTasks.map((task) => {
-            const userSub = task.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => m.userId === currentUser?.uid));
+            const userSub = task.submissions?.find(s => isUserMatchingSubmission(s, currentUser));
             const isFileMissing = userSub && isSubmissionFileMissing(userSub);
             const isSubmitted = !!userSub && !isFileMissing;
             const isOverdue = isTaskOverdue(task.dueDate, task.dueTime);
@@ -1924,7 +1945,7 @@ export default function ClassTasks({
             <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 custom-scrollbar">
               {/* Task Info Chips */}
               {(() => {
-              const userSub = selectedTask.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => m.userId === currentUser?.uid));
+              const userSub = selectedTask.submissions?.find(s => isUserMatchingSubmission(s, currentUser));
               const isFileMissing = userSub && isSubmissionFileMissing(userSub);
               const isSubmitted = !!userSub && !isFileMissing;
               const isOverdue = isTaskOverdue(selectedTask.dueDate, selectedTask.dueTime);
@@ -2167,7 +2188,7 @@ export default function ClassTasks({
               <h4 className="font-bold text-xs text-[#0F172A]">Pengumpulan Berkas Tugas</h4>
 
               {(() => {
-                const userSub = selectedTask.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => (m.userId || m.uid || m.id) === currentUser?.uid));
+                const userSub = selectedTask.submissions?.find(s => isUserMatchingSubmission(s, currentUser));
                 const isOverdue = isTaskOverdue(selectedTask.dueDate, selectedTask.dueTime);
                 const isGroupTask = selectedTask.submissionType === 'group';
                 const activeUpload = backgroundUploads.find(u => u.taskId === selectedTask.id);
@@ -4048,7 +4069,7 @@ export default function ClassTasks({
 
       {/* CONFIRM CANCEL SUBMISSION MODAL */}
       {(() => {
-        const currentUserSub = selectedTask?.submissions?.find(s => s.userId === currentUser?.uid || s.groupMembers?.some(m => m.userId === currentUser?.uid));
+        const currentUserSub = selectedTask?.submissions?.find(s => isUserMatchingSubmission(s, currentUser));
         const isPaperSub = currentUserSub && !currentUserSub.fileUrl;
         return (
           <ConfirmModal
