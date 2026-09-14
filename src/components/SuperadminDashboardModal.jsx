@@ -27,7 +27,8 @@ import {
   Wrench,
   Clock,
   Sparkles,
-  Power
+  Power,
+  LogOut
 } from 'lucide-react';
 
 export default function SuperadminDashboardModal({ 
@@ -69,6 +70,27 @@ export default function SuperadminDashboardModal({
   const [isSavingMaintenance, setIsSavingMaintenance] = useState(false);
   const [showConfirmMaintenanceModal, setShowConfirmMaintenanceModal] = useState(false);
   const [pendingTargetState, setPendingTargetState] = useState(false);
+  const [isResettingAllSessions, setIsResettingAllSessions] = useState(false);
+
+  const handleTriggerGlobalForceLogout = async () => {
+    const confirm = window.confirm(
+      'PERINGATAN KEAMANAN:\\n\\nApakah Anda yakin ingin melakukan Force Logout untuk SEMUA sesi pengguna aktif?\\n\\nSemua sesi pengguna di browser mana pun akan segera dikeluarkan dan mereka harus login kembali menggunakan password mereka.'
+    );
+    if (!confirm) return;
+
+    setIsResettingAllSessions(true);
+    const toastId = toast.loading('Mengirim sinyal force logout ke seluruh sesi...');
+    try {
+      const actor = currentUser?.displayName || currentUser?.email || 'Superadmin';
+      await dbService.system.triggerGlobalForceLogout('Force logout oleh ' + actor);
+      toast.success('Sinyal reset sesi berhasil dikirim! Seluruh user aktif akan di-logout.', { id: toastId, duration: 5000 });
+    } catch (err) {
+      console.error('Error triggering global force logout:', err);
+      toast.error('Gagal melakukan force logout sesi', { id: toastId });
+    } finally {
+      setIsResettingAllSessions(false);
+    }
+  };
 
   const fetchMetrics = async () => {
     setLoading(true);
@@ -1039,6 +1061,40 @@ export default function SuperadminDashboardModal({
                   </button>
                 </div>
               </form>
+
+              {/* Emergency Session Reset / Force Logout Card */}
+              <div className="p-6 rounded-3xl bg-white dark:bg-[#151D2F] border border-rose-200/80 dark:border-rose-900/40 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-100 dark:border-rose-900/50">
+                      <ShieldAlert size={24} />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-extrabold text-sm text-[#0F172A] dark:text-white">
+                          Reset Sesi Global (Force Logout Semua Pengguna)
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                          Tindakan Keamanan
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-xl">
+                        Tindakan ini mengirimkan sinyal seketika untuk mengeluarkan (logout) seluruh sesi pengguna di browser mana pun. Pengguna harus login ulang menggunakan password mereka.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isResettingAllSessions}
+                    onClick={handleTriggerGlobalForceLogout}
+                    className="shrink-0 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-rose-600/20 disabled:opacity-50"
+                  >
+                    {isResettingAllSessions ? <RefreshCw size={14} className="animate-spin" /> : <LogOut size={14} />}
+                    <span>Force Logout Semua Akun</span>
+                  </button>
+                </div>
+              </div>
 
               {/* Live Preview Box */}
               <div className="p-5 rounded-3xl bg-[#FDFBF7] dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">

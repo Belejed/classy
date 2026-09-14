@@ -24,6 +24,7 @@ import { DashboardSkeleton, TasksSkeleton, ScheduleSkeleton } from './components
 import { setupGlobalUpdateListeners } from './utils/appUpdater';
 import { canDeleteAnything } from './utils/permissions';
 import { shouldShowChangelogAuto, markChangelogSeen } from './utils/changelogHelper';
+import ChangeTemporaryPasswordModal from './components/ChangeTemporaryPasswordModal';
 
 // Heavy modals and non-critical sub-tabs: Lazy loaded for optimal mobile performance and small bundle
 const ClassSubmissionsManager = lazy(() => import('./components/ClassSubmissionsManager'));
@@ -77,6 +78,26 @@ export default function App() {
     markChangelogSeen();
     setShowChangelogModal(false);
   };
+
+  // Mandatory Change Password state for temporary password users (123456)
+  const [mustChangePassword, setMustChangePassword] = useState(() => {
+    try {
+      return localStorage.getItem('classy_must_change_temp_password') === 'true' || 
+             sessionStorage.getItem('classy_must_change_temp_password') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (user) {
+      const needed = localStorage.getItem('classy_must_change_temp_password') === 'true' || 
+                     sessionStorage.getItem('classy_must_change_temp_password') === 'true';
+      setMustChangePassword(needed);
+    } else {
+      setMustChangePassword(false);
+    }
+  }, [user]);
 
   const handleQuickDisableMaintenance = async () => {
     const toastId = toast.loading('Mematikan mode pemeliharaan...');
@@ -135,15 +156,46 @@ export default function App() {
     };
   }, []);
 
-  // 1. Auth Listener with Mobile Network Safety Timeout (Instant Reveal once resolved)
+  // 1. Auth Listener with Mobile Network Safety Timeout (Instant Reveal once resolved) & Global Force Logout Guard
   useEffect(() => {
     // Safety timeout: Ensure users on cellular data or poor connections are never trapped on splash screen
     const safetyTimer = setTimeout(() => {
       setAuthLoading(false);
     }, 800);
 
-    const unsubscribe = authService.onAuthStateChanged((currentUser) => {
+    const unsubscribe = authService.onAuthStateChanged(async (currentUser) => {
       clearTimeout(safetyTimer);
+
+      if (currentUser) {
+        // Enforce baseline session reset cutoff: any session created prior to this timestamp must re-authenticate
+        const BASELINE_FORCE_LOGOUT_EPOCH = 1789398027650;
+        let lastLoginEpoch = 0;
+        try {
+          lastLoginEpoch = Number(localStorage.getItem('classy_last_login_epoch') || 0);
+        } catch {}
+
+        if (lastLoginEpoch < BASELINE_FORCE_LOGOUT_EPOCH) {
+          console.warn('[Security] Session invalidated by global security reset');
+          try {
+            await authService.logout();
+          } catch {}
+          try {
+            localStorage.removeItem('classy_last_login_epoch');
+            localStorage.removeItem('classy_must_change_temp_password');
+            sessionStorage.removeItem('classy_must_change_temp_password');
+          } catch {}
+          setUser(null);
+          setAuthLoading(false);
+          toast('Sesi Anda telah direset demi pembaruan keamanan. Silakan login kembali dengan password sementara (123456).', {
+            icon: '🔐',
+            duration: 7000,
+            id: 'force-logout-toast'
+          });
+          navigate('/login', { replace: true });
+          return;
+        }
+      }
+
       setUser(currentUser);
       setAuthLoading(false);
     });
@@ -152,7 +204,51 @@ export default function App() {
       clearTimeout(safetyTimer);
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, []);
+  }, [navigate]);
+
+  // Realtime Global Force Logout Listener (triggers across all open client tabs when admin executes force logout)
+  useEffect(() => {
+    let unsub = null;
+    try {
+      unsub = dbService.system.subscribeToAuthSession(async (sessionConfig) => {
+        if (!sessionConfig || !sessionConfig.force_logout_at) return;
+        const forceEpoch = Number(sessionConfig.force_logout_at);
+        if (!forceEpoch) return;
+
+        let lastLoginEpoch = 0;
+        try {
+          lastLoginEpoch = Number(localStorage.getItem('classy_last_login_epoch') || 0);
+        } catch {}
+
+        if (user && lastLoginEpoch < forceEpoch) {
+          console.warn('[Security] Active session terminated by realtime global force logout');
+          try {
+            await authService.logout();
+          } catch {}
+          try {
+            localStorage.removeItem('classy_last_login_epoch');
+            localStorage.removeItem('classy_must_change_temp_password');
+            sessionStorage.removeItem('classy_must_change_temp_password');
+          } catch {}
+          setUser(null);
+          setCurrentClass(null);
+          setClasses([]);
+          toast('Sesi Anda telah direset demi pembaruan keamanan. Silakan login kembali dengan password sementara (123456).', {
+            icon: '🔐',
+            duration: 7000,
+            id: 'force-logout-toast'
+          });
+          navigate('/login', { replace: true });
+        }
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to auth session:', e);
+    }
+
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [user, navigate]);
 
   // Intercept recovery tokens arriving on any path (Firebase oobCode or reset tokens)
   useEffect(() => {
@@ -1101,6 +1197,15 @@ export default function App() {
         </Suspense>
       )}
 
+      {/* Mandatory Change Temporary Password Modal */}
+      {user && mustChangePassword && (
+        <ChangeTemporaryPasswordModal
+          user={user}
+          onSuccess={() => setMustChangePassword(false)}
+          onLogout={handleLogout}
+        />
+      )}
+
       <Routes>
         {/* Reset & Forgot Password - ALWAYS accessible regardless of auth state */}
         <Route 
@@ -1110,6 +1215,7 @@ export default function App() {
               initialMode="update_password"
               onAuthSuccess={(u) => { 
                 setUser(u); 
+                setMustChangePassword(localStorage.getItem('classy_must_change_temp_password') === 'true');
                 navigate('/lobby'); 
               }} 
             />
@@ -1122,6 +1228,7 @@ export default function App() {
               initialMode="forgot"
               onAuthSuccess={(u) => { 
                 setUser(u); 
+                setMustChangePassword(localStorage.getItem('classy_must_change_temp_password') === 'true');
                 navigate('/lobby'); 
               }} 
             />
@@ -1136,6 +1243,7 @@ export default function App() {
               element={
                 <Auth onAuthSuccess={(u) => { 
                   setUser(u); 
+                  setMustChangePassword(localStorage.getItem('classy_must_change_temp_password') === 'true');
                   navigate('/lobby'); 
                 }} />
               } 

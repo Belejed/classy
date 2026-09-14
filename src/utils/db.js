@@ -2615,6 +2615,48 @@ export const dbService = {
         console.warn('Error establishing maintenance listener:', err);
         return () => {};
       }
+    },
+
+    getAuthSessionConfig: async () => {
+      try {
+        const snap = await getDoc(doc(db, 'notes', 'system_auth_session'));
+        if (snap.exists()) {
+          return snap.data();
+        }
+      } catch (err) {
+        console.warn('Error fetching system auth session config:', err);
+      }
+      return { force_logout_at: 0 };
+    },
+
+    subscribeToAuthSession: (callback) => {
+      try {
+        const unsub = onSnapshot(doc(db, 'notes', 'system_auth_session'), (snap) => {
+          if (snap.exists()) {
+            callback(snap.data());
+          } else {
+            callback({ force_logout_at: 0 });
+          }
+        }, (err) => {
+          console.warn('Firestore auth session snapshot error:', err);
+        });
+        return () => unsub();
+      } catch (err) {
+        console.warn('Error establishing auth session listener:', err);
+        return () => {};
+      }
+    },
+
+    triggerGlobalForceLogout: async (reason = 'Pembaruan keamanan sistem') => {
+      const epoch = Date.now();
+      const payload = {
+        id: 'system_auth_session',
+        force_logout_at: epoch,
+        updated_at: new Date().toISOString(),
+        message: reason
+      };
+      await setDoc(doc(db, 'notes', 'system_auth_session'), payload, { merge: true });
+      return epoch;
     }
   },
 

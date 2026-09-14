@@ -185,6 +185,12 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
           phoneNumber: phoneNumber.trim()
         });
 
+        try {
+          localStorage.setItem('classy_last_login_epoch', Date.now().toString());
+          localStorage.removeItem('classy_must_change_temp_password');
+          sessionStorage.removeItem('classy_must_change_temp_password');
+        } catch {}
+
         toast.success('Akun Classy berhasil dibuat!');
         if (onAuthSuccess) onAuthSuccess(user);
       } else if (mode === 'login') {
@@ -204,6 +210,18 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
         }
 
         const user = await authService.login(cleanEmail, cleanPass);
+
+        try {
+          localStorage.setItem('classy_last_login_epoch', Date.now().toString());
+          if (cleanPass === '123456') {
+            localStorage.setItem('classy_must_change_temp_password', 'true');
+            sessionStorage.setItem('classy_must_change_temp_password', 'true');
+          } else {
+            localStorage.removeItem('classy_must_change_temp_password');
+            sessionStorage.removeItem('classy_must_change_temp_password');
+          }
+        } catch {}
+
         toast.success(`Selamat datang kembali!`);
         if (onAuthSuccess) onAuthSuccess(user);
       }
