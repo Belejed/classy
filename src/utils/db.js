@@ -2795,10 +2795,16 @@ export const dbService = {
       try {
         const sigCol = collection(db, 'workspaces', classId, 'voice_signals');
         return onSnapshot(sigCol, (snap) => {
+          const now = Date.now();
           snap.docChanges().forEach(change => {
             if (change.type === 'added') {
               const data = change.doc.data();
               if (data.toPeerId === myPeerId) {
+                // Ignore stale signals older than 45s
+                if (data.createdAt && (now - Number(data.createdAt)) > 45000) {
+                  deleteDoc(change.doc.ref).catch(() => {});
+                  return;
+                }
                 try {
                   const parsedSignal = JSON.parse(data.signal);
                   callback({
