@@ -61,8 +61,8 @@ export default function ClassVoiceRoom({
   const pendingCandidatesRef = useRef(new Map()); // peerId -> RTCIceCandidateInit[]
   const signalsUnsubRef = useRef(null);
   const audioContainerRef = useRef(null);
-  const silentAudioRef = useRef(null);
   const wakeLockRef = useRef(null);
+  const isDeafenedRef = useRef(false);
   const myPeerIdRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
   const prevRoleRef = useRef(null);
@@ -180,30 +180,21 @@ export default function ClassVoiceRoom({
       });
       localStreamRef.current = stream;
 
-      // Broadcast tracks to all existing peer connections
+      // Broadcast audio to all connected peers via instant replaceTrack
       const audioTrack = stream.getAudioTracks()[0];
       if (audioTrack) {
         for (const [targetPeerId, pc] of peerConnectionsRef.current.entries()) {
           try {
-            const senders = pc.getSenders ? pc.getSenders() : [];
-            const existingSender = senders.find(s => s.track && s.track.kind === 'audio');
-            if (existingSender) {
-              await existingSender.replaceTrack(audioTrack);
+            const transceivers = pc.getTransceivers ? pc.getTransceivers() : [];
+            const audioTransceiver = transceivers.find(t => t.receiver?.track?.kind === 'audio' || t.sender);
+            if (audioTransceiver && audioTransceiver.sender) {
+              await audioTransceiver.sender.replaceTrack(audioTrack);
             } else {
-              pc.addTrack(audioTrack, stream);
-              // Trigger renegotiation offer to remote peer so they receive the track
-              const offer = await pc.createOffer({ offerToReceiveAudio: true });
-              await pc.setLocalDescription(offer);
-              if (myPeerIdRef.current) {
-                await dbService.voice.sendSignal(classId, {
-                  fromPeerId: myPeerIdRef.current,
-                  toPeerId: targetPeerId,
-                  signal: offer
-                });
-              }
+              const senders = pc.getSenders ? pc.getSenders() : [];
+              if (senders[0]) await senders[0].replaceTrack(audioTrack);
             }
           } catch (trackErr) {
-            console.warn(`Failed to update track for peer ${targetPeerId}:`, trackErr);
+            console.warn(`Failed to replaceTrack for peer ${targetPeerId}:`, trackErr);
           }
         }
       }
@@ -227,13 +218,16 @@ export default function ClassVoiceRoom({
       localStreamRef.current = null;
     }
 
-    // Set track to null on all senders
+    // Set sender track to null across all peer connections instantly
     peerConnectionsRef.current.forEach(pc => {
       try {
-        const senders = pc.getSenders ? pc.getSenders() : [];
-        const existingSender = senders.find(s => s.track && s.track.kind === 'audio');
-        if (existingSender) {
-          existingSender.replaceTrack(null);
+        const transceivers = pc.getTransceivers ? pc.getTransceivers() : [];
+        const audioTransceiver = transceivers.find(t => t.receiver?.track?.kind === 'audio' || t.sender);
+        if (audioTransceiver && audioTransceiver.sender) {
+          audioTransceiver.sender.replaceTrack(null).catch(() => {});
+        } else {
+          const senders = pc.getSenders ? pc.getSenders() : [];
+          if (senders[0]) senders[0].replaceTrack(null).catch(() => {});
         }
       } catch (e) {}
     });
@@ -292,33 +286,6 @@ export default function ClassVoiceRoom({
     }
   };
 
-  // Background Audio Keep-Alive: Plays a continuous silent loop so mobile and desktop browsers never suspend background WebRTC audio
-  const startSilentKeepAlive = () => {
-    try {
-      if (silentAudioRef.current) return;
-      // 1-second silent WAV base64
-      const silentWav = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
-      const audio = new Audio(silentWav);
-      audio.loop = true;
-      audio.volume = 0.001; // subtle audible token so browser marks tab as active media player
-      audio.setAttribute('playsinline', '');
-      audio.play().catch(() => {});
-      silentAudioRef.current = audio;
-    } catch (e) {
-      console.warn('Silent keepalive setup skipped:', e);
-    }
-  };
-
-  const stopSilentKeepAlive = () => {
-    if (silentAudioRef.current) {
-      try {
-        silentAudioRef.current.pause();
-        silentAudioRef.current.src = '';
-      } catch {}
-      silentAudioRef.current = null;
-    }
-  };
-
   // Create RTCPeerConnection Helper
   const createPeerConnection = (targetPeerId) => {
     let pc = peerConnectionsRef.current.get(targetPeerId);
@@ -329,21 +296,14 @@ export default function ClassVoiceRoom({
     pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnectionsRef.current.set(targetPeerId, pc);
 
-    // Add local audio track if microphone is active
+    // Always configure a sendrecv audio transceiver
+    const transceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
+
+    // If local microphone stream is already active, attach its track to the sender immediately
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        try {
-          pc.addTrack(track, localStreamRef.current);
-        } catch (e) {
-          console.warn('addTrack error:', e);
-        }
-      });
-    } else {
-      // Ensure receiver transceiver exists so listeners can receive incoming audio
-      try {
-        pc.addTransceiver('audio', { direction: 'recvonly' });
-      } catch (e) {
-        console.warn('addTransceiver error:', e);
+      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        transceiver.sender.replaceTrack(audioTrack).catch(e => console.warn('replaceTrack err:', e));
       }
     }
 
@@ -358,6 +318,7 @@ export default function ClassVoiceRoom({
     };
 
     pc.ontrack = (event) => {
+      console.log(`[ClassVoiceRoom] ontrack from ${targetPeerId}`, event);
       let audio = remoteAudiosRef.current.get(targetPeerId);
       if (!audio) {
         audio = document.createElement('audio');
@@ -365,17 +326,22 @@ export default function ClassVoiceRoom({
         audio.playsInline = true;
         audio.setAttribute('playsinline', '');
         audio.setAttribute('autoplay', '');
-        if (audioContainerRef.current) {
-          audioContainerRef.current.appendChild(audio);
-        } else {
-          document.body.appendChild(audio);
-        }
+        // Append directly to document.body so CSS display:none on any container NEVER silences the audio
+        audio.style.position = 'fixed';
+        audio.style.top = '-9999px';
+        audio.style.left = '-9999px';
+        audio.style.width = '1px';
+        audio.style.height = '1px';
+        audio.style.opacity = '0.001';
+        audio.style.pointerEvents = 'none';
+        document.body.appendChild(audio);
         remoteAudiosRef.current.set(targetPeerId, audio);
       }
-      audio.srcObject = event.streams[0] || new MediaStream([event.track]);
-      audio.muted = isDeafened;
+      const stream = event.streams[0] || new MediaStream([event.track]);
+      audio.srcObject = stream;
+      audio.muted = isDeafenedRef.current;
       audio.play().catch(playErr => {
-        console.warn('[ClassVoiceRoom] Audio autoplay blocked:', playErr);
+        console.warn('[ClassVoiceRoom] Audio play error:', playErr);
         setAutoplayBlocked(true);
       });
     };
@@ -531,7 +497,6 @@ export default function ClassVoiceRoom({
       });
 
       setIsConnected(true);
-      startSilentKeepAlive();
       soundFX.playJoinCall();
       if (initialRole === 'host') {
         toast.success('Membuka Panggung Suara sebagai Host! 👑');
@@ -571,8 +536,11 @@ export default function ClassVoiceRoom({
         peerConnectionsRef.current.delete(pId);
         const audioEl = remoteAudiosRef.current.get(pId);
         if (audioEl) {
-          audioEl.srcObject = null;
-          audioEl.remove();
+          try {
+            audioEl.pause();
+            audioEl.srcObject = null;
+            audioEl.remove();
+          } catch {}
           remoteAudiosRef.current.delete(pId);
         }
         pendingCandidatesRef.current.delete(pId);
@@ -602,12 +570,9 @@ export default function ClassVoiceRoom({
         });
         navigator.mediaSession.playbackState = 'playing';
 
-        navigator.mediaSession.setActionHandler('pause', () => {
-          handleToggleDeafen();
-        });
-        navigator.mediaSession.setActionHandler('play', () => {
-          handleToggleDeafen();
-        });
+        // Do NOT mute or deafen on background media pause
+        navigator.mediaSession.setActionHandler('pause', () => {});
+        navigator.mediaSession.setActionHandler('play', () => {});
         navigator.mediaSession.setActionHandler('stop', () => {
           handleLeaveStage();
         });
@@ -681,6 +646,7 @@ export default function ClassVoiceRoom({
   const handleToggleDeafen = () => {
     const nextDeafen = !isDeafened;
     setIsDeafened(nextDeafen);
+    isDeafenedRef.current = nextDeafen;
 
     remoteAudiosRef.current.forEach(audio => {
       if (audio) audio.muted = nextDeafen;
@@ -754,7 +720,6 @@ export default function ClassVoiceRoom({
   const handleLeaveStage = async () => {
     soundFX.playLeaveCall();
     stopMicrophoneCapture();
-    stopSilentKeepAlive();
 
     if (signalsUnsubRef.current) {
       signalsUnsubRef.current();
@@ -767,8 +732,11 @@ export default function ClassVoiceRoom({
     peerConnectionsRef.current.clear();
 
     remoteAudiosRef.current.forEach(audio => {
-      audio.srcObject = null;
-      audio.remove();
+      try {
+        audio.pause();
+        audio.srcObject = null;
+        audio.remove();
+      } catch {}
     });
     remoteAudiosRef.current.clear();
     pendingCandidatesRef.current.clear();
@@ -782,6 +750,7 @@ export default function ClassVoiceRoom({
     setIsConnected(false);
     setIsMuted(false);
     setIsDeafened(false);
+    isDeafenedRef.current = false;
     setAutoplayBlocked(false);
     prevRoleRef.current = null;
     setShowRequestsModal(false);
@@ -1263,9 +1232,6 @@ export default function ClassVoiceRoom({
           </div>
         </div>
       )}
-
-      {/* Hidden container for WebRTC remote audio playback */}
-      <div ref={audioContainerRef} className="hidden" aria-hidden="true" />
 
     </div>
   );
