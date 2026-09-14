@@ -469,6 +469,15 @@ export const getFriendlyAuthErrorMessage = (err) => {
   if (code === 'auth/network-request-failed' || msg.includes('network-request-failed')) {
     return 'Koneksi internet / paket data bermasalah. Pastikan kuota aktif atau coba beberapa saat lagi.';
   }
+  if (
+    code === 'auth/unauthorized-continue-uri' ||
+    code === 'auth/unauthorized-domain' ||
+    msg.includes('not allowlisted') ||
+    msg.includes('unauthorized-continue-uri') ||
+    msg.includes('unauthorized-domain')
+  ) {
+    return 'Domain belum diizinkan oleh Firebase Console. Tautan dikirim via URL default Firebase.';
+  }
 
   // Clean raw Firebase error string if any unmapped error code appears
   const clean = (err.message || '').replace(/^Firebase:\s*Error\s*\((.*?)\)\.?/i, '$1').trim();
@@ -595,15 +604,34 @@ export const authService = {
   },
 
   resetPassword: async (email) => {
-    try {
-      // Direct reset email to the current domain's reset password page if in browser
-      const actionCodeSettings = (typeof window !== 'undefined' && window.location?.origin) ? {
-        url: `${window.location.origin}/reset-password`,
-        handleCodeInApp: true
-      } : undefined;
+    const cleanEmail = String(email || '').trim();
+    if (!cleanEmail) throw new Error('Alamat email wajib diisi.');
 
-      await sendPasswordResetEmail(auth, email.trim(), actionCodeSettings);
-      return { success: true };
+    try {
+      // First attempt: try with actionCodeSettings to direct back to app
+      try {
+        const actionCodeSettings = (typeof window !== 'undefined' && window.location?.origin) ? {
+          url: `${window.location.origin}/reset-password`,
+          handleCodeInApp: true
+        } : undefined;
+        await sendPasswordResetEmail(auth, cleanEmail, actionCodeSettings);
+        return { success: true };
+      } catch (firstErr) {
+        const msg = String(firstErr?.message || '').toLowerCase();
+        const code = String(firstErr?.code || '').toLowerCase();
+        // If domain is not allowlisted in Firebase project, fallback to default Firebase reset URL
+        if (
+          code.includes('unauthorized-continue-uri') || 
+          code.includes('unauthorized-domain') || 
+          msg.includes('not allowlisted') || 
+          msg.includes('unauthorized')
+        ) {
+          console.warn('[authService] Custom domain not allowlisted in Firebase, falling back to default reset link...');
+          await sendPasswordResetEmail(auth, cleanEmail);
+          return { success: true };
+        }
+        throw firstErr;
+      }
     } catch (err) {
       throw new Error(getFriendlyAuthErrorMessage(err));
     }
