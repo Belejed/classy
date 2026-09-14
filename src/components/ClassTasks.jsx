@@ -1928,17 +1928,6 @@ export default function ClassTasks({
                 </h3>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                {isManager && (
-                  <button
-                    type="button"
-                    onClick={() => handleStartEdit(selectedTask)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer min-h-[36px]"
-                    title="Edit Rincian Tugas"
-                  >
-                    <Edit2 size={13} />
-                    <span>Edit Tugas</span>
-                  </button>
-                )}
                 <button 
                   onClick={() => setSelectedTask(null)} 
                   className="min-w-[36px] min-h-[36px] flex items-center justify-center p-2 rounded-xl text-[#94A3B8] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
