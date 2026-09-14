@@ -259,6 +259,7 @@ export default function ClassVoiceRoom({
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       let speakingDebounce = false;
+      let lastSpeakingSyncTime = 0;
 
       const checkVolume = () => {
         if (!analyserRef.current) return;
@@ -273,8 +274,12 @@ export default function ClassVoiceRoom({
         if (isNowSpeaking !== speakingDebounce) {
           speakingDebounce = isNowSpeaking;
           setIsSpeakingLocal(isNowSpeaking);
-          if (classId && myPeerIdRef.current) {
-            dbService.voice.updatePeerState(classId, myPeerIdRef.current, { isSpeaking: isNowSpeaking });
+          const now = Date.now();
+          if (now - lastSpeakingSyncTime > 2000) {
+            lastSpeakingSyncTime = now;
+            if (classId && myPeerIdRef.current) {
+              dbService.voice.updatePeerState(classId, myPeerIdRef.current, { isSpeaking: isNowSpeaking });
+            }
           }
         }
 
@@ -360,6 +365,10 @@ export default function ClassVoiceRoom({
   const initiatePeerConnection = async (targetPeerId) => {
     try {
       const pc = createPeerConnection(targetPeerId);
+      // Avoid initiating offer if peer connection is already busy in an offer/answer exchange
+      if (pc.signalingState !== 'stable') {
+        return;
+      }
       const offer = await pc.createOffer({
         offerToReceiveAudio: true
       });
@@ -437,6 +446,19 @@ export default function ClassVoiceRoom({
 
         if (signal.type === 'offer') {
           if (!pc) pc = createPeerConnection(fromPeerId);
+
+          // Handle offer glare/collision gracefully
+          if (pc.signalingState !== 'stable') {
+            console.warn(`[ClassVoiceRoom] Offer collision with ${fromPeerId}, state: ${pc.signalingState}`);
+            // If myPeerId < fromPeerId (impolite peer), ignore incoming offer and let existing offer proceed
+            if (myPeerId < fromPeerId) {
+              return;
+            }
+            try {
+              await pc.setLocalDescription({ type: 'rollback' });
+            } catch {}
+          }
+
           await pc.setRemoteDescription(new RTCSessionDescription(signal));
 
           // Flush any queued ICE candidates for this peer
@@ -452,11 +474,13 @@ export default function ClassVoiceRoom({
 
           const answer = await pc.createAnswer({ offerToReceiveAudio: true });
           await pc.setLocalDescription(answer);
-          await dbService.voice.sendSignal(classId, {
-            fromPeerId: myPeerId,
-            toPeerId: fromPeerId,
-            signal: answer
-          });
+          if (myPeerIdRef.current) {
+            await dbService.voice.sendSignal(classId, {
+              fromPeerId: myPeerIdRef.current,
+              toPeerId: fromPeerId,
+              signal: answer
+            });
+          }
         } else if (signal.type === 'answer') {
           if (pc) {
             await pc.setRemoteDescription(new RTCSessionDescription(signal));
@@ -528,11 +552,9 @@ export default function ClassVoiceRoom({
       }
     });
 
-    // Cleanup peers that left the room
+    // Only cleanup peers whose WebRTC connection is closed (Never drop live audio connections)
     peerConnectionsRef.current.forEach((pc, pId) => {
-      const stillHere = activePeers.some(p => p.peerId === pId);
-      if (!stillHere) {
-        try { pc.close(); } catch {}
+      if (pc.connectionState === 'closed') {
         peerConnectionsRef.current.delete(pId);
         const audioEl = remoteAudiosRef.current.get(pId);
         if (audioEl) {

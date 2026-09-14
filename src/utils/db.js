@@ -2760,7 +2760,8 @@ export const dbService = {
           const peers = [];
           snap.docs.forEach(d => {
             const data = d.data();
-            if (data.roomId === roomId && (now - Number(data.lastSeen || 0)) < 45000) {
+            // Allow up to 3 minutes before marking peer stale (vital for background mobile tabs)
+            if (data.roomId === roomId && (now - Number(data.lastSeen || 0)) < 180000) {
               peers.push({ id: d.id, ...data });
             }
           });
@@ -2800,8 +2801,8 @@ export const dbService = {
             if (change.type === 'added') {
               const data = change.doc.data();
               if (data.toPeerId === myPeerId) {
-                // Ignore stale signals older than 45s
-                if (data.createdAt && (now - Number(data.createdAt)) > 45000) {
+                // Ignore stale signals older than 60s
+                if (data.createdAt && (now - Number(data.createdAt)) > 60000) {
                   deleteDoc(change.doc.ref).catch(() => {});
                   return;
                 }
