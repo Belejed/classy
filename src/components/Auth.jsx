@@ -188,16 +188,22 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
         toast.success('Akun Classy berhasil dibuat!');
         if (onAuthSuccess) onAuthSuccess(user);
       } else if (mode === 'login') {
-        const cleanIdent = email.trim();
+        const cleanEmail = email.trim().toLowerCase();
         const cleanPass = password.trim();
 
-        if (!cleanIdent || !cleanPass) {
+        if (!cleanEmail || !cleanPass) {
           toast.error('Email dan password wajib diisi');
           setLoading(false);
           return;
         }
 
-        const user = await authService.login(cleanIdent, cleanPass);
+        if (!cleanEmail.includes('@')) {
+          toast.error('Silakan masukkan format email lengkap (contoh: nama@email.com)');
+          setLoading(false);
+          return;
+        }
+
+        const user = await authService.login(cleanEmail, cleanPass);
         toast.success(`Selamat datang kembali!`);
         if (onAuthSuccess) onAuthSuccess(user);
       }
@@ -291,7 +297,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                   <div className="relative">
                     <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
                     <input
-                      type={mode === 'login' ? 'text' : 'email'}
+                      type="email"
                       placeholder={mode === 'login' ? 'nama@email.com' : 'name@university.ac.id'}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}

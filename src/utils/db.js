@@ -491,52 +491,9 @@ export const getFriendlyAuthErrorMessage = (err) => {
   return clean || 'Terjadi kesalahan saat memproses akun Anda.';
 };
 
-// Helper to resolve email from phone number or student name if user inputs WhatsApp or name
+// Helper to resolve email from identifier (strictly pass-through email to prevent account mixups)
 export const resolveEmailFromIdentifier = async (rawIdentifier) => {
-  if (!rawIdentifier) return '';
-  const cleanId = String(rawIdentifier).trim().toLowerCase();
-  if (cleanId.includes('@')) return cleanId;
-
-  // Clean digits for phone matching
-  const phoneDigits = cleanId.replace(/\D/g, '');
-  const normalizedPhone = phoneDigits.startsWith('0') 
-    ? '62' + phoneDigits.slice(1) 
-    : (phoneDigits.startsWith('62') ? phoneDigits : (phoneDigits ? '62' + phoneDigits : ''));
-
-  try {
-    const { data: workspaces } = await supabase.from('workspaces').select('members');
-    if (Array.isArray(workspaces)) {
-      for (const ws of workspaces) {
-        const members = ws.members || [];
-        // First try exact phone match
-        if (normalizedPhone) {
-          const phoneMatch = members.find(m => {
-            if (!m || !m.phoneNumber) return false;
-            const mDigits = String(m.phoneNumber).replace(/\D/g, '');
-            const mNorm = mDigits.startsWith('0') ? '62' + mDigits.slice(1) : (mDigits.startsWith('62') ? mDigits : '62' + mDigits);
-            return mNorm === normalizedPhone || mDigits.endsWith(phoneDigits) || phoneDigits.endsWith(mDigits);
-          });
-          if (phoneMatch && phoneMatch.email) {
-            return String(phoneMatch.email).toLowerCase().trim();
-          }
-        }
-
-        // Then try name match (exact or name contains keyword)
-        const nameMatch = members.find(m => {
-          if (!m || !m.name) return false;
-          const mName = m.name.toLowerCase().trim();
-          return mName === cleanId || mName.split(' ')[0] === cleanId || mName.includes(cleanId);
-        });
-        if (nameMatch && nameMatch.email) {
-          return String(nameMatch.email).toLowerCase().trim();
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('Failed to resolve email from identifier:', err);
-  }
-
-  return cleanId;
+  return String(rawIdentifier || '').trim().toLowerCase();
 };
 
 // --- AUTHENTICATION SERVICE (FIREBASE AUTH) ---
@@ -559,16 +516,16 @@ export const authService = {
     });
   },
 
-  login: async (emailOrIdentifier, password) => {
+  login: async (email, password) => {
+    const cleanEmail = String(email || '').trim().toLowerCase();
     const cleanPass = String(password || '').trim();
-    let resolvedEmail = String(emailOrIdentifier || '').trim().toLowerCase();
 
-    if (!resolvedEmail.includes('@')) {
-      resolvedEmail = await resolveEmailFromIdentifier(resolvedEmail);
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      throw new Error('Silakan masukkan alamat email lengkap yang terdaftar (contoh: nama@email.com).');
     }
 
     try {
-      const cred = await signInWithEmailAndPassword(auth, resolvedEmail, cleanPass);
+      const cred = await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
       return formatUser(cred.user);
     } catch (err) {
       // Auto-retry once on cellular data network drops (auth/network-request-failed)
@@ -576,7 +533,7 @@ export const authService = {
       if (isNetworkErr) {
         try {
           await new Promise(r => setTimeout(r, 600)); // wait 600ms backoff
-          const retryCred = await signInWithEmailAndPassword(auth, resolvedEmail, cleanPass);
+          const retryCred = await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
           return formatUser(retryCred.user);
         } catch (retryErr) {
           throw new Error(getFriendlyAuthErrorMessage(retryErr));
