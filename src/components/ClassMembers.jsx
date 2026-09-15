@@ -46,7 +46,17 @@ function MemberRoleDropdown({
   isProcessing 
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUpwards, setOpenUpwards] = useState(false);
   const dropdownRef = useRef(null);
+
+  const toggleOpen = () => {
+    if (!isOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUpwards(spaceBelow < 290);
+    }
+    setIsOpen(!isOpen);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -108,11 +118,11 @@ function MemberRoleDropdown({
   const ActiveIcon = activeOption.icon;
 
   return (
-    <div className="relative inline-block text-left" ref={dropdownRef}>
+    <div className={`relative inline-block text-left ${isOpen ? 'z-[60]' : 'z-10'}`} ref={dropdownRef}>
       <button
         type="button"
         disabled={disabled || isProcessing}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleOpen}
         className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs hover:shadow-xs cursor-pointer disabled:opacity-50 min-h-[34px] ${
           activeOption.id === 'komti'
             ? 'bg-amber-50/90 text-amber-950 border-amber-300/80 hover:bg-amber-100/80'
@@ -135,7 +145,9 @@ function MemberRoleDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1.5 w-64 rounded-2xl bg-white border border-slate-200/90 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+        <div className={`absolute right-0 w-64 rounded-2xl bg-white border border-slate-200/90 shadow-2xl p-1.5 z-[100] animate-in fade-in zoom-in-95 duration-100 ${
+          openUpwards ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+        }`}>
           <div className="px-2.5 py-1.5 border-b border-slate-100 flex items-center justify-between">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
               Pilih Peran Anggota
@@ -939,7 +951,7 @@ export default function ClassMembers({
           description="Coba gunakan kata kunci pencarian yang lain atau ganti filter peran di atas."
         />
       ) : (
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl overflow-hidden shadow-2xs divide-y divide-[#F1F5F9]">
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-2xs divide-y divide-[#F1F5F9]">
           {filteredMembers.map((member, index) => {
             const isMe = member.userId === currentUser?.uid;
             const isOwner = member.userId === currentClass?.ownerId;
@@ -951,7 +963,7 @@ export default function ClassMembers({
             return (
               <div 
                 key={member.userId || member.email}
-                className={`p-3.5 sm:p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-colors ${
+                className={`p-3.5 sm:p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-colors first:rounded-t-2xl last:rounded-b-2xl ${
                   isMe ? 'bg-amber-50/20' : 'hover:bg-slate-50/70'
                 }`}
               >
