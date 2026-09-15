@@ -468,11 +468,7 @@ export default function ClassStructure({
 
                   {/* Horizontal Line Connector between Komti and Wakil */}
                   <div className="hidden sm:flex flex-col items-center justify-center shrink-0 w-16">
-                    <div className="w-full border-t-2 border-dashed border-indigo-300 relative">
-                      <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[8px] font-extrabold uppercase tracking-widest text-indigo-500 whitespace-nowrap bg-slate-50 px-1">
-                        Mitra
-                      </span>
-                    </div>
+                    <div className="w-full border-t-2 border-slate-300" />
                   </div>
 
                   {/* Wakil Komti Card Node */}
