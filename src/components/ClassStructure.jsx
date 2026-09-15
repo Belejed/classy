@@ -313,12 +313,12 @@ export default function ClassStructure({
               Struktur Organisasi Kelas
             </h1>
             <p className="text-slate-300 text-xs sm:text-sm max-w-xl leading-relaxed">
-              Bagan alur koordinasi & kepengurusan kelas: Komti, Wakil Komti, Bendahara, serta Kepala Divisi dan Penanggung Jawab (PJ 1 & PJ 2) kelas {currentClass?.name || ''}.
+              Bagan hierarki kelas top-down: Komti → Wakil Komti → Bendahara → Kepala Divisi & Penanggung Jawab (PJ 1 & PJ 2) kelas {currentClass?.name || ''}.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            {/* View Mode Toggle: Bagan Pohon vs Kartu Grid */}
+            {/* View Mode Toggle */}
             <div className="flex items-center p-1 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-inner">
               <button
                 type="button"
@@ -389,21 +389,25 @@ export default function ClassStructure({
           <div className="flex flex-wrap items-center justify-between gap-3 px-2 py-1 text-xs text-slate-500">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="flex items-center gap-1.5 font-semibold text-slate-700">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> Pimpinan
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> 1. Komti
               </span>
-              <span className="text-slate-300">·</span>
+              <span className="text-slate-300">→</span>
               <span className="flex items-center gap-1.5 font-semibold text-slate-700">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" /> Keuangan
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block" /> 2. Wakil Komti
               </span>
-              <span className="text-slate-300">·</span>
+              <span className="text-slate-300">→</span>
               <span className="flex items-center gap-1.5 font-semibold text-slate-700">
-                <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block" /> Divisi & PJ (2 Orang / Matkul)
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" /> 3. Bendahara
+              </span>
+              <span className="text-slate-300">→</span>
+              <span className="flex items-center gap-1.5 font-semibold text-slate-700">
+                <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block" /> 4. Divisi & PJ (2 Orang / Matkul)
               </span>
             </div>
 
             <div className="hidden sm:flex items-center gap-2 text-[11px] bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
-              <span>Garis struktur otomatis menghubungkan setiap tingkatan koordinasi</span>
+              <span>Hierarki struktural vertikal dari Komti hingga Divisi & PJ</span>
             </div>
           </div>
 
@@ -412,149 +416,148 @@ export default function ClassStructure({
             
             <div className="min-w-[760px] max-w-5xl mx-auto flex flex-col items-center">
               
-              {/* =================== LEVEL 1: PIMPINAN (KOMTI & WAKIL) =================== */}
+              {/* =================== LEVEL 1: KOMTI (KETUA KELAS) =================== */}
               <div className="relative w-full flex flex-col items-center">
                 
-                {/* Horizontal coordination bar between Komti & Wakil */}
-                <div className="flex items-center justify-center gap-8 sm:gap-12 relative z-10 w-full max-w-3xl">
-                  
-                  {/* Komti Card Node */}
-                  <div className="w-[300px] sm:w-[320px] bg-white rounded-2xl p-4 sm:p-5 border-2 border-amber-300 shadow-md hover:shadow-lg transition-all relative group">
-                    <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0">
-                        {resolvedStructure.komti.name ? resolvedStructure.komti.name[0].toUpperCase() : <Crown size={20} />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[9px] font-black tracking-wider uppercase inline-flex items-center gap-1">
-                          <Crown size={10} className="text-amber-600" />
-                          KOMTI (KETUA KELAS)
-                        </span>
-                        <h3 className="text-sm sm:text-base font-extrabold text-slate-900 mt-1 truncate">
-                          {resolvedStructure.komti.name || <span className="text-slate-400 italic">Belum diatur</span>}
-                        </h3>
-                        {resolvedStructure.komti.nim && (
-                          <p className="text-[10px] font-mono text-slate-500 font-semibold">NIM: {resolvedStructure.komti.nim}</p>
-                        )}
-                      </div>
+                {/* Komti Card Node */}
+                <div className="w-[320px] sm:w-[360px] bg-white rounded-2xl p-5 border-2 border-amber-300 shadow-md hover:shadow-lg transition-all relative group z-10">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center font-black text-xl shadow-sm shrink-0">
+                      {resolvedStructure.komti.name ? resolvedStructure.komti.name[0].toUpperCase() : <Crown size={22} />}
                     </div>
-
-                    {resolvedStructure.komti.note && (
-                      <p className="mt-2.5 text-[11px] text-slate-600 bg-amber-50/60 p-2 rounded-xl line-clamp-2">
-                        {resolvedStructure.komti.note}
-                      </p>
-                    )}
-
-                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
-                      {resolvedStructure.komti.phone ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyPhone(resolvedStructure.komti.phone, 'komti_map')}
-                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                            title="Salin nomor"
-                          >
-                            {copiedKey === 'komti_map' ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
-                            <span>{resolvedStructure.komti.phone}</span>
-                          </button>
-                          {getWhatsAppUrl(resolvedStructure.komti.phone, resolvedStructure.komti.name, currentClass?.name) && (
-                            <a
-                              href={getWhatsAppUrl(resolvedStructure.komti.phone, resolvedStructure.komti.name, currentClass?.name)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center gap-1 transition-colors shadow-2xs"
-                            >
-                              <MessageCircle size={11} />
-                              <span>WhatsApp</span>
-                            </a>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 italic">Nomor belum ada</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[9px] font-black tracking-wider uppercase inline-flex items-center gap-1">
+                        <Crown size={11} className="text-amber-600" />
+                        KOMTI (KETUA TINGKAT)
+                      </span>
+                      <h3 className="text-base font-extrabold text-slate-900 mt-1 truncate">
+                        {resolvedStructure.komti.name || <span className="text-slate-400 italic">Belum diatur</span>}
+                      </h3>
+                      {resolvedStructure.komti.nim && (
+                        <p className="text-[10px] font-mono text-slate-500 font-semibold">NIM: {resolvedStructure.komti.nim}</p>
                       )}
                     </div>
                   </div>
 
-                  {/* Horizontal Line Connector between Komti and Wakil */}
-                  <div className="hidden sm:flex flex-col items-center justify-center shrink-0 w-16">
-                    <div className="w-full border-t-2 border-slate-300" />
-                  </div>
+                  {resolvedStructure.komti.note && (
+                    <p className="mt-2.5 text-[11px] text-slate-600 bg-amber-50/60 p-2 rounded-xl line-clamp-2">
+                      {resolvedStructure.komti.note}
+                    </p>
+                  )}
 
-                  {/* Wakil Komti Card Node */}
-                  <div className="w-[300px] sm:w-[320px] bg-white rounded-2xl p-4 sm:p-5 border-2 border-indigo-300 shadow-md hover:shadow-lg transition-all relative group">
-                    <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0">
-                        {resolvedStructure.viceKomti.name ? resolvedStructure.viceKomti.name[0].toUpperCase() : <ShieldCheck size={20} />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 text-[9px] font-black tracking-wider uppercase inline-flex items-center gap-1">
-                          <ShieldCheck size={10} className="text-indigo-600" />
-                          WAKIL KOMTI
-                        </span>
-                        <h3 className="text-sm sm:text-base font-extrabold text-slate-900 mt-1 truncate">
-                          {resolvedStructure.viceKomti.name || <span className="text-slate-400 italic">Belum diatur</span>}
-                        </h3>
-                        {resolvedStructure.viceKomti.nim && (
-                          <p className="text-[10px] font-mono text-slate-500 font-semibold">NIM: {resolvedStructure.viceKomti.nim}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {resolvedStructure.viceKomti.note && (
-                      <p className="mt-2.5 text-[11px] text-slate-600 bg-indigo-50/60 p-2 rounded-xl line-clamp-2">
-                        {resolvedStructure.viceKomti.note}
-                      </p>
-                    )}
-
-                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
-                      {resolvedStructure.viceKomti.phone ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyPhone(resolvedStructure.viceKomti.phone, 'vice_map')}
-                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                            title="Salin nomor"
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                    {resolvedStructure.komti.phone ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPhone(resolvedStructure.komti.phone, 'komti_map')}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Salin nomor"
+                        >
+                          {copiedKey === 'komti_map' ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                          <span>{resolvedStructure.komti.phone}</span>
+                        </button>
+                        {getWhatsAppUrl(resolvedStructure.komti.phone, resolvedStructure.komti.name, currentClass?.name) && (
+                          <a
+                            href={getWhatsAppUrl(resolvedStructure.komti.phone, resolvedStructure.komti.name, currentClass?.name)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center gap-1 transition-colors shadow-2xs"
                           >
-                            {copiedKey === 'vice_map' ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
-                            <span>{resolvedStructure.viceKomti.phone}</span>
-                          </button>
-                          {getWhatsAppUrl(resolvedStructure.viceKomti.phone, resolvedStructure.viceKomti.name, currentClass?.name) && (
-                            <a
-                              href={getWhatsAppUrl(resolvedStructure.viceKomti.phone, resolvedStructure.viceKomti.name, currentClass?.name)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center gap-1 transition-colors shadow-2xs"
-                            >
-                              <MessageCircle size={11} />
-                              <span>WhatsApp</span>
-                            </a>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 italic">Nomor belum ada</span>
-                      )}
-                    </div>
+                            <MessageCircle size={12} />
+                            <span>WhatsApp</span>
+                          </a>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">Nomor belum ada</span>
+                    )}
                   </div>
-
                 </div>
 
-                {/* Vertical Stem Line: Level 1 (Pimpinan) -> Level 2 (Bendahara) */}
-                <div className="flex flex-col items-center my-0">
+                {/* Vertical Stem Line: Komti -> Wakil Komti */}
+                <div className="flex flex-col items-center my-0 z-0">
                   <div className="w-0.5 h-10 bg-slate-300 relative">
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500 ring-4 ring-amber-100" />
                   </div>
-                  <div className="px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-[9px] font-bold uppercase tracking-wider text-slate-500 shadow-2xs">
-                    Instruksi & Koordinasi Kas
-                  </div>
-                  <div className="w-0.5 h-6 bg-slate-300" />
                   <div className="w-2 h-2 border-r-2 border-b-2 border-slate-400 rotate-45 -mt-1.5" />
                 </div>
 
               </div>
 
-              {/* =================== LEVEL 2: BENDAHARA KELAS =================== */}
+              {/* =================== LEVEL 2: WAKIL KOMTI (DI BAWAH KOMTI) =================== */}
               <div className="relative w-full flex flex-col items-center">
                 
-                {/* Horizontal Bar for Treasurers */}
+                {/* Wakil Komti Card Node */}
+                <div className="w-[320px] sm:w-[360px] bg-white rounded-2xl p-5 border-2 border-indigo-300 shadow-md hover:shadow-lg transition-all relative group z-10">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-black text-xl shadow-sm shrink-0">
+                      {resolvedStructure.viceKomti.name ? resolvedStructure.viceKomti.name[0].toUpperCase() : <ShieldCheck size={22} />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 text-[9px] font-black tracking-wider uppercase inline-flex items-center gap-1">
+                        <ShieldCheck size={11} className="text-indigo-600" />
+                        WAKIL KOMTI
+                      </span>
+                      <h3 className="text-base font-extrabold text-slate-900 mt-1 truncate">
+                        {resolvedStructure.viceKomti.name || <span className="text-slate-400 italic">Belum diatur</span>}
+                      </h3>
+                      {resolvedStructure.viceKomti.nim && (
+                        <p className="text-[10px] font-mono text-slate-500 font-semibold">NIM: {resolvedStructure.viceKomti.nim}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {resolvedStructure.viceKomti.note && (
+                    <p className="mt-2.5 text-[11px] text-slate-600 bg-indigo-50/60 p-2 rounded-xl line-clamp-2">
+                      {resolvedStructure.viceKomti.note}
+                    </p>
+                  )}
+
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                    {resolvedStructure.viceKomti.phone ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPhone(resolvedStructure.viceKomti.phone, 'vice_map')}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Salin nomor"
+                        >
+                          {copiedKey === 'vice_map' ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                          <span>{resolvedStructure.viceKomti.phone}</span>
+                        </button>
+                        {getWhatsAppUrl(resolvedStructure.viceKomti.phone, resolvedStructure.viceKomti.name, currentClass?.name) && (
+                          <a
+                            href={getWhatsAppUrl(resolvedStructure.viceKomti.phone, resolvedStructure.viceKomti.name, currentClass?.name)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center gap-1 transition-colors shadow-2xs"
+                          >
+                            <MessageCircle size={12} />
+                            <span>WhatsApp</span>
+                          </a>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">Nomor belum ada</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Vertical Stem Line: Wakil Komti -> Bendahara */}
+                <div className="flex flex-col items-center my-0 z-0">
+                  <div className="w-0.5 h-10 bg-slate-300 relative">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-indigo-500 ring-4 ring-indigo-100" />
+                  </div>
+                  <div className="w-2 h-2 border-r-2 border-b-2 border-slate-400 rotate-45 -mt-1.5" />
+                </div>
+
+              </div>
+
+              {/* =================== LEVEL 3: BENDAHARA KELAS =================== */}
+              <div className="relative w-full flex flex-col items-center">
+                
+                {/* Horizontal Bar for Treasurers if multiple */}
                 <div className="flex flex-wrap items-center justify-center gap-4 relative z-10 w-full max-w-2xl">
                   {resolvedStructure.treasurers.map((tr, idx) => (
                     <div 
@@ -608,20 +611,17 @@ export default function ClassStructure({
                   ))}
                 </div>
 
-                {/* Vertical Stem Line: Level 2 (Bendahara) -> Level 3 (Divisi / PJ) */}
-                <div className="flex flex-col items-center my-0">
+                {/* Vertical Stem Line: Level 3 (Bendahara) -> Level 4 (Divisi / PJ) */}
+                <div className="flex flex-col items-center my-0 z-0">
                   <div className="w-0.5 h-10 bg-slate-300 relative">
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-emerald-100" />
                   </div>
-                  <div className="px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-[9px] font-bold uppercase tracking-wider text-slate-500 shadow-2xs">
-                    Operasional & Pembagian Divisi / PJ Matkul
-                  </div>
-                  <div className="w-0.5 h-8 bg-slate-300" />
+                  <div className="w-0.5 h-6 bg-slate-300" />
                 </div>
 
               </div>
 
-              {/* =================== LEVEL 3: KEPALA DIVISI & PJ (2 ORANG / MATKUL) =================== */}
+              {/* =================== LEVEL 4: KEPALA DIVISI & PJ (2 ORANG / MATKUL) =================== */}
               <div className="relative w-full">
                 
                 {divisionsCount === 0 ? (
@@ -681,7 +681,7 @@ export default function ClassStructure({
                                   {div.title || 'Mata Kuliah / Divisi'}
                                 </span>
                                 {(div.leaderName2 || div.phone2) ? (
-                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">
+                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 shrink-0">
                                     2 PJ
                                   </span>
                                 ) : (
@@ -806,17 +806,16 @@ export default function ClassStructure({
       {viewMode === 'cards' && (
         <div className="space-y-6">
           
-          {/* TIER 1: PIMPINAN KELAS (KOMTI & WAKIL KOMTI) */}
+          {/* TIER 1: KOMTI */}
           <section className="space-y-3">
             <div className="flex items-center gap-2 px-1">
               <div className="w-2 h-2 rounded-full bg-amber-500" />
               <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                Tingkat 1 · Pimpinan & Koordinator Kelas
+                Tingkat 1 · Ketua Tingkat (Komti)
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
+            <div className="max-w-xl">
               {/* Card: KOMTI */}
               <div className="bg-white rounded-3xl p-5 sm:p-6 border-2 border-amber-200/80 hover:border-amber-400/80 transition-all shadow-sm relative overflow-hidden group">
                 <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-amber-50 rounded-full blur-xl group-hover:scale-125 transition-transform pointer-events-none" />
@@ -883,7 +882,19 @@ export default function ClassStructure({
                   </div>
                 </div>
               </div>
+            </div>
+          </section>
 
+          {/* TIER 2: WAKIL KOMTI */}
+          <section className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-2 h-2 rounded-full bg-indigo-500" />
+              <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                Tingkat 2 · Wakil Ketua Tingkat (Wakil Komti)
+              </h2>
+            </div>
+
+            <div className="max-w-xl">
               {/* Card: WAKIL KOMTI */}
               <div className="bg-white rounded-3xl p-5 sm:p-6 border-2 border-indigo-200/80 hover:border-indigo-400/80 transition-all shadow-sm relative overflow-hidden group">
                 <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-indigo-50 rounded-full blur-xl group-hover:scale-125 transition-transform pointer-events-none" />
@@ -950,17 +961,16 @@ export default function ClassStructure({
                   </div>
                 </div>
               </div>
-
             </div>
           </section>
 
-          {/* TIER 2: BENDAHARA KELAS */}
+          {/* TIER 3: BENDAHARA KELAS */}
           <section className="space-y-3">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
                 <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                  Tingkat 2 · Bendahara Kelas
+                  Tingkat 3 · Bendahara Kelas
                 </h2>
               </div>
               <span className="text-xs text-slate-400 font-medium">
@@ -1031,13 +1041,13 @@ export default function ClassStructure({
             </div>
           </section>
 
-          {/* TIER 3: KEPALA DIVISI & PENANGGUNG JAWAB (PJ) */}
+          {/* TIER 4: KEPALA DIVISI & PENANGGUNG JAWAB (PJ 1 & PJ 2) */}
           <section className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-violet-500" />
                 <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                  Tingkat 3 · Kepala Divisi & Penanggung Jawab (PJ 1 & PJ 2)
+                  Tingkat 4 · Kepala Divisi & Penanggung Jawab (PJ 1 & PJ 2)
                 </h2>
               </div>
 
@@ -1166,7 +1176,7 @@ export default function ClassStructure({
                               <p className="text-[10px] font-mono text-slate-400 mt-0.5">NIM: {div.nim2}</p>
                             )}
                             {div.phone2 && (
-                              <div className="flex items-center gap-1.5 mt-1">
+                              <div className="flex items-center gap-1 mt-1">
                                 <span className="font-mono text-[10px] text-slate-600">{div.phone2}</span>
                                 <button
                                 onClick={() => handleCopyPhone(div.phone2, `div_c2_${idx}`)}
