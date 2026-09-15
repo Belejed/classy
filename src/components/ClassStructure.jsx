@@ -209,6 +209,9 @@ export default function ClassStructure({
           leaderName: '',
           phone: '',
           nim: '',
+          leaderName2: '',
+          phone2: '',
+          nim2: '',
           description: ''
         }
       ]
@@ -257,6 +260,10 @@ export default function ClassStructure({
       updateDraftDivision(targetIndex, 'leaderName', mem.name || '');
       if (mem.phoneNumber) updateDraftDivision(targetIndex, 'phone', mem.phoneNumber);
       if (mem.nim) updateDraftDivision(targetIndex, 'nim', mem.nim);
+    } else if (targetType === 'division_pj2' && targetIndex !== null) {
+      updateDraftDivision(targetIndex, 'leaderName2', mem.name || '');
+      if (mem.phoneNumber) updateDraftDivision(targetIndex, 'phone2', mem.phoneNumber);
+      if (mem.nim) updateDraftDivision(targetIndex, 'nim2', mem.nim);
     }
   };
 
@@ -268,6 +275,7 @@ export default function ClassStructure({
     return list.filter(d => 
       (d.title || '').toLowerCase().includes(q) ||
       (d.leaderName || '').toLowerCase().includes(q) ||
+      (d.leaderName2 || '').toLowerCase().includes(q) ||
       (d.description || '').toLowerCase().includes(q)
     );
   }, [resolvedStructure.divisions, divisionSearch]);
@@ -305,7 +313,7 @@ export default function ClassStructure({
               Struktur Organisasi Kelas
             </h1>
             <p className="text-slate-300 text-xs sm:text-sm max-w-xl leading-relaxed">
-              Bagan alur koordinasi & kepengurusan kelas: Komti, Wakil Komti, Bendahara, serta Kepala Divisi dan Penanggung Jawab (PJ) kelas {currentClass?.name || ''}.
+              Bagan alur koordinasi & kepengurusan kelas: Komti, Wakil Komti, Bendahara, serta Kepala Divisi dan Penanggung Jawab (PJ 1 & PJ 2) kelas {currentClass?.name || ''}.
             </p>
           </div>
 
@@ -389,7 +397,7 @@ export default function ClassStructure({
               </span>
               <span className="text-slate-300">·</span>
               <span className="flex items-center gap-1.5 font-semibold text-slate-700">
-                <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block" /> Divisi & PJ
+                <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block" /> Divisi & PJ (2 Orang / Matkul)
               </span>
             </div>
 
@@ -546,7 +554,7 @@ export default function ClassStructure({
               {/* =================== LEVEL 2: BENDAHARA KELAS =================== */}
               <div className="relative w-full flex flex-col items-center">
                 
-                {/* Horizontal Bar for Treasurers if multiple */}
+                {/* Horizontal Bar for Treasurers */}
                 <div className="flex flex-wrap items-center justify-center gap-4 relative z-10 w-full max-w-2xl">
                   {resolvedStructure.treasurers.map((tr, idx) => (
                     <div 
@@ -606,14 +614,14 @@ export default function ClassStructure({
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-emerald-100" />
                   </div>
                   <div className="px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-[9px] font-bold uppercase tracking-wider text-slate-500 shadow-2xs">
-                    Operasional & Pembagian Divisi
+                    Operasional & Pembagian Divisi / PJ Matkul
                   </div>
                   <div className="w-0.5 h-8 bg-slate-300" />
                 </div>
 
               </div>
 
-              {/* =================== LEVEL 3: KEPALA DIVISI & PJ =================== */}
+              {/* =================== LEVEL 3: KEPALA DIVISI & PJ (2 ORANG / MATKUL) =================== */}
               <div className="relative w-full">
                 
                 {divisionsCount === 0 ? (
@@ -621,9 +629,9 @@ export default function ClassStructure({
                     <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center mx-auto">
                       <Layers size={20} />
                     </div>
-                    <p className="text-xs font-bold text-slate-800">Belum Ada Divisi / PJ</p>
+                    <p className="text-xs font-bold text-slate-800">Belum Ada Divisi / PJ Matkul</p>
                     <p className="text-[11px] text-slate-500">
-                      Tambahkan Kepala Divisi atau PJ Matkul agar bagan terhubung ke seluruh tim kerja kelas.
+                      Tambahkan Kepala Divisi atau PJ Mata Kuliah (bisa 2 orang per matkul).
                     </p>
                     {canEdit && (
                       <button
@@ -645,7 +653,7 @@ export default function ClassStructure({
                         <div 
                           className="border-t-2 border-slate-300 relative"
                           style={{
-                            width: `calc(${Math.min(divisionsCount, 4) * 230}px - 140px)`,
+                            width: `calc(${Math.min(divisionsCount, 4) * 260}px - 130px)`,
                             maxWidth: '92%'
                           }}
                         >
@@ -655,7 +663,7 @@ export default function ClassStructure({
                     )}
 
                     {/* Grid of Division & PJ Nodes */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
                       {resolvedStructure.divisions.map((div, idx) => (
                         <div key={div.id || idx} className="relative flex flex-col items-center">
                           
@@ -664,34 +672,110 @@ export default function ClassStructure({
                             <div className="w-1.5 h-1.5 rounded-full bg-violet-500 absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                           </div>
 
-                          {/* Division Card Node */}
+                          {/* Division Card Node (Supports 2 PJ per Matkul) */}
                           <div className="w-full bg-white rounded-2xl p-4 border-2 border-violet-200/90 shadow-sm hover:border-violet-400 hover:shadow-md transition-all flex flex-col justify-between">
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between gap-1.5">
-                                <span className="px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 text-[9px] font-extrabold uppercase truncate max-w-[170px]">
-                                  {div.title || 'Divisi / PJ'}
+                            <div className="space-y-3">
+                              {/* Header Matkul */}
+                              <div className="flex items-center justify-between gap-1.5 pb-2 border-b border-slate-100">
+                                <span className="px-2.5 py-1 rounded-full bg-violet-50 text-violet-800 border border-violet-200 text-[10px] font-black uppercase tracking-wider truncate">
+                                  {div.title || 'Mata Kuliah / Divisi'}
                                 </span>
+                                {(div.leaderName2 || div.phone2) ? (
+                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">
+                                    2 PJ
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0">
+                                    1 PJ
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* PJ 1 */}
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-violet-100 text-violet-800">
+                                      PJ 1
+                                    </span>
+                                    <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 truncate">
+                                      {div.leaderName || <span className="text-slate-400 italic font-normal">Belum ditentukan</span>}
+                                    </h4>
+                                  </div>
+                                  {div.nim && (
+                                    <p className="text-[10px] font-mono text-slate-400 mt-0.5">NIM: {div.nim}</p>
+                                  )}
+                                  {div.phone && (
+                                    <div className="flex items-center gap-1 mt-1">
+                                      <span className="font-mono text-[10px] text-slate-500">{div.phone}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyPhone(div.phone, `div1_${idx}`)}
+                                        className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
+                                        title="Salin nomor"
+                                      >
+                                        {copiedKey === `div1_${idx}` ? <Check size={10} className="text-emerald-600" /> : <Copy size={10} />}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+
                                 {div.phone && getWhatsAppUrl(div.phone, div.leaderName, currentClass?.name) && (
                                   <a
                                     href={getWhatsAppUrl(div.phone, div.leaderName, currentClass?.name)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-emerald-600 hover:text-emerald-700 p-1 rounded-md hover:bg-emerald-50 transition-colors shrink-0"
-                                    title="WhatsApp PJ"
+                                    className="p-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors shrink-0 shadow-2xs"
+                                    title="WhatsApp PJ 1"
                                   >
-                                    <MessageCircle size={13} />
+                                    <MessageCircle size={14} />
                                   </a>
                                 )}
                               </div>
 
-                              <div>
-                                <h4 className="font-extrabold text-sm text-slate-900 truncate">
-                                  {div.leaderName || <span className="text-slate-400 italic font-normal">Belum ada PJ</span>}
-                                </h4>
-                                {div.nim && (
-                                  <p className="text-[10px] font-mono text-slate-500">NIM: {div.nim}</p>
-                                )}
-                              </div>
+                              {/* PJ 2 (if present) */}
+                              {(div.leaderName2 || div.phone2) && (
+                                <div className="flex items-start justify-between gap-2 pt-2 border-t border-slate-100/80">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800">
+                                        PJ 2
+                                      </span>
+                                      <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 truncate">
+                                        {div.leaderName2}
+                                      </h4>
+                                    </div>
+                                    {div.nim2 && (
+                                      <p className="text-[10px] font-mono text-slate-400 mt-0.5">NIM: {div.nim2}</p>
+                                    )}
+                                    {div.phone2 && (
+                                      <div className="flex items-center gap-1 mt-1">
+                                        <span className="font-mono text-[10px] text-slate-500">{div.phone2}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCopyPhone(div.phone2, `div2_${idx}`)}
+                                          className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
+                                          title="Salin nomor"
+                                        >
+                                          {copiedKey === `div2_${idx}` ? <Check size={10} className="text-emerald-600" /> : <Copy size={10} />}
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {div.phone2 && getWhatsAppUrl(div.phone2, div.leaderName2, currentClass?.name) && (
+                                    <a
+                                      href={getWhatsAppUrl(div.phone2, div.leaderName2, currentClass?.name)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors shrink-0 shadow-2xs"
+                                      title="WhatsApp PJ 2"
+                                    >
+                                      <MessageCircle size={14} />
+                                    </a>
+                                  )}
+                                </div>
+                              )}
 
                               {div.description && (
                                 <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-xl line-clamp-2 leading-relaxed">
@@ -699,20 +783,6 @@ export default function ClassStructure({
                                 </p>
                               )}
                             </div>
-
-                            {div.phone && (
-                              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
-                                <span className="font-mono text-slate-500 truncate mr-2">{div.phone}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopyPhone(div.phone, `div_map_${idx}`)}
-                                  className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer shrink-0"
-                                  title="Salin"
-                                >
-                                  {copiedKey === `div_map_${idx}` ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
-                                </button>
-                              </div>
-                            )}
                           </div>
 
                         </div>
@@ -967,7 +1037,7 @@ export default function ClassStructure({
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-violet-500" />
                 <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                  Tingkat 3 · Kepala Divisi & Penanggung Jawab (PJ)
+                  Tingkat 3 · Kepala Divisi & Penanggung Jawab (PJ 1 & PJ 2)
                 </h2>
               </div>
 
@@ -994,7 +1064,7 @@ export default function ClassStructure({
                 <div className="max-w-md mx-auto space-y-1">
                   <h3 className="font-bold text-sm text-slate-900">Belum Ada Divisi atau PJ Ditambahkan</h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Komti atau Wakil Komti dapat menambahkan Kepala Divisi (seperti Akademik, Perlengkapan, Acara) atau Penanggung Jawab Mata Kuliah (PJ Matkul) di sini.
+                    Komti atau Wakil Komti dapat menambahkan Kepala Divisi atau Penanggung Jawab Mata Kuliah (bisa 2 orang per matkul).
                   </p>
                 </div>
                 {canEdit && (
@@ -1013,71 +1083,124 @@ export default function ClassStructure({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredDivisions.map((div, idx) => {
-                  const waLink = getWhatsAppUrl(div.phone, div.leaderName, currentClass?.name);
-                  return (
-                    <div
-                      key={div.id || idx}
-                      className="bg-white rounded-3xl p-5 border border-slate-200/90 hover:border-violet-300 hover:shadow-md transition-all flex flex-col justify-between"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="w-10 h-10 rounded-2xl bg-violet-50 text-violet-700 flex items-center justify-center font-bold text-sm">
-                            <Layers size={18} />
+                {filteredDivisions.map((div, idx) => (
+                  <div
+                    key={div.id || idx}
+                    className="bg-white rounded-3xl p-5 border border-slate-200/90 hover:border-violet-300 hover:shadow-md transition-all flex flex-col justify-between"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2 pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            <Layers size={15} />
                           </div>
-                          <span className="px-2.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 text-[10px] font-bold">
-                            Divisi / PJ
+                          <span className="font-extrabold text-xs text-slate-900 uppercase tracking-tight">
+                            {div.title || 'Mata Kuliah / Divisi'}
                           </span>
                         </div>
-
-                        <div>
-                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-violet-600 block">
-                            {div.title || 'Divisi / PJ Kelas'}
+                        {(div.leaderName2 || div.phone2) ? (
+                          <span className="px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 text-[9px] font-bold">
+                            2 PJ
                           </span>
-                          <h4 className="font-extrabold text-base text-slate-900 mt-0.5">
-                            {div.leaderName || <span className="text-slate-400 italic font-normal">Belum ada koordinator</span>}
-                          </h4>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[9px] font-bold">
+                            1 PJ
+                          </span>
+                        )}
+                      </div>
+
+                      {/* PJ 1 Section */}
+                      <div className="flex items-start justify-between gap-2 pt-1">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-violet-100 text-violet-800">
+                              PJ 1
+                            </span>
+                            <h4 className="font-extrabold text-sm text-slate-900 truncate">
+                              {div.leaderName || <span className="text-slate-400 italic font-normal">Belum ditentukan</span>}
+                            </h4>
+                          </div>
                           {div.nim && (
-                            <p className="text-[11px] font-mono text-slate-500">NIM: {div.nim}</p>
+                            <p className="text-[10px] font-mono text-slate-400 mt-0.5">NIM: {div.nim}</p>
+                          )}
+                          {div.phone && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="font-mono text-[10px] text-slate-600">{div.phone}</span>
+                              <button
+                                onClick={() => handleCopyPhone(div.phone, `div_c1_${idx}`)}
+                                className="text-slate-400 hover:text-slate-700 p-0.5"
+                                title="Salin nomor"
+                              >
+                                {copiedKey === `div_c1_${idx}` ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                              </button>
+                            </div>
                           )}
                         </div>
 
-                        {div.description && (
-                          <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed">
-                            {div.description}
-                          </p>
+                        {div.phone && getWhatsAppUrl(div.phone, div.leaderName, currentClass?.name) && (
+                          <a
+                            href={getWhatsAppUrl(div.phone, div.leaderName, currentClass?.name)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center gap-1 transition-colors shrink-0"
+                          >
+                            <MessageCircle size={13} />
+                            <span>WA</span>
+                          </a>
                         )}
                       </div>
 
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                        {div.phone ? (
-                          <>
-                            <button
-                              onClick={() => handleCopyPhone(div.phone, `div_${idx}`)}
-                              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
-                              title="Salin nomor"
-                            >
-                              {copiedKey === `div_${idx}` ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                            </button>
-                            {waLink && (
-                              <a
-                                href={waLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-3 py-1 rounded-xl bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-bold flex items-center gap-1.5 transition-colors ml-auto"
-                              >
-                                <MessageCircle size={12} />
-                                <span>Hubungi PJ</span>
-                              </a>
+                      {/* PJ 2 Section (if present) */}
+                      {(div.leaderName2 || div.phone2) && (
+                        <div className="flex items-start justify-between gap-2 pt-2 border-t border-slate-100">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800">
+                                PJ 2
+                              </span>
+                              <h4 className="font-extrabold text-sm text-slate-900 truncate">
+                                {div.leaderName2}
+                              </h4>
+                            </div>
+                            {div.nim2 && (
+                              <p className="text-[10px] font-mono text-slate-400 mt-0.5">NIM: {div.nim2}</p>
                             )}
-                          </>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 italic">Kontak belum ada</span>
-                        )}
-                      </div>
+                            {div.phone2 && (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="font-mono text-[10px] text-slate-600">{div.phone2}</span>
+                                <button
+                                onClick={() => handleCopyPhone(div.phone2, `div_c2_${idx}`)}
+                                className="text-slate-400 hover:text-slate-700 p-0.5"
+                                title="Salin nomor"
+                              >
+                                {copiedKey === `div_c2_${idx}` ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                              </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {div.phone2 && getWhatsAppUrl(div.phone2, div.leaderName2, currentClass?.name) && (
+                            <a
+                              href={getWhatsAppUrl(div.phone2, div.leaderName2, currentClass?.name)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center gap-1 transition-colors shrink-0"
+                            >
+                              <MessageCircle size={13} />
+                              <span>WA</span>
+                            </a>
+                          )}
+                        </div>
+                      )}
+
+                      {div.description && (
+                        <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed mt-1">
+                          {div.description}
+                        </p>
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </section>
@@ -1346,88 +1469,162 @@ export default function ClassStructure({
                   </div>
                 </div>
 
-                {/* 4. Divisi & PJ Section */}
+                {/* 4. Divisi & PJ Section (2 Orang / Matkul) */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                      <Layers size={14} className="text-violet-600" />
-                      4. Kepala Divisi & Penanggung Jawab (PJ)
-                    </span>
+                    <div>
+                      <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                        <Layers size={14} className="text-violet-600" />
+                        4. Kepala Divisi & Penanggung Jawab Matkul (PJ 1 & PJ 2)
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Setiap mata kuliah / divisi dapat diisi hingga 2 orang penanggung jawab.
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={addDivisionSlot}
-                      className="px-2.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-800 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-800 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
                     >
                       <Plus size={13} />
-                      <span>Tambah Divisi / PJ</span>
+                      <span>Tambah Matkul / Divisi</span>
                     </button>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {(draft.divisions || []).length === 0 ? (
                       <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-2xl text-center border border-dashed border-slate-200">
-                        Belum ada Divisi atau PJ. Klik tombol "+ Tambah Divisi / PJ" di atas untuk menambahkan.
+                        Belum ada Divisi atau PJ. Klik tombol "+ Tambah Matkul / Divisi" di atas untuk menambahkan.
                       </p>
                     ) : (
                       (draft.divisions || []).map((div, idx) => (
-                        <div key={div.id || idx} className="p-3.5 rounded-2xl bg-violet-50/40 border border-violet-200/70 space-y-2">
+                        <div key={div.id || idx} className="p-4 rounded-2xl bg-violet-50/40 border border-violet-200/80 space-y-3">
+                          {/* Title & Delete */}
                           <div className="flex items-center justify-between gap-2">
                             <input
                               type="text"
                               value={div.title || ''}
                               onChange={(e) => updateDraftDivision(idx, 'title', e.target.value)}
-                              placeholder="Nama Divisi / Judul PJ (Contoh: PJ Matkul Basis Data)"
-                              className="text-xs font-bold text-slate-800 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 flex-1"
+                              placeholder="Nama Mata Kuliah / Divisi (Contoh: Pengantar Bisnis dan Inovasi)"
+                              className="text-xs font-black text-slate-900 bg-white px-3 py-2 rounded-xl border border-slate-200 flex-1 shadow-2xs"
                             />
-                            <div className="flex items-center gap-2">
-                              {activeMembersList.length > 0 && (
-                                <select
-                                  className="text-[11px] bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"
-                                  onChange={(e) => handleSelectMemberFor(e.target.value, 'division', idx)}
-                                  defaultValue=""
-                                >
-                                  <option value="" disabled>-- Pilih Mahasiswa --</option>
-                                  {activeMembersList.map(m => (
-                                    <option key={m.userId || m.uid || m.id} value={m.userId || m.uid || m.id}>
-                                      {m.name || m.email}
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => removeDivisionSlot(idx)}
-                                className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 cursor-pointer"
-                                title="Hapus divisi"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeDivisionSlot(idx)}
+                              className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-700 cursor-pointer transition-colors shrink-0"
+                              title="Hapus mata kuliah"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <input
-                              type="text"
-                              value={div.leaderName || ''}
-                              onChange={(e) => updateDraftDivision(idx, 'leaderName', e.target.value)}
-                              placeholder="Nama Koordinator / PJ..."
-                              className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold"
-                            />
-                            <input
-                              type="text"
-                              value={div.phone || ''}
-                              onChange={(e) => updateDraftDivision(idx, 'phone', e.target.value)}
-                              placeholder="No. WhatsApp / HP..."
-                              className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-mono"
-                            />
+                          {/* 2 PJ Boxes */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {/* PJ 1 Box */}
+                            <div className="p-3 bg-white rounded-xl border border-violet-100 space-y-2 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-violet-700 flex items-center gap-1">
+                                  <User size={11} />
+                                  PJ 1 (Utama)
+                                </span>
+                                {activeMembersList.length > 0 && (
+                                  <select
+                                    className="text-[10px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-slate-600 font-semibold"
+                                    onChange={(e) => handleSelectMemberFor(e.target.value, 'division', idx)}
+                                    defaultValue=""
+                                  >
+                                    <option value="" disabled>-- Pilih Mahasiswa --</option>
+                                    {activeMembersList.map(m => (
+                                      <option key={m.userId || m.uid || m.id} value={m.userId || m.uid || m.id}>
+                                        {m.name || m.email}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                              </div>
+                              <div className="space-y-1.5">
+                                <input
+                                  type="text"
+                                  value={div.leaderName || ''}
+                                  onChange={(e) => updateDraftDivision(idx, 'leaderName', e.target.value)}
+                                  placeholder="Nama Lengkap PJ 1..."
+                                  className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50/50 border border-slate-200 text-xs font-semibold"
+                                />
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={div.phone || ''}
+                                    onChange={(e) => updateDraftDivision(idx, 'phone', e.target.value)}
+                                    placeholder="WhatsApp PJ 1..."
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50/50 border border-slate-200 text-xs font-mono"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={div.nim || ''}
+                                    onChange={(e) => updateDraftDivision(idx, 'nim', e.target.value)}
+                                    placeholder="NIM PJ 1 (Opsional)..."
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50/50 border border-slate-200 text-xs font-mono"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* PJ 2 Box */}
+                            <div className="p-3 bg-white rounded-xl border border-indigo-100 space-y-2 shadow-2xs">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 flex items-center gap-1">
+                                  <User size={11} />
+                                  PJ 2 (Pendamping)
+                                </span>
+                                {activeMembersList.length > 0 && (
+                                  <select
+                                    className="text-[10px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-slate-600 font-semibold"
+                                    onChange={(e) => handleSelectMemberFor(e.target.value, 'division_pj2', idx)}
+                                    defaultValue=""
+                                  >
+                                    <option value="" disabled>-- Pilih Mahasiswa --</option>
+                                    {activeMembersList.map(m => (
+                                      <option key={m.userId || m.uid || m.id} value={m.userId || m.uid || m.id}>
+                                        {m.name || m.email}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                              </div>
+                              <div className="space-y-1.5">
+                                <input
+                                  type="text"
+                                  value={div.leaderName2 || ''}
+                                  onChange={(e) => updateDraftDivision(idx, 'leaderName2', e.target.value)}
+                                  placeholder="Nama Lengkap PJ 2..."
+                                  className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50/50 border border-slate-200 text-xs font-semibold"
+                                />
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={div.phone2 || ''}
+                                    onChange={(e) => updateDraftDivision(idx, 'phone2', e.target.value)}
+                                    placeholder="WhatsApp PJ 2..."
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50/50 border border-slate-200 text-xs font-mono"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={div.nim2 || ''}
+                                    onChange={(e) => updateDraftDivision(idx, 'nim2', e.target.value)}
+                                    placeholder="NIM PJ 2 (Opsional)..."
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50/50 border border-slate-200 text-xs font-mono"
+                                  />
+                                </div>
+                              </div>
+                            </div>
                           </div>
 
                           <input
                             type="text"
                             value={div.description || ''}
                             onChange={(e) => updateDraftDivision(idx, 'description', e.target.value)}
-                            placeholder="Deskripsi tugas atau ruang lingkup (Contoh: Menghubungi dosen & share link praktikum)"
-                            className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs"
+                            placeholder="Deskripsi tugas / catatan matkul (Contoh: Menghubungi dosen & share link praktikum)"
+                            className="w-full px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs"
                           />
                         </div>
                       ))
