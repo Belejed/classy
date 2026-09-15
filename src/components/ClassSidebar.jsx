@@ -21,7 +21,8 @@ import {
   Phone,
   History,
   Sparkles,
-  Dices
+  Dices,
+  Network
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { isClassManager, canAccessSubmissionsManager, normalizeRole } from '../utils/permissions';
@@ -149,6 +150,7 @@ export default function ClassSidebar({
     { id: 'files', label: 'Files', icon: Folder },
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'forum', label: 'Tools Kelas', icon: Dices },
+    { id: 'structure', label: 'Struktur Kelas', icon: Network },
     { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
     { id: 'members', label: role === 'superadmin' ? 'Members' : 'Members (Komti)', icon: Users, isSpecial: true },
     ...(canAccessSubmissions ? [
@@ -443,7 +445,7 @@ export default function ClassSidebar({
 
         {/* 5th Tab: Menu Drawer Button (Files, Anggota, Kontak, Forum, Switch Class, Profile) */}
         {(() => {
-          const isOtherTabActive = ['files', 'forum', 'contacts', 'members', 'logs', 'submissions'].includes(activeTab) || mobileMenuOpen;
+          const isOtherTabActive = ['files', 'forum', 'structure', 'contacts', 'members', 'logs', 'submissions'].includes(activeTab) || mobileMenuOpen;
           return (
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -676,6 +678,33 @@ export default function ClassSidebar({
                         <p className="font-bold text-xs truncate">Kontak Dosen</p>
                         <p className={`text-[10px] truncate ${activeTab === 'contacts' ? 'text-white/80' : 'text-[#64748B]'}`}>
                           WhatsApp & dosen pengajar
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* 4. Struktur Kelas */}
+                  <button
+                    onClick={() => {
+                      onSelectTab('structure');
+                      handleCloseMobileMenu();
+                    }}
+                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-4 active:scale-[0.98] ${
+                      activeTab === 'structure'
+                        ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
+                        : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        activeTab === 'structure' ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        <Network size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs truncate">Struktur Kelas</p>
+                        <p className={`text-[10px] truncate ${activeTab === 'structure' ? 'text-white/80' : 'text-[#64748B]'}`}>
+                          Komti, Wakil, Bendahara & PJ
                         </p>
                       </div>
                     </div>

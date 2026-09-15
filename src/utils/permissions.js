@@ -85,6 +85,13 @@ export const canAccessSubmissionsManager = (role, isOwner = false) => {
   return [ROLES.KOMTI, ROLES.VICE_KOMTI, ROLES.SUPERADMIN].includes(r);
 };
 
+// Can manage Class Structure: ONLY Komti, Wakil Komti, Superadmin, Owner
+export const canManageClassStructure = (role, isOwner = false) => {
+  if (isOwner) return true;
+  const r = normalizeRole(role);
+  return [ROLES.KOMTI, ROLES.VICE_KOMTI, ROLES.SUPERADMIN].includes(r);
+};
+
 // CAN DELETE: ONLY Komti, Lecturer, Superadmin, Owner!
 // WAKIL KOMTI AND KEPALA DIVISI CANNOT DELETE ANYTHING!
 export const canDeleteAnything = (role, isOwner = false) => {

@@ -30,6 +30,7 @@ import { setupIdleSessionWatcher, resetActivityEpoch, clearActivityEpoch } from 
 // Heavy modals and non-critical sub-tabs: Lazy loaded for optimal mobile performance and small bundle
 const ClassSubmissionsManager = lazy(() => import('./components/ClassSubmissionsManager'));
 const ClassActivityLog = lazy(() => import('./components/ClassActivityLog'));
+const ClassStructure = lazy(() => import('./components/ClassStructure'));
 const UserProfileModal = lazy(() => import('./components/UserProfileModal'));
 const SuperadminDashboardModal = lazy(() => import('./components/SuperadminDashboardModal'));
 const ChangelogModal = lazy(() => import('./components/ChangelogModal'));
@@ -1413,7 +1414,7 @@ function ClassWorkspace({
     }
   };
 
-  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'contacts', 'members', 'logs', 'submissions'];
+  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'structure', 'contacts', 'members', 'logs', 'submissions'];
   const activeTab = validTabs.includes(tab) ? tab : 'dashboard';
 
   // Ensure currentClass matches the URL classId
@@ -1700,6 +1701,15 @@ function ClassWorkspace({
                 onDeleteGroup={handleDeleteGroup}
               />
             </div>
+
+            {activeTab === 'structure' && (
+              <Suspense fallback={<DashboardSkeleton />}>
+                <ClassStructure
+                  currentClass={currentClass}
+                  currentUser={user}
+                />
+              </Suspense>
+            )}
 
             {activeTab === 'contacts' && (
               <ClassContacts

@@ -16,7 +16,8 @@ import {
   Settings,
   Phone,
   Sparkles,
-  Dices
+  Dices,
+  Network
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -68,6 +69,7 @@ export default function ClassNavbar({
     { id: 'files', label: 'Files', icon: Folder },
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'forum', label: 'Tools Kelas', icon: Dices },
+    { id: 'structure', label: 'Struktur Kelas', icon: Network },
     { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
     ...(showSubmissions ? [{ id: 'submissions', label: 'Rapikan Tugas', icon: Sparkles }] : [])
   ];

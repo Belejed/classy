@@ -12,7 +12,8 @@ import {
   Copy, 
   Check, 
   MessageCircle,
-  Sparkles
+  Sparkles,
+  Network
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getRoleDisplayName } from '../utils/permissions';
@@ -33,6 +34,7 @@ export default function ClassTopHeader({
     files: { label: 'Berkas & Drive', icon: Folder },
     announcements: { label: 'Pengumuman', icon: Megaphone },
     forum: { label: 'Forum Diskusi', icon: MessageSquare },
+    structure: { label: 'Struktur Organisasi Kelas', icon: Network },
     contacts: { label: 'Kontak Dosen', icon: Phone },
     members: { label: 'Anggota Kelas', icon: Users },
     submissions: { label: 'Rapikan Tugas & Kelompok', icon: Sparkles },

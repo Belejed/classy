@@ -2890,5 +2890,78 @@ export const dbService = {
         return () => {};
       }
     }
+  },
+
+  // 12. CLASS STRUCTURE (Pengurus: Komti, Wakil Komti, Bendahara, Divisi / PJ)
+  structure: {
+    get: async (classId) => {
+      if (!classId) return null;
+      try {
+        const docRef = doc(db, 'workspaces', classId, 'meta', 'structure');
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          return snap.data();
+        }
+        return null;
+      } catch (err) {
+        console.error('Error getting class structure:', err);
+        return null;
+      }
+    },
+
+    save: async (classId, structureData, actor = null) => {
+      if (!classId) throw new Error('Class ID is required');
+      try {
+        const docRef = doc(db, 'workspaces', classId, 'meta', 'structure');
+        const cleanData = sanitizeForFirestore({
+          ...structureData,
+          updatedAt: new Date().toISOString(),
+          updatedBy: actor ? {
+            name: actor.name || actor.displayName || actor.email || 'Pengurus',
+            email: actor.email || '',
+            role: actor.role || 'komti'
+          } : null
+        });
+        await setDoc(docRef, cleanData, { merge: true });
+
+        // Log structure update
+        if (actor) {
+          try {
+            await dbService.logs.create(classId, {
+              actionType: 'structure_update',
+              title: 'Struktur Organisasi Kelas Diperbarui',
+              details: `${actor.name || 'Komti / Wakil Komti'} memperbarui susunan pengurus kelas (Komti, Wakil, Bendahara, Divisi / PJ).`,
+              actor: { name: actor.name || actor.displayName || 'Pengurus', role: actor.role || 'komti' },
+              color: 'indigo'
+            });
+          } catch {}
+        }
+
+        return cleanData;
+      } catch (err) {
+        console.error('Error saving class structure:', err);
+        throw err;
+      }
+    },
+
+    subscribe: (classId, callback) => {
+      if (!classId) return () => {};
+      try {
+        const docRef = doc(db, 'workspaces', classId, 'meta', 'structure');
+        return onSnapshot(docRef, (snap) => {
+          if (snap.exists()) {
+            callback(snap.data());
+          } else {
+            callback(null);
+          }
+        }, (err) => {
+          console.warn('Class structure subscription error:', err);
+        });
+      } catch (err) {
+        console.warn('Error subscribing to class structure:', err);
+        return () => {};
+      }
+    }
   }
 };
+
