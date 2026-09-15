@@ -1257,16 +1257,9 @@ export default function ClassStructure({
 
       {/* EDIT MODAL PORTAL (Only for Komti & Wakil Komti) */}
       {isEditing && draft && (
-        <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 font-sans">
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-fade-in"
-              onClick={() => !saving && setIsEditing(false)}
-            />
-
-            {/* Modal Dialog */}
-            <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden animate-scale-up">
+        <ModalPortal onClose={() => !saving && setIsEditing(false)} maxWidth="max-w-3xl">
+          {/* Modal Dialog Card */}
+          <div className="bg-white border border-slate-200 rounded-3xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden font-sans">
               
               {/* Header */}
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
@@ -1712,7 +1705,6 @@ export default function ClassStructure({
               </div>
 
             </div>
-          </div>
         </ModalPortal>
       )}
 

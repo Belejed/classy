@@ -10,6 +10,7 @@ export const KNOWN_SUBFOLDER_IDS = {
   'M.Log B:Tugas: PPT Permasalahan Transportasi': '1m-EgXYUjhaLdlJDKG4s2d_u2kt4YGoro',
   'M.Log B:Tugas: Makalah Riset 2 Halaman': '1goE6yRZfOW0adgVsG9VKQSYKLrfBNlwb',
   'M.Log B:Tugas: Analisis Benchmarking Perusahaan': '16nT7DjMqLeJm9JYexVj5SncZbjWwNFxb',
+  'M.Log B:Tugas: Penyusunan Paper': '1RLsG1Lr3mwDyD8Tpp-8czlsuHNVCToEo',
   'M.Log B:Materi Kuliah': '1oedY2DbXYwQIC5S6XahXNoEvAtFaGJIz',
   'M.Log B:Pedoman': '14qmi8TBJSFnWdXEGxDTSurRHQp1JJmIF',
   'M.Log B:Lampiran Pengumuman': '1MVMWi8D1BwFuOdNMGlI3nKRorrQa4S_C',
