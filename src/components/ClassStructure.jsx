@@ -39,6 +39,15 @@ const getWhatsAppUrl = (phone, name = '', className = '') => {
   return `https://wa.me/${formatted}?text=${text}`;
 };
 
+// Helper to get clean 2-letter uppercase monogram initials (e.g. "Arya Ghiffari" -> "AG")
+const getInitials = (name) => {
+  if (!name || typeof name !== 'string') return '';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+};
+
 export default function ClassStructure({
   currentClass,
   currentUser
@@ -422,8 +431,15 @@ export default function ClassStructure({
                 {/* Komti Card Node */}
                 <div className="w-[320px] sm:w-[360px] bg-white rounded-2xl p-5 border-2 border-amber-300 shadow-md hover:shadow-lg transition-all relative group z-10">
                   <div className="flex items-start gap-3.5">
-                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center font-black text-xl shadow-sm shrink-0">
-                      {resolvedStructure.komti.name ? resolvedStructure.komti.name[0].toUpperCase() : <Crown size={22} />}
+                    <div className="relative shrink-0">
+                      <div className="w-12 h-12 min-w-[48px] min-h-[48px] aspect-square rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center font-black text-sm tracking-wider shadow-sm ring-2 ring-amber-300">
+                        {resolvedStructure.komti.name ? getInitials(resolvedStructure.komti.name) : <Crown size={22} />}
+                      </div>
+                      {resolvedStructure.komti.name && (
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center ring-2 ring-white shadow-xs">
+                          <Crown size={10} />
+                        </div>
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[9px] font-black tracking-wider uppercase inline-flex items-center gap-1">
@@ -491,8 +507,15 @@ export default function ClassStructure({
                 {/* Wakil Komti Card Node */}
                 <div className="w-[320px] sm:w-[360px] bg-white rounded-2xl p-5 border-2 border-indigo-300 shadow-md hover:shadow-lg transition-all relative group z-10">
                   <div className="flex items-start gap-3.5">
-                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-black text-xl shadow-sm shrink-0">
-                      {resolvedStructure.viceKomti.name ? resolvedStructure.viceKomti.name[0].toUpperCase() : <ShieldCheck size={22} />}
+                    <div className="relative shrink-0">
+                      <div className="w-12 h-12 min-w-[48px] min-h-[48px] aspect-square rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-black text-sm tracking-wider shadow-sm ring-2 ring-indigo-300">
+                        {resolvedStructure.viceKomti.name ? getInitials(resolvedStructure.viceKomti.name) : <ShieldCheck size={22} />}
+                      </div>
+                      {resolvedStructure.viceKomti.name && (
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-indigo-700 text-white flex items-center justify-center ring-2 ring-white shadow-xs">
+                          <ShieldCheck size={10} />
+                        </div>
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 text-[9px] font-black tracking-wider uppercase inline-flex items-center gap-1">
@@ -822,8 +845,15 @@ export default function ClassStructure({
                 
                 <div className="flex items-start justify-between gap-3 relative z-10">
                   <div className="flex items-center gap-3.5">
-                    <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
-                      {resolvedStructure.komti.name ? resolvedStructure.komti.name[0].toUpperCase() : <Crown size={24} />}
+                    <div className="relative shrink-0">
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 min-w-[48px] min-h-[48px] sm:min-w-[56px] sm:min-h-[56px] aspect-square rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center font-black text-sm sm:text-base tracking-wider shadow-md ring-2 ring-amber-300">
+                        {resolvedStructure.komti.name ? getInitials(resolvedStructure.komti.name) : <Crown size={24} />}
+                      </div>
+                      {resolvedStructure.komti.name && (
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-600 text-white flex items-center justify-center ring-2 ring-white shadow-xs">
+                          <Crown size={11} />
+                        </div>
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -901,8 +931,15 @@ export default function ClassStructure({
 
                 <div className="flex items-start justify-between gap-3 relative z-10">
                   <div className="flex items-center gap-3.5">
-                    <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
-                      {resolvedStructure.viceKomti.name ? resolvedStructure.viceKomti.name[0].toUpperCase() : <ShieldCheck size={24} />}
+                    <div className="relative shrink-0">
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 min-w-[48px] min-h-[48px] sm:min-w-[56px] sm:min-h-[56px] aspect-square rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-black text-sm sm:text-base tracking-wider shadow-md ring-2 ring-indigo-300">
+                        {resolvedStructure.viceKomti.name ? getInitials(resolvedStructure.viceKomti.name) : <ShieldCheck size={24} />}
+                      </div>
+                      {resolvedStructure.viceKomti.name && (
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-indigo-700 text-white flex items-center justify-center ring-2 ring-white shadow-xs">
+                          <ShieldCheck size={11} />
+                        </div>
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
