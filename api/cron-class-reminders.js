@@ -16,7 +16,7 @@ const getDb = () => {
 };
 
 const RESEND_BATCH_URL = 'https://api.resend.com/emails/batch';
-const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_49d3iMFv_QCsHWiJpaJ8GnGtcQ5y2c8NN';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL || 'Classy Academic Hub <notifikasi@classy.exars.my.id>';
 const DEFAULT_CC = process.env.RESEND_CC_EMAIL || 'exars.012@gmail.com';
 const PORTAL_URL = 'https://classy.exars.my.id';
@@ -419,6 +419,12 @@ export default async function handler(req, res) {
           subject: `[SALINAN KOORDINATOR] ${digestSubject}`,
           html: digestHtml
         });
+      }
+
+      if (!RESEND_API_KEY) {
+        console.warn(`[cron] Skipping Resend batch for class ${classId}: RESEND_API_KEY is not configured in environment variables.`);
+        digestResults.push({ classId, className: ws.name, status: 'skipped_no_api_key' });
+        continue;
       }
 
       try {
