@@ -32,7 +32,10 @@ import {
   Maximize2,
   Edit2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Link2,
+  Globe,
+  Link as LinkIcon
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
@@ -131,6 +134,89 @@ export const isDriveOrDocsUrl = (url) => {
   if (!url || typeof url !== 'string') return false;
   const clean = url.trim();
   return clean.startsWith('http://') || clean.startsWith('https://');
+};
+
+// Helper to detect platform of a URL (Google Drive, YouTube, Canva, Figma, etc.)
+export const getUrlPlatformInfo = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  const lower = url.toLowerCase();
+  if (lower.includes('drive.google.com')) return { label: 'Google Drive', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+  if (lower.includes('docs.google.com/document')) return { label: 'Google Docs', color: 'bg-blue-100 text-blue-800 border-blue-300' };
+  if (lower.includes('docs.google.com/presentation')) return { label: 'Google Slides', color: 'bg-amber-100 text-amber-800 border-amber-300' };
+  if (lower.includes('docs.google.com/spreadsheets')) return { label: 'Google Sheets', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+  if (lower.includes('youtube.com') || lower.includes('youtu.be')) return { label: 'YouTube Video', color: 'bg-rose-100 text-rose-800 border-rose-300' };
+  if (lower.includes('canva.com')) return { label: 'Canva Design', color: 'bg-sky-100 text-sky-800 border-sky-300' };
+  if (lower.includes('figma.com')) return { label: 'Figma Project', color: 'bg-purple-100 text-purple-800 border-purple-300' };
+  if (lower.includes('github.com')) return { label: 'GitHub', color: 'bg-slate-200 text-slate-800 border-slate-400' };
+  if (lower.includes('notion.site') || lower.includes('notion.so')) return { label: 'Notion', color: 'bg-neutral-100 text-neutral-800 border-neutral-300' };
+  return { label: 'Tautan Web', color: 'bg-indigo-100 text-indigo-800 border-indigo-300' };
+};
+
+// Helper to render text with auto-detected URLs and markdown [label](url) links as clickable links
+export const renderLinkifiedText = (text) => {
+  if (!text || typeof text !== 'string') return null;
+
+  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+|www\.[^\s]+|drive\.google\.com\/[^\s]+)/g;
+  const elements = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      elements.push(text.substring(lastIndex, match.index));
+    }
+
+    if (match[1] && match[2]) {
+      const label = match[1];
+      const url = match[2];
+      elements.push(
+        <a
+          key={`md-link-${match.index}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:text-indigo-800 underline break-all bg-indigo-50/70 hover:bg-indigo-100 px-1.5 py-0.5 rounded transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span>{label}</span>
+          <ExternalLink size={11} className="shrink-0" />
+        </a>
+      );
+    } else {
+      let rawUrl = match[3];
+      let trailingPunct = '';
+      const punctMatch = rawUrl.match(/[.,;:)]+$/);
+      if (punctMatch) {
+        trailingPunct = punctMatch[0];
+        rawUrl = rawUrl.slice(0, -trailingPunct.length);
+      }
+      const href = rawUrl.startsWith('http://') || rawUrl.startsWith('https://') ? rawUrl : `https://${rawUrl}`;
+      elements.push(
+        <a
+          key={`url-link-${match.index}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:text-indigo-800 underline break-all bg-indigo-50/70 hover:bg-indigo-100 px-1.5 py-0.5 rounded transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span>{rawUrl}</span>
+          <ExternalLink size={11} className="shrink-0" />
+        </a>
+      );
+      if (trailingPunct) {
+        elements.push(trailingPunct);
+      }
+    }
+
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    elements.push(text.substring(lastIndex));
+  }
+
+  return elements.length > 0 ? elements : text;
 };
 
 // Helper to reliably check if a submission belongs to the current user (by UID or Email, individual or group)
@@ -419,7 +505,7 @@ export default function ClassTasks({
 
   // Helper to determine if submission file is missing from Drive
   const isSubmissionFileMissing = (submission) => {
-    if (!submission) return false;
+    if (!submission || submission.isLink) return false;
     const urls = [
       ...(submission.files?.map(f => (typeof f === 'string' ? f : f?.url)) || []),
       submission.fileUrl
@@ -687,9 +773,28 @@ export default function ClassTasks({
   const [stagedSubmissionFiles, setStagedSubmissionFiles] = useState([]); // array of File objects
   const [isResubmittingMode, setIsResubmittingMode] = useState(false);
 
+  // Link submission state for students
+  const [submissionTab, setSubmissionTab] = useState('file'); // 'file' | 'link'
+  const [submissionLinkUrl, setSubmissionLinkUrl] = useState('');
+  const [submissionLinkTitle, setSubmissionLinkTitle] = useState('');
+  const [isSubmittingLink, setIsSubmittingLink] = useState(false);
+
+  // Link attachment states in Create Task Modal
+  const [showAddLinkAttachment, setShowAddLinkAttachment] = useState(false);
+  const [newAttachmentUrl, setNewAttachmentUrl] = useState('');
+  const [newAttachmentName, setNewAttachmentName] = useState('');
+
+  // Link attachment states in Edit Task Modal
+  const [showEditAddLinkAttachment, setShowEditAddLinkAttachment] = useState(false);
+  const [editAttachmentUrl, setEditAttachmentUrl] = useState('');
+  const [editAttachmentName, setEditAttachmentName] = useState('');
+
   useEffect(() => {
     setStagedSubmissionFiles([]);
     setIsResubmittingMode(false);
+    setSubmissionTab('file');
+    setSubmissionLinkUrl('');
+    setSubmissionLinkTitle('');
   }, [selectedTask?.id]);
 
   const role = currentClass?.userRole;
@@ -1282,6 +1387,112 @@ export default function ClassTasks({
       toast.error(err.message || 'Gagal menandai tugas selesai', { id: toastId });
     } finally {
       setIsMarkingDone(false);
+    }
+  };
+
+  // Submit an external link (Google Drive, YouTube, Canva, Figma, etc.) as assignment submission
+  const handleSubmitLinkSubmission = async () => {
+    if (!selectedTask) return;
+    const rawUrl = (submissionLinkUrl || '').trim();
+    if (!rawUrl) {
+      toast.error('Harap masukkan URL / tautan tugas Anda');
+      return;
+    }
+
+    let cleanUrl = rawUrl;
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      cleanUrl = `https://${cleanUrl}`;
+    }
+
+    try {
+      new URL(cleanUrl);
+    } catch {
+      toast.error('Format tautan tidak valid. Harap masukkan URL lengkap (contoh: https://drive.google.com/...)');
+      return;
+    }
+
+    const isGroupSubmission = selectedTask.submissionType === 'group';
+    const cleanGroupName = (submissionGroupName || '').trim();
+
+    if (isGroupSubmission && !cleanGroupName) {
+      toast.error('Harap isi Nama Kelompok terlebih dahulu.');
+      return;
+    }
+
+    const groupMembersList = isGroupSubmission
+      ? [
+          { userId: currentUser.uid, userName: currentUser.displayName || 'Mahasiswa', email: currentUser.email || '' },
+          ...eligibleMembers
+            .filter(m => selectedGroupMemberIds.includes(m.userId || m.uid || m.id))
+            .map(m => ({ 
+              userId: m.userId || m.uid || m.id, 
+              userName: m.name || m.userName || m.email || 'Mahasiswa', 
+              email: m.email || '' 
+            }))
+        ]
+      : [];
+
+    const defaultTitle = isGroupSubmission
+      ? `${cleanGroupName || currentUser.displayName || 'Kelompok'} - Tautan Tugas`
+      : `${currentUser.displayName || 'Mahasiswa'} - Tautan Tugas`;
+    const cleanTitle = (submissionLinkTitle || '').trim() || defaultTitle;
+
+    setIsSubmittingLink(true);
+    const toastId = toast.loading('Mengumpulkan tautan tugas...');
+
+    try {
+      const newSubData = {
+        userId: currentUser.uid,
+        userName: currentUser.displayName || 'Mahasiswa',
+        userEmail: currentUser.email || '',
+        fileName: cleanTitle,
+        fileUrl: cleanUrl,
+        fileSize: 'Tautan / Link',
+        isLink: true,
+        files: [{
+          name: cleanTitle,
+          url: cleanUrl,
+          size: 'Tautan / Link',
+          isLink: true
+        }],
+        isGroup: isGroupSubmission,
+        groupName: cleanGroupName || null,
+        groupMembers: groupMembersList
+      };
+
+      await onSubmitAssignment(selectedTask.id, newSubData);
+
+      const newSubItem = {
+        ...newSubData,
+        submittedAt: new Date().toISOString()
+      };
+
+      const memberIds = new Set([currentUser.uid, ...(groupMembersList || []).map(m => m.userId)]);
+
+      setSelectedTask(prev => {
+        if (!prev || prev.id !== selectedTask.id) return prev;
+        return {
+          ...prev,
+          submissions: [
+            ...(prev.submissions || []).filter(s => {
+              if (memberIds.has(s.userId)) return false;
+              if (s.groupMembers?.some(m => memberIds.has(m.userId))) return false;
+              return true;
+            }),
+            newSubItem
+          ]
+        };
+      });
+
+      setIsResubmittingMode(false);
+      setSubmissionLinkUrl('');
+      setSubmissionLinkTitle('');
+      toast.success('🎉 Tautan tugas berhasil dikumpulkan!', { id: toastId });
+    } catch (err) {
+      console.error('Gagal mengumpulkan tautan tugas:', err);
+      toast.error(err.message || 'Gagal mengumpulkan tautan tugas', { id: toastId });
+    } finally {
+      setIsSubmittingLink(false);
     }
   };
 
@@ -2042,22 +2253,22 @@ export default function ClassTasks({
             {getCleanDescription(selectedTask.description) && (
               <div className="space-y-1">
                 <h4 className="font-bold text-xs text-[#0F172A]">Deskripsi Penugasan</h4>
-                <p className="text-xs text-[#475569] leading-relaxed whitespace-pre-wrap bg-[#F8FAFC] p-3 rounded-xl border border-[#E2E8F0] break-words">
-                  {getCleanDescription(selectedTask.description)}
-                </p>
+                <div className="text-xs text-[#475569] leading-relaxed whitespace-pre-wrap bg-[#F8FAFC] p-3 rounded-xl border border-[#E2E8F0] break-words">
+                  {renderLinkifiedText(getCleanDescription(selectedTask.description))}
+                </div>
               </div>
             )}
 
             {getCleanInstructions(selectedTask.instructions) && (
               <div className="space-y-1">
                 <h4 className="font-bold text-xs text-[#0F172A]">Petunjuk Pengumpulan</h4>
-                <p className="text-xs text-[#475569] leading-relaxed whitespace-pre-wrap bg-amber-50/50 p-3 rounded-xl border border-amber-200/70 break-words">
-                  {getCleanInstructions(selectedTask.instructions)}
-                </p>
+                <div className="text-xs text-[#475569] leading-relaxed whitespace-pre-wrap bg-amber-50/50 p-3 rounded-xl border border-amber-200/70 break-words">
+                  {renderLinkifiedText(getCleanInstructions(selectedTask.instructions))}
+                </div>
               </div>
             )}
 
-            {/* Instructor Attachments Section (Photos/Files) - Direct Inline View */}
+            {/* Instructor Attachments Section (Photos/Files/Links) - Direct Inline View */}
             {selectedTask.attachments?.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -2071,8 +2282,50 @@ export default function ClassTasks({
                 <div className="space-y-3">
                   {selectedTask.attachments.map((att, idx) => {
                     const isImg = isAttachmentImage(att);
+                    const isLink = att.type === 'link' || att.isLink || (!isImg && att.url && !att.fileId && (att.size === 'Tautan / Link' || att.size === 'Tautan Link'));
                     const directImgUrl = getAttachmentDirectImageUrl(att);
                     const driveId = att.fileId || extractDriveFileId(att.url || att.previewUrl);
+
+                    if (isLink) {
+                      const platform = getUrlPlatformInfo(att.url);
+                      return (
+                        <div
+                          key={att.id || idx}
+                          className="p-3 rounded-2xl border border-indigo-200/80 bg-indigo-50/40 hover:bg-indigo-50/70 transition-colors flex items-center justify-between gap-3 shadow-2xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 border border-indigo-200">
+                              <Link2 size={18} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-bold text-slate-900 truncate block" title={att.name}>
+                                  {att.name}
+                                </span>
+                                {platform && (
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${platform.color}`}>
+                                    {platform.label}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-indigo-700 font-mono block truncate max-w-sm" title={att.url}>
+                                {att.url}
+                              </span>
+                            </div>
+                          </div>
+
+                          <a
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-xs hover:shadow cursor-pointer shrink-0"
+                          >
+                            <span>Buka Tautan</span>
+                            <ExternalLink size={12} />
+                          </a>
+                        </div>
+                      );
+                    }
 
                     if (isImg) {
                       return (
@@ -2665,8 +2918,135 @@ export default function ClassTasks({
                           </div>
                         </div>
                       ) : (
-                        /* Standard Drive Upload Mode */
-                        <>
+                        /* Standard Drive Upload Mode or Link Submission Mode */
+                        <div className="space-y-3">
+                          {/* Submission Mode Switcher Tab */}
+                          <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-semibold">
+                            <button
+                              type="button"
+                              onClick={() => setSubmissionTab('file')}
+                              className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                                submissionTab === 'file'
+                                  ? 'bg-white text-[#0F172A] shadow-2xs font-bold'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              <Upload size={14} className={submissionTab === 'file' ? 'text-indigo-600' : 'text-slate-400'} />
+                              <span>Unggah Berkas File</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSubmissionTab('link')}
+                              className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                                submissionTab === 'link'
+                                  ? 'bg-white text-indigo-700 shadow-2xs font-bold'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              <Link2 size={14} className={submissionTab === 'link' ? 'text-indigo-600' : 'text-slate-400'} />
+                              <span>Kumpulkan Tautan / Link</span>
+                            </button>
+                          </div>
+
+                          {submissionTab === 'link' ? (
+                            /* Link Submission Mode */
+                            <div className="p-4 sm:p-5 rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/40 space-y-3.5 text-left">
+                              <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-100 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0">
+                                  <Link2 size={20} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h5 className="text-xs sm:text-sm font-bold text-indigo-950">
+                                    {isGroupTask ? 'Kumpulkan Tautan Tugas Kelompok' : 'Kumpulkan Tautan Tugas Kamu'}
+                                  </h5>
+                                  <p className="text-[11px] text-indigo-700 mt-0.5 leading-relaxed">
+                                    Cocok untuk tugas video, presentasi online, atau berkas di Google Drive, YouTube, Canva, Figma, OneDrive, dll.
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start gap-2 text-[11px] text-amber-900 leading-relaxed">
+                                <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <span className="font-bold">Tips Akses Google Drive:</span>
+                                  <p className="text-[10px] text-amber-800 mt-0.5">
+                                    Pastikan izin akses tautan Google Drive Anda telah disetel ke <strong>"Siapa saja yang memiliki link dapat melihat (Anyone with the link can view)"</strong> agar dosen dan komti dapat membukanya tanpa harus meminta akses.
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* URL Input */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                    <span>Tautan / URL Tugas</span>
+                                    <span className="text-rose-500">*</span>
+                                  </label>
+                                  {submissionLinkUrl.trim() && (
+                                    (() => {
+                                      const platform = getUrlPlatformInfo(submissionLinkUrl);
+                                      return platform ? (
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${platform.color}`}>
+                                          {platform.label}
+                                        </span>
+                                      ) : null;
+                                    })()
+                                  )}
+                                </div>
+                                <div className="relative">
+                                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                    <Link2 size={14} />
+                                  </div>
+                                  <input
+                                    type="url"
+                                    placeholder="https://drive.google.com/... atau https://youtube.com/..."
+                                    value={submissionLinkUrl}
+                                    onChange={(e) => setSubmissionLinkUrl(e.target.value)}
+                                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium shadow-2xs"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Title / Label Input (Optional) */}
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                                  <span>Judul / Label Tautan <span className="font-normal text-slate-400">(Opsional)</span></span>
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder={
+                                    isGroupTask 
+                                      ? (submissionGroupName.trim() ? `${submissionGroupName.trim()} - Video Tugas` : 'Tautan Tugas Kelompok')
+                                      : `${currentUser?.displayName || 'Mahasiswa'} - Video Tugas`
+                                  }
+                                  value={submissionLinkTitle}
+                                  onChange={(e) => setSubmissionLinkTitle(e.target.value)}
+                                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium shadow-2xs"
+                                />
+                              </div>
+
+                              {/* Submit Button */}
+                              <div className="pt-1">
+                                <button
+                                  type="button"
+                                  disabled={isSubmittingLink || !submissionLinkUrl.trim()}
+                                  onClick={handleSubmitLinkSubmission}
+                                  className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs hover:shadow transition-all cursor-pointer disabled:opacity-50 min-h-[42px]"
+                                >
+                                  <CheckCircle2 size={15} className={isSubmittingLink ? "animate-spin" : ""} />
+                                  <span>
+                                    {isSubmittingLink
+                                      ? 'Mengumpulkan Tautan...'
+                                      : isGroupTask
+                                        ? `Kumpulkan Tautan Tugas Kelompok (${selectedGroupMemberIds.length + 1} Orang)`
+                                        : 'Kumpulkan Tautan Tugas'}
+                                  </span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Standard File Upload Form */
+                            <div className="space-y-3">
                           {/* Auto-rename toggle and preview info */}
                           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-left">
                             <div className="flex items-center justify-between gap-2">
@@ -2831,10 +3211,12 @@ export default function ClassTasks({
                             </div>
                           </div>
                         )}
-                      </>
-                    )}
+                        </div>
+                      )}
                     </div>
-                  );
+                  )}
+                </div>
+              );
                 }
 
                 const isMissing = isSubmissionFileMissing(userSub);
@@ -2910,7 +3292,11 @@ export default function ClassTasks({
                         <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5 bg-emerald-100/90 px-2.5 py-1 rounded-full border border-emerald-300">
                           <CheckCircle2 size={15} className="text-emerald-700 shrink-0" />
                           <span>
-                            {!userSub.fileUrl
+                            {userSub.isLink
+                              ? (userSub.isGroup && !isSubmitter
+                                  ? `✓ Tautan Tugas Dikumpulkan (oleh ${userSub.userName})`
+                                  : '✓ Tautan Tugas Berhasil Dikumpulkan')
+                              : !userSub.fileUrl
                               ? (userSub.isGroup && !isSubmitter
                                   ? `Tugas Ditandai Selesai (oleh ${userSub.userName})`
                                   : '✓ Tugas Sudah Dikerjakan')
@@ -2919,7 +3305,13 @@ export default function ClassTasks({
                                   : '✓ Berkas Sudah Berhasil Diunggah ke Drive')}
                           </span>
                         </span>
-                        {!userSub.fileUrl && (
+                        {userSub.isLink && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 flex items-center gap-1">
+                            <Link2 size={10} />
+                            <span>Tautan / Link</span>
+                          </span>
+                        )}
+                        {!userSub.fileUrl && !userSub.isLink && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
                             <span>📝 Paper / Kertas</span>
                           </span>
@@ -3053,10 +3445,14 @@ export default function ClassTasks({
                         </div>
                       </div>
                     ) : (
-                      <div className="p-3.5 rounded-xl bg-white border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                      <div className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs ${
+                        userSub.isLink ? 'bg-indigo-50/40 border-indigo-200' : 'bg-white border-emerald-200'
+                      }`}>
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
-                            <FileText size={18} />
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                            userSub.isLink ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                          }`}>
+                            {userSub.isLink ? <Link2 size={18} /> : <FileText size={18} />}
                           </div>
                           <div className="min-w-0 flex-1">
                             {isDriveOrDocsUrl(userSub.fileUrl) ? (
@@ -3064,33 +3460,42 @@ export default function ClassTasks({
                                 href={userSub.fileUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="font-mono text-xs font-bold text-[#0F172A] hover:text-sky-700 hover:underline block truncate"
-                                title={`Buka ${userSub.fileName || 'Berkas Tugas'} di Google Drive`}
+                                className="font-mono text-xs font-bold text-[#0F172A] hover:text-indigo-700 hover:underline block truncate"
+                                title={`Buka ${userSub.fileName || (userSub.isLink ? 'Tautan Tugas' : 'Berkas Tugas')}`}
                               >
-                                📄 {userSub.fileName || 'Berkas Tugas'}
+                                {userSub.isLink ? '🔗 ' : '📄 '} {userSub.fileName || (userSub.isLink ? 'Tautan Tugas' : 'Berkas Tugas')}
                               </a>
                             ) : (
                               <span className="font-mono text-xs font-bold text-[#0F172A] block truncate" title={userSub.fileName || 'Berkas Tugas'}>
-                                📄 {userSub.fileName || 'Berkas Tugas'}
+                                {userSub.isLink ? '🔗 ' : '📄 '} {userSub.fileName || (userSub.isLink ? 'Tautan Tugas' : 'Berkas Tugas')}
                               </span>
                             )}
-                            {userSub.fileSize && (
-                              <span className="text-[10px] text-slate-500 block mt-0.5">
-                                {userSub.fileSize}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              {userSub.fileSize && (
+                                <span className="text-[10px] text-slate-500 block">
+                                  {userSub.fileSize}
+                                </span>
+                              )}
+                              {userSub.isLink && (
+                                <span className="text-[10px] text-indigo-600 font-mono block truncate max-w-xs" title={userSub.fileUrl}>
+                                  {userSub.fileUrl}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        {isDriveOrDocsUrl(userSub.fileUrl) && (
+                        {userSub.fileUrl && (
                           <a
                             href={userSub.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full sm:w-auto justify-center px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 shadow-xs hover:shadow transition-all cursor-pointer"
-                            title="Buka berkas di Google Drive"
+                            className={`w-full sm:w-auto justify-center px-4 py-2 rounded-xl text-white font-bold text-xs flex items-center gap-1.5 shrink-0 shadow-xs hover:shadow transition-all cursor-pointer ${
+                              userSub.isLink ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-sky-600 hover:bg-sky-700'
+                            }`}
+                            title={userSub.isLink ? "Buka tautan tugas" : "Buka berkas di Google Drive"}
                           >
                             <ExternalLink size={13} />
-                            <span>Buka di Google Drive ↗</span>
+                            <span>{userSub.isLink ? 'Buka Tautan ↗' : 'Buka di Google Drive ↗'}</span>
                           </a>
                         )}
                       </div>
@@ -3098,7 +3503,17 @@ export default function ClassTasks({
 
                     <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-emerald-100">
                       <div className="flex items-center gap-3 flex-wrap">
-                        {userSub.fileUrl || (Array.isArray(userSub.files) && userSub.files[0]?.url) ? (
+                        {userSub.isLink ? (
+                          <a
+                            href={userSub.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <ExternalLink size={12} />
+                            <span>Buka Tautan Tugas ↗</span>
+                          </a>
+                        ) : userSub.fileUrl || (Array.isArray(userSub.files) && userSub.files[0]?.url) ? (
                           <>
                             {Array.isArray(userSub.files) && userSub.files.length > 1 && isDriveOrDocsUrl(userSub.files[0]?.url) ? (
                               <a
@@ -3139,6 +3554,13 @@ export default function ClassTasks({
                                 onClick={() => {
                                   setIsResubmittingMode(true);
                                   setStagedSubmissionFiles([]);
+                                  if (userSub.isLink) {
+                                    setSubmissionTab('link');
+                                    setSubmissionLinkUrl(userSub.fileUrl || '');
+                                    setSubmissionLinkTitle(userSub.fileName || '');
+                                  } else {
+                                    setSubmissionTab('file');
+                                  }
                                   if (fileInputRef.current) {
                                     fileInputRef.current.value = '';
                                     fileInputRef.current.click();
@@ -3146,23 +3568,23 @@ export default function ClassTasks({
                                 }}
                                 className="text-xs font-bold text-[#0F172A] hover:underline cursor-pointer disabled:opacity-50 text-left sm:text-right py-1"
                               >
-                                {isSubmittingFile ? 'Mengunggah...' : 'Kirim Ulang File (Resubmit)'}
+                                {isSubmittingFile ? 'Mengunggah...' : userSub.isLink ? 'Ganti Tautan / Resubmit' : 'Kirim Ulang File (Resubmit)'}
                               </button>
                             ) : null}
                             <button
                               type="button"
                               onClick={() => setShowCancelSubmissionConfirm(true)}
                               className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:underline flex items-center gap-1 cursor-pointer py-1"
-                              title={userSub.fileUrl ? "Batalkan pengumpulan dan hapus file" : "Batalkan status selesai"}
+                              title={userSub.isLink ? "Batalkan pengumpulan tautan" : userSub.fileUrl ? "Batalkan pengumpulan dan hapus file" : "Batalkan status selesai"}
                             >
                               <Trash2 size={12} />
-                              <span>{userSub.fileUrl ? 'Hapus File' : 'Batalkan Status Selesai'}</span>
+                              <span>{userSub.isLink ? 'Batalkan Pengumpulan' : userSub.fileUrl ? 'Hapus File' : 'Batalkan Status Selesai'}</span>
                             </button>
                           </>
                         ) : (
                           <span className="text-[11px] text-slate-500 italic">
                             {userSub.fileUrl 
-                              ? `Diserahkan oleh ${userSub.userName}. Hanya pengunggah utama yang dapat mengganti berkas.`
+                              ? `Diserahkan oleh ${userSub.userName}. Hanya perwakilan pengunggah yang dapat mengubahnya.`
                               : `Ditandai selesai oleh ${userSub.userName}.`}
                           </span>
                         )}
@@ -3476,6 +3898,16 @@ export default function ClassTasks({
                                       </a>
                                     ))}
                                   </div>
+                                ) : submission.isLink ? (
+                                  <a
+                                    href={submission.fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold text-[11px] flex items-center gap-1 border border-indigo-200 transition-colors"
+                                  >
+                                    <ExternalLink size={11} />
+                                    <span>Tautan</span>
+                                  </a>
                                 ) : submission.fileUrl ? (
                                   <a
                                     href={submission.fileUrl}
@@ -3719,7 +4151,24 @@ export default function ClassTasks({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-[#334155]">Deskripsi Penugasan</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-[#334155]">Deskripsi Penugasan</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = window.prompt('Masukkan URL / Tautan (contoh: https://drive.google.com/...):');
+                      if (url && url.trim()) {
+                        const clean = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`;
+                        const label = window.prompt('Masukkan nama / label link (opsional):') || clean;
+                        setTaskDesc(prev => (prev ? `${prev}\n\n[${label}](${clean})` : `[${label}](${clean})`));
+                      }
+                    }}
+                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Link2 size={11} />
+                    <span>+ Sisipkan Link</span>
+                  </button>
+                </div>
                 <textarea
                   rows={2}
                   placeholder="Ringkasan tugas, topik pembahasan, atau instruksi pengerjaan..."
@@ -3740,7 +4189,7 @@ export default function ClassTasks({
                 />
               </div>
 
-              {/* Attachments Section: Photos or Files (Soal/Panduan) */}
+              {/* Attachments Section: Photos, Files, or Web Links */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-[#334155] flex items-center gap-1.5">
@@ -3755,16 +4204,107 @@ export default function ClassTasks({
                     accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
                     className="hidden"
                   />
-                  <button
-                    type="button"
-                    disabled={isUploadingAttachment}
-                    onClick={() => attachmentInputRef.current?.click()}
-                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  >
-                    <Plus size={12} />
-                    <span>{isUploadingAttachment ? 'Mengunggah...' : '+ Tambah Foto / File'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isUploadingAttachment}
+                      onClick={() => attachmentInputRef.current?.click()}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus size={12} />
+                      <span>{isUploadingAttachment ? 'Mengunggah...' : '+ Foto / Berkas'}</span>
+                    </button>
+                    <span className="text-slate-300">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddLinkAttachment(prev => !prev)}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Link2 size={12} />
+                      <span>+ Tautan Link</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* Inline Add Link Attachment Box */}
+                {showAddLinkAttachment && (
+                  <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 space-y-2 text-left animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-indigo-950 flex items-center gap-1">
+                        <Link2 size={12} className="text-indigo-600" />
+                        <span>Tambah Lampiran Tautan / Link</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddLinkAttachment(false);
+                          setNewAttachmentUrl('');
+                          setNewAttachmentName('');
+                        }}
+                        className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                    <input
+                      type="url"
+                      placeholder="https://drive.google.com/... atau https://youtube.com/..."
+                      value={newAttachmentUrl}
+                      onChange={(e) => setNewAttachmentUrl(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Judul / Nama Link (contoh: Folder Drive Soal / Video Materi)"
+                      value={newAttachmentName}
+                      onChange={(e) => setNewAttachmentName(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddLinkAttachment(false);
+                          setNewAttachmentUrl('');
+                          setNewAttachmentName('');
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-xs text-slate-600 hover:bg-slate-200/60 font-medium cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = newAttachmentUrl.trim();
+                          if (!url) {
+                            toast.error('Harap masukkan URL tautan');
+                            return;
+                          }
+                          const cleanUrl = url.startsWith('http') ? url : `https://${url}`;
+                          const name = newAttachmentName.trim() || cleanUrl;
+                          setTaskAttachments(prev => [
+                            ...prev,
+                            {
+                              id: `link_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+                              name,
+                              url: cleanUrl,
+                              type: 'link',
+                              size: 'Tautan Link',
+                              isLink: true
+                            }
+                          ]);
+                          setNewAttachmentUrl('');
+                          setNewAttachmentName('');
+                          setShowAddLinkAttachment(false);
+                          toast.success('Tautan lampiran berhasil ditambahkan!');
+                        }}
+                        className="px-3 py-1 rounded-lg text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer transition-colors"
+                      >
+                        Simpan Tautan
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {taskAttachments.length > 0 ? (
                   <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
@@ -3774,14 +4314,18 @@ export default function ClassTasks({
                         className="p-2 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs"
                       >
                         <div className="flex items-center gap-2 min-w-0 flex-1">
-                          {att.isImage ? (
+                          {att.isLink || att.type === 'link' ? (
+                            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 border border-indigo-200">
+                              <Link2 size={15} />
+                            </div>
+                          ) : att.isImage ? (
                             <img src={getAttachmentDirectImageUrl(att)} alt={att.name} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-slate-200 bg-slate-100" />
                           ) : (
                             <FileText size={16} className="text-indigo-600 shrink-0" />
                           )}
                           <div className="min-w-0 flex-1">
                             <span className="font-semibold text-slate-800 truncate block text-[11px]">{att.name}</span>
-                            <span className="text-[9px] text-slate-500 block">{att.size}</span>
+                            <span className="text-[9px] text-slate-500 block truncate">{att.isLink ? att.url : att.size}</span>
                           </div>
                         </div>
                         <button
@@ -3801,7 +4345,7 @@ export default function ClassTasks({
                     className="p-3 rounded-xl border border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/20 text-center cursor-pointer transition-colors"
                   >
                     <p className="text-[11px] text-slate-600 font-medium">
-                      {isUploadingAttachment ? 'Sedang mengunggah berkas ke Drive...' : 'Klik untuk menyertakan foto papan tulis, PDF soal, atau dokumen panduan.'}
+                      {isUploadingAttachment ? 'Sedang mengunggah berkas ke Drive...' : 'Klik untuk menyertakan foto papan tulis, PDF soal, atau tautan panduan.'}
                     </p>
                   </div>
                 )}
@@ -4030,7 +4574,24 @@ export default function ClassTasks({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-[#334155]">Deskripsi Penugasan</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-[#334155]">Deskripsi Penugasan</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = window.prompt('Masukkan URL / Tautan (contoh: https://drive.google.com/...):');
+                      if (url && url.trim()) {
+                        const clean = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`;
+                        const label = window.prompt('Masukkan nama / label link (opsional):') || clean;
+                        setEditDesc(prev => (prev ? `${prev}\n\n[${label}](${clean})` : `[${label}](${clean})`));
+                      }
+                    }}
+                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Link2 size={11} />
+                    <span>+ Sisipkan Link</span>
+                  </button>
+                </div>
                 <textarea
                   rows={3}
                   placeholder="Ringkasan tugas, topik pembahasan, atau instruksi pengerjaan..."
@@ -4051,7 +4612,7 @@ export default function ClassTasks({
                 />
               </div>
 
-              {/* Attachments Section: Photos or Files (Soal/Panduan) */}
+              {/* Attachments Section: Photos, Files, or Web Links */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-[#334155] flex items-center gap-1.5">
@@ -4066,16 +4627,107 @@ export default function ClassTasks({
                     accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
                     className="hidden"
                   />
-                  <button
-                    type="button"
-                    disabled={isUploadingEditAttachment}
-                    onClick={() => editAttachmentInputRef.current?.click()}
-                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  >
-                    <Plus size={12} />
-                    <span>{isUploadingEditAttachment ? 'Mengunggah...' : '+ Tambah Foto / File'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isUploadingEditAttachment}
+                      onClick={() => editAttachmentInputRef.current?.click()}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus size={12} />
+                      <span>{isUploadingEditAttachment ? 'Mengunggah...' : '+ Foto / Berkas'}</span>
+                    </button>
+                    <span className="text-slate-300">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowEditAddLinkAttachment(prev => !prev)}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Link2 size={12} />
+                      <span>+ Tautan Link</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* Inline Add Link Attachment Box in Edit Modal */}
+                {showEditAddLinkAttachment && (
+                  <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 space-y-2 text-left animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-indigo-950 flex items-center gap-1">
+                        <Link2 size={12} className="text-indigo-600" />
+                        <span>Tambah Lampiran Tautan / Link</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowEditAddLinkAttachment(false);
+                          setEditAttachmentUrl('');
+                          setEditAttachmentName('');
+                        }}
+                        className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                    <input
+                      type="url"
+                      placeholder="https://drive.google.com/... atau https://youtube.com/..."
+                      value={editAttachmentUrl}
+                      onChange={(e) => setEditAttachmentUrl(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Judul / Nama Link (contoh: Folder Drive Soal / Video Materi)"
+                      value={editAttachmentName}
+                      onChange={(e) => setEditAttachmentName(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowEditAddLinkAttachment(false);
+                          setEditAttachmentUrl('');
+                          setEditAttachmentName('');
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-xs text-slate-600 hover:bg-slate-200/60 font-medium cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = editAttachmentUrl.trim();
+                          if (!url) {
+                            toast.error('Harap masukkan URL tautan');
+                            return;
+                          }
+                          const cleanUrl = url.startsWith('http') ? url : `https://${url}`;
+                          const name = editAttachmentName.trim() || cleanUrl;
+                          setEditAttachments(prev => [
+                            ...prev,
+                            {
+                              id: `link_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+                              name,
+                              url: cleanUrl,
+                              type: 'link',
+                              size: 'Tautan Link',
+                              isLink: true
+                            }
+                          ]);
+                          setEditAttachmentUrl('');
+                          setEditAttachmentName('');
+                          setShowEditAddLinkAttachment(false);
+                          toast.success('Tautan lampiran berhasil ditambahkan!');
+                        }}
+                        className="px-3 py-1 rounded-lg text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer transition-colors"
+                      >
+                        Simpan Tautan
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {editAttachments.length > 0 ? (
                   <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
@@ -4085,14 +4737,18 @@ export default function ClassTasks({
                         className="p-2 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs"
                       >
                         <div className="flex items-center gap-2 min-w-0 flex-1">
-                          {att.isImage ? (
+                          {att.isLink || att.type === 'link' ? (
+                            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 border border-indigo-200">
+                              <Link2 size={15} />
+                            </div>
+                          ) : att.isImage ? (
                             <img src={getAttachmentDirectImageUrl(att)} alt={att.name} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-slate-200 bg-slate-100" />
                           ) : (
                             <FileText size={16} className="text-indigo-600 shrink-0" />
                           )}
                           <div className="min-w-0 flex-1">
                             <span className="font-semibold text-slate-800 truncate block text-[11px]">{att.name}</span>
-                            <span className="text-[9px] text-slate-500 block">{att.size}</span>
+                            <span className="text-[9px] text-slate-500 block truncate">{att.isLink ? att.url : att.size}</span>
                           </div>
                         </div>
                         <button
@@ -4112,7 +4768,7 @@ export default function ClassTasks({
                     className="p-3 rounded-xl border border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/20 text-center cursor-pointer transition-colors"
                   >
                     <p className="text-[11px] text-slate-600 font-medium">
-                      {isUploadingEditAttachment ? 'Sedang mengunggah berkas ke Drive...' : 'Belum ada lampiran. Klik untuk menambahkan foto atau file.'}
+                      {isUploadingEditAttachment ? 'Sedang mengunggah berkas ke Drive...' : 'Belum ada lampiran. Klik untuk menambahkan foto, berkas, atau tautan.'}
                     </p>
                   </div>
                 )}

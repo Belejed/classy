@@ -606,8 +606,8 @@ export default function App() {
     const currentTask = tasks?.find(t => t.id === taskId);
     const existingSub = currentTask?.submissions?.find(s => s.userId === userId || s.groupMembers?.some(m => m.userId === userId));
     const urlsToTrash = [
-      ...(existingSub?.files?.map(f => f.url) || []),
-      existingSub?.fileUrl
+      ...(existingSub?.files?.filter(f => !f.isLink)?.map(f => f.url) || []),
+      (!existingSub?.isLink ? existingSub?.fileUrl : null)
     ].filter(Boolean);
 
     if (urlsToTrash.length > 0) {

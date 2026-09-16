@@ -31,7 +31,8 @@ import {
   FolderKanban,
   Key,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Link2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
@@ -926,9 +927,13 @@ export default function ClassSubmissionsManager({
                   {/* Row 3: File details */}
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500 flex-wrap gap-2">
                     <div className="flex items-center gap-2 truncate">
-                      <FileText size={14} className="text-slate-400 shrink-0" />
+                      {sub.isLink || sub.files?.[0]?.isLink || (typeof sub.fileSize === 'string' && sub.fileSize.includes('Tautan')) ? (
+                        <Link2 size={14} className="text-indigo-500 shrink-0" />
+                      ) : (
+                        <FileText size={14} className="text-slate-400 shrink-0" />
+                      )}
                       <span className="truncate font-medium text-slate-700" title={sub.fileName}>
-                        {sub.fileName || 'Berkas Pengumpulan'}
+                        {sub.fileName || (sub.isLink ? 'Tautan Pengumpulan' : 'Berkas Pengumpulan')}
                       </span>
                       {sub.fileSize && (
                         <span className="text-[10px] text-slate-400 font-mono">
@@ -944,7 +949,7 @@ export default function ClassSubmissionsManager({
                         rel="noreferrer"
                         className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline"
                       >
-                        <span>Lihat Berkas</span>
+                        <span>{sub.isLink || sub.files?.[0]?.isLink ? 'Buka Tautan' : 'Lihat Berkas'}</span>
                         <ExternalLink size={11} />
                       </a>
                     )}
