@@ -3,6 +3,7 @@ import {
   Crown, 
   ShieldCheck, 
   Wallet, 
+  FileText,
   Layers, 
   Edit3, 
   Phone, 
@@ -108,6 +109,9 @@ export default function ClassStructure({
         nim: detectedVice?.nim || '',
         note: 'Wakil Ketua Tingkat'
       },
+      secretaries: Array.isArray(structure?.secretaries) && structure.secretaries.length > 0 ? structure.secretaries : [
+        { id: 's1', title: 'Sekretaris 1', name: '', phone: '', nim: '', note: 'Administrasi, surat-menyurat & notulensi kelas' }
+      ],
       treasurers: Array.isArray(structure?.treasurers) && structure.treasurers.length > 0 ? structure.treasurers : [
         { id: 'b1', title: 'Bendahara 1', name: '', phone: '', nim: '', note: 'Pengelolaan kas & tagihan kelas' },
         { id: 'b2', title: 'Bendahara 2', name: '', phone: '', nim: '', note: 'Pencatatan kas & rekapitulasi' }
@@ -165,6 +169,38 @@ export default function ClassStructure({
       ...prev,
       viceKomti: { ...prev.viceKomti, [field]: val }
     }));
+  };
+
+  const updateDraftSecretary = (index, field, val) => {
+    setDraft(prev => {
+      const nextS = [...(prev.secretaries || [])];
+      nextS[index] = { ...nextS[index], [field]: val };
+      return { ...prev, secretaries: nextS };
+    });
+  };
+
+  const addSecretarySlot = () => {
+    setDraft(prev => ({
+      ...prev,
+      secretaries: [
+        ...(prev.secretaries || []),
+        {
+          id: 's_' + Date.now(),
+          title: `Sekretaris ${(prev.secretaries?.length || 0) + 1}`,
+          name: '',
+          phone: '',
+          nim: '',
+          note: 'Administrasi, surat-menyurat & notulensi kelas'
+        }
+      ]
+    }));
+  };
+
+  const removeSecretarySlot = (index) => {
+    setDraft(prev => {
+      const nextS = (prev.secretaries || []).filter((_, i) => i !== index);
+      return { ...prev, secretaries: nextS };
+    });
   };
 
   const updateDraftTreasurer = (index, field, val) => {
@@ -261,6 +297,10 @@ export default function ClassStructure({
           nim: mem.nim || prev.viceKomti.nim || ''
         }
       }));
+    } else if (targetType === 'secretary' && targetIndex !== null) {
+      updateDraftSecretary(targetIndex, 'name', mem.name || '');
+      if (mem.phoneNumber) updateDraftSecretary(targetIndex, 'phone', mem.phoneNumber);
+      if (mem.nim) updateDraftSecretary(targetIndex, 'nim', mem.nim);
     } else if (targetType === 'treasurer' && targetIndex !== null) {
       updateDraftTreasurer(targetIndex, 'name', mem.name || '');
       if (mem.phoneNumber) updateDraftTreasurer(targetIndex, 'phone', mem.phoneNumber);
@@ -295,6 +335,7 @@ export default function ClassStructure({
 
   const divisionsCount = resolvedStructure.divisions?.length || 0;
   const treasurersCount = resolvedStructure.treasurers?.length || 0;
+  const secretariesCount = resolvedStructure.secretaries?.length || 0;
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
@@ -322,7 +363,7 @@ export default function ClassStructure({
               Struktur Organisasi Kelas
             </h1>
             <p className="text-slate-300 text-xs sm:text-sm max-w-xl leading-relaxed">
-              Bagan hierarki kelas top-down: Komti → Wakil Komti → Bendahara → Kepala Divisi & Penanggung Jawab (PJ 1 & PJ 2) kelas {currentClass?.name || ''}.
+              Bagan hierarki kelas top-down: Komti → Wakil Komti → Sekretaris → Bendahara → Kepala Divisi & Penanggung Jawab (PJ 1 & PJ 2) kelas {currentClass?.name || ''}.
             </p>
           </div>
 
@@ -406,11 +447,15 @@ export default function ClassStructure({
               </span>
               <span className="text-slate-300">→</span>
               <span className="flex items-center gap-1.5 font-semibold text-slate-700">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" /> 3. Bendahara
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-500 inline-block" /> 3. Sekretaris
               </span>
               <span className="text-slate-300">→</span>
               <span className="flex items-center gap-1.5 font-semibold text-slate-700">
-                <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block" /> 4. Divisi & PJ (2 Orang / Matkul)
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" /> 4. Bendahara
+              </span>
+              <span className="text-slate-300">→</span>
+              <span className="flex items-center gap-1.5 font-semibold text-slate-700">
+                <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block" /> 5. Divisi & PJ (2 Orang / Matkul)
               </span>
             </div>
 
@@ -567,7 +612,7 @@ export default function ClassStructure({
                   </div>
                 </div>
 
-                {/* Vertical Stem Line: Wakil Komti -> Bendahara */}
+                {/* Vertical Stem Line: Wakil Komti -> Sekretaris */}
                 <div className="flex flex-col items-center my-0 z-0">
                   <div className="w-0.5 h-10 bg-slate-300 relative">
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-indigo-500 ring-4 ring-indigo-100" />
@@ -577,7 +622,74 @@ export default function ClassStructure({
 
               </div>
 
-              {/* =================== LEVEL 3: BENDAHARA KELAS =================== */}
+              {/* =================== LEVEL 3: SEKRETARIS KELAS =================== */}
+              <div className="relative w-full flex flex-col items-center">
+                
+                {/* Horizontal Bar for Secretaries */}
+                <div className="flex flex-wrap items-center justify-center gap-4 relative z-10 w-full max-w-2xl">
+                  {resolvedStructure.secretaries.map((sec, idx) => (
+                    <div 
+                      key={sec.id || idx}
+                      className="w-[260px] sm:w-[280px] bg-white rounded-2xl p-4 border-2 border-sky-200/90 shadow-sm hover:border-sky-400 transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200 text-[9px] font-extrabold flex items-center gap-1">
+                          <FileText size={10} className="text-sky-700" />
+                          {sec.title || `Sekretaris ${idx + 1}`}
+                        </span>
+                        {sec.phone && getWhatsAppUrl(sec.phone, sec.name, currentClass?.name) && (
+                          <a
+                            href={getWhatsAppUrl(sec.phone, sec.name, currentClass?.name)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-600 hover:text-emerald-700 p-1 rounded-md hover:bg-emerald-50 transition-colors"
+                            title="WhatsApp"
+                          >
+                            <MessageCircle size={13} />
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="mt-2">
+                        <h4 className="font-extrabold text-sm text-slate-900 truncate">
+                          {sec.name || <span className="text-slate-400 italic font-normal">Belum ditentukan</span>}
+                        </h4>
+                        {sec.nim && (
+                          <p className="text-[10px] font-mono text-slate-500">NIM: {sec.nim}</p>
+                        )}
+                        {sec.note && (
+                          <p className="text-[11px] text-slate-600 mt-1 line-clamp-1">{sec.note}</p>
+                        )}
+                      </div>
+
+                      {sec.phone && (
+                        <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                          <span className="font-mono text-slate-500">{sec.phone}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPhone(sec.phone, `sec_map_${idx}`)}
+                            className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                            title="Salin"
+                          >
+                            {copiedKey === `sec_map_${idx}` ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Vertical Stem Line: Level 3 (Sekretaris) -> Level 4 (Bendahara) */}
+                <div className="flex flex-col items-center my-0 z-0">
+                  <div className="w-0.5 h-10 bg-slate-300 relative">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-sky-500 ring-4 ring-sky-100" />
+                  </div>
+                  <div className="w-2 h-2 border-r-2 border-b-2 border-slate-400 rotate-45 -mt-1.5" />
+                </div>
+
+              </div>
+
+              {/* =================== LEVEL 4: BENDAHARA KELAS =================== */}
               <div className="relative w-full flex flex-col items-center">
                 
                 {/* Horizontal Bar for Treasurers if multiple */}
@@ -634,7 +746,7 @@ export default function ClassStructure({
                   ))}
                 </div>
 
-                {/* Vertical Stem Line: Level 3 (Bendahara) -> Level 4 (Divisi / PJ) */}
+                {/* Vertical Stem Line: Level 4 (Bendahara) -> Level 5 (Divisi / PJ) */}
                 <div className="flex flex-col items-center my-0 z-0">
                   <div className="w-0.5 h-10 bg-slate-300 relative">
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-emerald-100" />
@@ -644,7 +756,7 @@ export default function ClassStructure({
 
               </div>
 
-              {/* =================== LEVEL 4: KEPALA DIVISI & PJ (2 ORANG / MATKUL) =================== */}
+              {/* =================== LEVEL 5: KEPALA DIVISI & PJ (2 ORANG / MATKUL) =================== */}
               <div className="relative w-full">
                 
                 {divisionsCount === 0 ? (
@@ -1001,13 +1113,91 @@ export default function ClassStructure({
             </div>
           </section>
 
-          {/* TIER 3: BENDAHARA KELAS */}
+          {/* TIER 3: SEKRETARIS KELAS */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-sky-500" />
+                <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                  Tingkat 3 · Sekretaris Kelas
+                </h2>
+              </div>
+              <span className="text-xs text-slate-400 font-medium">
+                {resolvedStructure.secretaries.length} Pengurus
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {resolvedStructure.secretaries.map((sec, idx) => {
+                const waLink = getWhatsAppUrl(sec.phone, sec.name, currentClass?.name);
+                return (
+                  <div 
+                    key={sec.id || idx}
+                    className="bg-white rounded-3xl p-5 border border-slate-200/90 hover:border-sky-300 hover:shadow-md transition-all flex flex-col justify-between"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-800 flex items-center justify-center font-bold text-sm">
+                          <FileText size={18} />
+                        </div>
+                        <span className="px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 text-[10px] font-bold">
+                          {sec.title || `Sekretaris ${idx + 1}`}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="font-extrabold text-sm text-slate-900">
+                          {sec.name || <span className="text-slate-400 italic font-normal">Belum ditentukan</span>}
+                        </h4>
+                        {sec.nim && (
+                          <p className="text-[11px] font-mono text-slate-500">NIM: {sec.nim}</p>
+                        )}
+                        {sec.note && (
+                          <p className="text-xs text-slate-600 mt-1.5 line-clamp-2">{sec.note}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                      {sec.phone ? (
+                        <>
+                          <button
+                            onClick={() => handleCopyPhone(sec.phone, `sec_c_${idx}`)}
+                            className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Salin nomor telepon"
+                          >
+                            {copiedKey === `sec_c_${idx}` ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                            <span>{sec.phone}</span>
+                          </button>
+                          {waLink && (
+                            <a
+                              href={waLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center gap-1 transition-colors"
+                            >
+                              <MessageCircle size={13} />
+                              <span>WA</span>
+                            </a>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 italic">Belum ada nomor</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* TIER 4: BENDAHARA KELAS */}
           <section className="space-y-3">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
                 <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                  Tingkat 3 · Bendahara Kelas
+                  Tingkat 4 · Bendahara Kelas
                 </h2>
               </div>
               <span className="text-xs text-slate-400 font-medium">
@@ -1078,13 +1268,13 @@ export default function ClassStructure({
             </div>
           </section>
 
-          {/* TIER 4: KEPALA DIVISI & PENANGGUNG JAWAB (PJ 1 & PJ 2) */}
+          {/* TIER 5: KEPALA DIVISI & PENANGGUNG JAWAB (PJ 1 & PJ 2) */}
           <section className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-violet-500" />
                 <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                  Tingkat 4 · Kepala Divisi & Penanggung Jawab (PJ 1 & PJ 2)
+                  Tingkat 5 · Kepala Divisi & Penanggung Jawab (PJ 1 & PJ 2)
                 </h2>
               </div>
 
@@ -1427,12 +1617,94 @@ export default function ClassStructure({
                   </div>
                 </div>
 
-                {/* 3. Bendahara Section */}
+                {/* 3. Sekretaris Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <FileText size={14} className="text-sky-600" />
+                      3. Sekretaris Kelas
+                    </span>
+                    <button
+                      type="button"
+                      onClick={addSecretarySlot}
+                      className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Plus size={13} />
+                      <span>Tambah Sekretaris</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {(draft.secretaries || []).map((sec, idx) => (
+                      <div key={sec.id || idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <input
+                            type="text"
+                            value={sec.title || ''}
+                            onChange={(e) => updateDraftSecretary(idx, 'title', e.target.value)}
+                            placeholder="Contoh: Sekretaris 1"
+                            className="text-xs font-bold text-slate-800 bg-white px-2 py-1 rounded-lg border border-slate-200 max-w-[150px]"
+                          />
+                          <div className="flex items-center gap-2">
+                            {activeMembersList.length > 0 && (
+                              <select
+                                className="text-[11px] bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-600"
+                                onChange={(e) => handleSelectMemberFor(e.target.value, 'secretary', idx)}
+                                defaultValue=""
+                              >
+                                <option value="" disabled>-- Pilih Mahasiswa --</option>
+                                {activeMembersList.map(m => (
+                                  <option key={m.userId || m.uid || m.id} value={m.userId || m.uid || m.id}>
+                                    {m.name || m.email}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeSecretarySlot(idx)}
+                              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 cursor-pointer"
+                              title="Hapus slot"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            value={sec.name || ''}
+                            onChange={(e) => updateDraftSecretary(idx, 'name', e.target.value)}
+                            placeholder="Nama Sekretaris..."
+                            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold"
+                          />
+                          <input
+                            type="text"
+                            value={sec.phone || ''}
+                            onChange={(e) => updateDraftSecretary(idx, 'phone', e.target.value)}
+                            placeholder="No. WhatsApp..."
+                            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-mono"
+                          />
+                          <input
+                            type="text"
+                            value={sec.note || ''}
+                            onChange={(e) => updateDraftSecretary(idx, 'note', e.target.value)}
+                            placeholder="Fokus tugas / catatan..."
+                            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. Bendahara Section */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                       <Wallet size={14} className="text-emerald-600" />
-                      3. Bendahara Kelas
+                      4. Bendahara Kelas
                     </span>
                     <button
                       type="button"
@@ -1509,13 +1781,13 @@ export default function ClassStructure({
                   </div>
                 </div>
 
-                {/* 4. Divisi & PJ Section (2 Orang / Matkul) */}
+                {/* 5. Divisi & PJ Section (2 Orang / Matkul) */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                         <Layers size={14} className="text-violet-600" />
-                        4. Kepala Divisi & Penanggung Jawab Matkul (PJ 1 & PJ 2)
+                        5. Kepala Divisi & Penanggung Jawab Matkul (PJ 1 & PJ 2)
                       </span>
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         Setiap mata kuliah / divisi dapat diisi hingga 2 orang penanggung jawab.
