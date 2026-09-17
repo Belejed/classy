@@ -57,9 +57,14 @@ export default function ClassDashboard({
 
   const isImportant = currentAnnouncement?.type?.toLowerCase() === 'important';
 
-  // Filter items for Today
+  // Filter items for Today (including temporary schedules that match today's date)
   const todaySchedules = safeSchedules
-    .filter(s => s.day === todayDayName)
+    .filter(s => {
+      if (s.isTemporary && s.temporaryDate) {
+        return s.temporaryDate === todayIsoDate;
+      }
+      return s.day === todayDayName && !s.temporaryDate;
+    })
     .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
 
   // Pending tasks that are not submitted yet by current user (including overdue)
@@ -569,12 +574,19 @@ export default function ClassDashboard({
                         <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">
                           {sch.startTime} - {sch.endTime} WIB
                         </span>
-                        {sch.room && (
-                          <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1 bg-white dark:bg-slate-700 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-600">
-                            <MapPin size={11} className="text-rose-500" />
-                            Ruang {sch.room}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                          {sch.isTemporary && (
+                            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 inline-flex items-center gap-1">
+                              ⚡ {sch.temporaryType || 'Jadwal Sementara'}
+                            </span>
+                          )}
+                          {sch.room && (
+                            <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1 bg-white dark:bg-slate-700 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-600">
+                              <MapPin size={11} className="text-rose-500" />
+                              Ruang {sch.room}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <h4 className="font-bold text-xs text-slate-900 dark:text-white line-clamp-1">{sch.title}</h4>

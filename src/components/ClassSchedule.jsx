@@ -22,7 +22,8 @@ import {
   ExternalLink,
   Filter,
   Check,
-  Bookmark
+  Bookmark,
+  Zap
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
@@ -285,8 +286,13 @@ export default function ClassSchedule({
   }, [selectedCalendarDateStr]);
 
   const selectedDateClasses = useMemo(() => {
-    return (schedules || []).filter(s => s.day === selectedDateDayName);
-  }, [schedules, selectedDateDayName]);
+    return (schedules || []).filter(s => {
+      if (s.isTemporary && s.temporaryDate) {
+        return s.temporaryDate === selectedCalendarDateStr;
+      }
+      return s.day === selectedDateDayName && !s.temporaryDate;
+    });
+  }, [schedules, selectedCalendarDateStr, selectedDateDayName]);
 
   // Current Day & Time calculation
   const todayIndex = (new Date().getDay() + 6) % 7; // 0 = Senin, 6 = Minggu
@@ -297,7 +303,10 @@ export default function ClassSchedule({
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
 
-  // Form State for Add Event
+  // Filter state for schedule view: 'all' | 'regular' | 'temporary'
+  const [scheduleTypeFilter, setScheduleTypeFilter] = useState('all');
+
+  // Form State for Add / Edit Event
   const [eventTitle, setEventTitle] = useState('');
   const [eventType, setEventType] = useState('class'); // 'class' | 'assignment' | 'deadline' | 'other'
   const [eventDay, setEventDay] = useState(selectedDay);
@@ -307,6 +316,22 @@ export default function ClassSchedule({
   const [eventLecturer, setEventLecturer] = useState(currentClass?.lecturer || '');
   const [eventLecturerPhone, setEventLecturerPhone] = useState('');
   const [eventDesc, setEventDesc] = useState('');
+
+  // Temporary Schedule specific states
+  const [isTemporary, setIsTemporary] = useState(false);
+  const [temporaryType, setTemporaryType] = useState('Kuliah Pengganti');
+  const [temporaryScope, setTemporaryScope] = useState('specific_date'); // 'specific_date' | 'weekly'
+  const [temporaryDate, setTemporaryDate] = useState(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+  const [temporaryReason, setTemporaryReason] = useState('');
+
+  const temporaryCount = useMemo(() => (schedules || []).filter(s => s.isTemporary).length, [schedules]);
+  const regularCount = useMemo(() => (schedules || []).filter(s => !s.isTemporary).length, [schedules]);
 
   const role = currentClass?.userRole;
   const isOwner = currentClass?.ownerId === currentUser?.uid;
@@ -443,22 +468,56 @@ export default function ClassSchedule({
     setEventLecturer(parsed.lecturerName || schedule.lecturer || '');
     setEventLecturerPhone(schedule.lecturerPhone || parsed.lecturerPhone || '');
     setEventDesc(schedule.description || '');
+    setIsTemporary(Boolean(schedule.isTemporary));
+    setTemporaryType(schedule.temporaryType || 'Kuliah Pengganti');
+    setTemporaryScope(schedule.temporaryDate ? 'specific_date' : 'weekly');
+    setTemporaryDate(schedule.temporaryDate || selectedCalendarDateStr || '');
+    setTemporaryReason(schedule.temporaryReason || '');
     setSelectedEvent(null);
     setShowAddModal(true);
   };
 
-  const handleOpenAdd = (dayOverride, startTimeOverride, endTimeOverride) => {
+  const handleOpenAdd = (dayOverride, startTimeOverride, endTimeOverride, isTempOverride = false) => {
     setEditingSchedule(null);
     setEventTitle('');
     setEventType('class');
-    setEventDay(dayOverride || selectedDay);
+    const defaultDate = selectedCalendarDateStr || new Date().toISOString().split('T')[0];
+    let resolvedDay = dayOverride || selectedDay;
+    if (isTempOverride && defaultDate) {
+      try {
+        const [y, m, d] = defaultDate.split('-').map(Number);
+        const dt = new Date(y, m - 1, d);
+        const dayIdx = (dt.getDay() + 6) % 7;
+        const dayName = DAYS_OF_WEEK[dayIdx];
+        if (dayName) resolvedDay = dayName;
+      } catch {}
+    }
+    setEventDay(resolvedDay);
     setEventStartTime(startTimeOverride || '08:00');
     setEventEndTime(endTimeOverride || '09:40');
     setEventRoom('');
     setEventLecturer(currentClass?.lecturer || '');
     setEventLecturerPhone('');
     setEventDesc('');
+    setIsTemporary(Boolean(isTempOverride));
+    setTemporaryType(isTempOverride ? 'Kuliah Pengganti' : 'Kuliah Pengganti');
+    setTemporaryScope('specific_date');
+    setTemporaryDate(defaultDate);
+    setTemporaryReason('');
     setShowAddModal(true);
+  };
+
+  const handleTemporaryDateChange = (dateVal) => {
+    setTemporaryDate(dateVal);
+    if (dateVal) {
+      try {
+        const [y, m, d] = dateVal.split('-').map(Number);
+        const dt = new Date(y, m - 1, d);
+        const dayIdx = (dt.getDay() + 6) % 7;
+        const dayName = DAYS_OF_WEEK[dayIdx];
+        if (dayName) setEventDay(dayName);
+      } catch {}
+    }
   };
 
   const handleOpenAddAtSlot = (dayName, hour) => {
@@ -484,16 +543,20 @@ export default function ClassSchedule({
       room: eventRoom.trim(),
       lecturer: eventLecturer.trim(),
       lecturerPhone: eventLecturerPhone.trim(),
-      description: eventDesc.trim()
+      description: eventDesc.trim(),
+      isTemporary: Boolean(isTemporary),
+      temporaryType: isTemporary ? temporaryType : null,
+      temporaryDate: isTemporary && temporaryScope === 'specific_date' ? temporaryDate : null,
+      temporaryReason: isTemporary ? temporaryReason.trim() : null
     };
 
     try {
       if (editingSchedule) {
         await onUpdateSchedule(editingSchedule.id, schedulePayload);
-        toast.success('Jadwal berhasil diperbarui!');
+        toast.success(isTemporary ? 'Jadwal sementara berhasil diperbarui!' : 'Jadwal berhasil diperbarui!');
       } else {
         await onAddSchedule(schedulePayload);
-        toast.success('Jadwal berhasil ditambahkan!');
+        toast.success(isTemporary ? 'Jadwal sementara berhasil ditambahkan!' : 'Jadwal berhasil ditambahkan!');
       }
       setShowAddModal(false);
       setEditingSchedule(null);
@@ -501,6 +564,8 @@ export default function ClassSchedule({
       setEventRoom('');
       setEventLecturerPhone('');
       setEventDesc('');
+      setIsTemporary(false);
+      setTemporaryReason('');
     } catch (err) {
       toast.error(err.message || 'Gagal menyimpan jadwal');
     }
@@ -538,27 +603,85 @@ export default function ClassSchedule({
               {String(startHour).padStart(2, '0')}:00 – {String(endHour).padStart(2, '0')}:00 WIB
             </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap shrink-0">
-              {(schedules || []).length} Jadwal Kuliah
+              {regularCount} Jadwal Reguler
             </span>
+            {temporaryCount > 0 && (
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap shrink-0 inline-flex items-center gap-1 animate-pulse">
+                <Zap size={10} className="text-amber-600 fill-amber-500" />
+                {temporaryCount} Jadwal Sementara
+              </span>
+            )}
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap shrink-0">
               {(tasks || []).length} Tenggat Tugas
             </span>
           </div>
           <p className="text-xs text-[#64748B] mt-0.5">
-            Jadwal perkuliahan mingguan terpadu dan kalender tenggat tugas kuliah dalam 1 layar.
+            Jadwal perkuliahan mingguan, jadwal sementara / kuliah pengganti, dan kalender tenggat tugas kuliah dalam 1 layar.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          {/* Add Event Button for Komti / Lecturer */}
-          {isManager && (
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Filter Pills for Schedule Type */}
+          <div className="flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-xs">
             <button
-              onClick={() => handleOpenAdd(selectedDay)}
-              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[38px]"
+              type="button"
+              onClick={() => setScheduleTypeFilter('all')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                scheduleTypeFilter === 'all'
+                  ? 'bg-white text-[#0F172A] shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <Plus size={13} />
-              <span>Tambah Jadwal</span>
+              Semua
             </button>
+            <button
+              type="button"
+              onClick={() => setScheduleTypeFilter('regular')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                scheduleTypeFilter === 'regular'
+                  ? 'bg-white text-[#0F172A] shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Reguler
+            </button>
+            <button
+              type="button"
+              onClick={() => setScheduleTypeFilter('temporary')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                scheduleTypeFilter === 'temporary'
+                  ? 'bg-amber-500 text-white shadow-2xs font-bold'
+                  : 'text-amber-800 hover:text-amber-950'
+              }`}
+            >
+              <span>⚡ Sementara</span>
+              {temporaryCount > 0 && (
+                <span className={`text-[9px] px-1 rounded-full ${scheduleTypeFilter === 'temporary' ? 'bg-amber-600 text-white' : 'bg-amber-200 text-amber-900'}`}>
+                  {temporaryCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Add Buttons for Komti / Lecturer */}
+          {isManager && (
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <button
+                onClick={() => handleOpenAdd(selectedDay, undefined, undefined, true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[36px]"
+                title="Tambah Jadwal Sementara atau Kuliah Pengganti"
+              >
+                <Clock size={13} />
+                <span>+ Jadwal Sementara</span>
+              </button>
+              <button
+                onClick={() => handleOpenAdd(selectedDay, undefined, undefined, false)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[36px]"
+              >
+                <Plus size={13} />
+                <span>+ Jadwal Reguler</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -678,10 +801,16 @@ export default function ClassSchedule({
               <div className="grid grid-cols-7 gap-1">
                 {calendarGrid.map((cell, idx) => {
                   const cellTasks = (tasks || []).filter(t => t.dueDate === cell.dateStr);
-                  const cellClasses = (schedules || []).filter(s => s.day === cell.dayName);
+                  const cellClasses = (schedules || []).filter(s => {
+                    if (s.isTemporary && s.temporaryDate) {
+                      return s.temporaryDate === cell.dateStr;
+                    }
+                    return s.day === cell.dayName && !s.temporaryDate;
+                  });
 
                   const hasTasks = cellTasks.length > 0 && (calendarFilter === 'all' || calendarFilter === 'tasks');
                   const hasClasses = cellClasses.length > 0 && (calendarFilter === 'all' || calendarFilter === 'classes');
+                  const hasTempClasses = cellClasses.some(s => s.isTemporary);
                   const isSelected = cell.dateStr === selectedCalendarDateStr;
 
                   return (
@@ -711,13 +840,20 @@ export default function ClassSchedule({
                             }`}
                           />
                         )}
-                        {hasClasses && (
+                        {hasTempClasses ? (
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isSelected ? 'bg-amber-300' : 'bg-amber-500'
+                            }`}
+                            title="Ada Jadwal Sementara"
+                          />
+                        ) : hasClasses ? (
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
                               isSelected ? 'bg-indigo-300' : 'bg-indigo-500'
                             }`}
                           />
-                        )}
+                        ) : null}
                       </div>
                     </button>
                   );
@@ -726,15 +862,19 @@ export default function ClassSchedule({
             </div>
 
             {/* Bottom Legend */}
-            <div className="pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between text-[11px] text-[#64748B]">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1.5">
+            <div className="pt-2.5 border-t border-[#F1F5F9] flex flex-wrap items-center justify-between text-[11px] text-[#64748B] gap-2">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
-                  <span>Tenggat Tugas</span>
+                  <span>Tugas</span>
                 </span>
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
-                  <span>Jadwal Kuliah</span>
+                  <span>Kuliah</span>
+                </span>
+                <span className="flex items-center gap-1 font-semibold text-amber-800">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                  <span>Sementara</span>
                 </span>
               </div>
               <span className="text-[10px] text-[#94A3B8]">Pilih tanggal</span>
@@ -883,18 +1023,31 @@ export default function ClassSchedule({
                           <div
                             key={cls.id}
                             onClick={() => setSelectedEvent(cls)}
-                            className={`p-2.5 rounded-xl border transition-all space-y-1 cursor-pointer hover:shadow-2xs ${styles.bg}`}
+                            className={`p-2.5 rounded-xl border transition-all space-y-1.5 cursor-pointer hover:shadow-2xs ${styles.bg} ${cls.isTemporary ? 'ring-2 ring-amber-400/80 border-dashed' : ''}`}
                           >
-                            <div className="flex items-center justify-between gap-1.5">
+                            <div className="flex items-center justify-between gap-1.5 flex-wrap">
                               <span className="font-mono text-[11px] font-bold px-1.5 py-0.2 rounded bg-white border border-[#CBD5E1]">
                                 {cls.startTime} – {cls.endTime}
                               </span>
-                              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${styles.badge}`}>
-                                {cls.code || cls.type}
-                              </span>
+                              <div className="flex items-center gap-1">
+                                {cls.isTemporary && (
+                                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-amber-500 text-white shadow-2xs inline-flex items-center gap-0.5">
+                                    ⚡ {cls.temporaryType || 'Sementara'}
+                                  </span>
+                                )}
+                                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${styles.badge}`}>
+                                  {cls.code || cls.type}
+                                </span>
+                              </div>
                             </div>
 
                             <h6 className="font-bold text-xs text-[#0F172A] leading-snug">{cls.title || cls.course}</h6>
+
+                            {cls.isTemporary && cls.temporaryReason && (
+                              <p className="text-[10px] text-amber-900 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-200 line-clamp-2">
+                                <span className="font-bold">Ket:</span> {cls.temporaryReason}
+                              </p>
+                            )}
 
                             <div className="flex items-center gap-2.5 text-[10px] opacity-85">
                               {cls.room && <span className="flex items-center gap-1"><MapPin size={10} /> {cls.room}</span>}
@@ -939,7 +1092,11 @@ export default function ClassSchedule({
                 {/* 7 Days Columns */}
                 {DAYS_OF_WEEK.map((dayName) => {
                   const isToday = dayName === todayDayName;
-                  const dayEvents = schedules.filter(s => s.day === dayName);
+                  const dayEvents = schedules.filter(s => {
+                    if (scheduleTypeFilter === 'regular' && s.isTemporary) return false;
+                    if (scheduleTypeFilter === 'temporary' && !s.isTemporary) return false;
+                    return s.day === dayName;
+                  });
                   const dayTasks = (tasks || []).filter(t => getTaskDayOfWeek(t.dueDate) === dayName);
 
                   return (
@@ -1006,7 +1163,11 @@ export default function ClassSchedule({
                 {/* 7 Day Columns with Events Placed at Exact Positions */}
                 {DAYS_OF_WEEK.map((dayName) => {
                   const isToday = dayName === todayDayName;
-                  const dayEvents = schedules.filter(s => s.day === dayName);
+                  const dayEvents = schedules.filter(s => {
+                    if (scheduleTypeFilter === 'regular' && s.isTemporary) return false;
+                    if (scheduleTypeFilter === 'temporary' && !s.isTemporary) return false;
+                    return s.day === dayName;
+                  });
 
                   return (
                     <div
@@ -1060,25 +1221,40 @@ export default function ClassSchedule({
                               e.stopPropagation();
                               setSelectedEvent(evt);
                             }}
-                            className={`absolute left-1 right-1 rounded-xl p-2 sm:p-2.5 z-10 cursor-pointer transition-all overflow-hidden flex flex-col justify-between hover:z-20 hover:shadow-lg ${styles.bg}`}
+                            className={`absolute left-1 right-1 rounded-xl p-2 sm:p-2.5 z-10 cursor-pointer transition-all overflow-hidden flex flex-col justify-between hover:z-20 hover:shadow-lg ${styles.bg} ${
+                              evt.isTemporary ? 'ring-2 ring-amber-400/90 shadow-xs border-dashed' : ''
+                            }`}
                             style={{
                               top,
                               height
                             }}
                           >
                             <div className="space-y-1 min-w-0">
-                              <div className="flex items-center justify-between gap-1 leading-none">
+                              <div className="flex items-center justify-between gap-1 leading-none flex-wrap">
                                 <span className="font-mono text-[10px] sm:text-[11px] font-bold tracking-tight">
                                   {evt.startTime} – {evt.endTime}
                                 </span>
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${styles.badge}`}>
-                                  {evt.code || evt.type}
-                                </span>
+                                <div className="flex items-center gap-1">
+                                  {evt.isTemporary && (
+                                    <span className="text-[8px] sm:text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500 text-white shadow-2xs inline-flex items-center gap-0.5 shrink-0">
+                                      ⚡ {evt.temporaryType || 'Sementara'}
+                                    </span>
+                                  )}
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${styles.badge}`}>
+                                    {evt.code || evt.type}
+                                  </span>
+                                </div>
                               </div>
 
                               <h4 className="font-bold text-xs sm:text-[13px] leading-snug line-clamp-2 mt-0.5" title={evt.title}>
                                 {evt.title}
                               </h4>
+
+                              {evt.isTemporary && evt.temporaryDate && (
+                                <span className="inline-block text-[9px] font-mono font-semibold px-1.5 py-0.2 rounded bg-amber-100/90 text-amber-900 border border-amber-300 w-fit">
+                                  📅 {evt.temporaryDate}
+                                </span>
+                              )}
                             </div>
 
                             {/* Footer info (Room & Lecturer) */}
@@ -1161,6 +1337,23 @@ export default function ClassSchedule({
 
               {/* Scrollable Modal Content */}
               <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+                {selectedEvent.isTemporary && (
+                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-amber-800">
+                      <Zap size={14} className="text-amber-600 fill-amber-500 shrink-0" />
+                      <span>{selectedEvent.temporaryType || 'JADWAL SEMENTARA / PENGGANTI'}</span>
+                    </div>
+                    <div className="text-[11px] text-amber-800/90 leading-relaxed space-y-0.5">
+                      {selectedEvent.temporaryDate && (
+                        <p><span className="font-semibold text-amber-900">Tanggal Berlaku:</span> {formatDateIndonesian(selectedEvent.temporaryDate)}</p>
+                      )}
+                      {selectedEvent.temporaryReason && (
+                        <p><span className="font-semibold text-amber-900">Alasan/Keterangan:</span> {selectedEvent.temporaryReason}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2.5 text-xs text-[#334155]">
                   <div className="flex items-center justify-between">
                     <span className="text-[#64748B]">Hari:</span>
@@ -1223,7 +1416,7 @@ export default function ClassSchedule({
                 {/* Primary Action: WhatsApp Share */}
                 <a
                   href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                    `*INFORMASI JADWAL / RUANGAN KULIAH*\n*Kelas:* ${currentClass?.name || 'Kuliah'}\n\n*Mata Kuliah:* ${selectedEvent.title || selectedEvent.course || '-'}\n*Hari/Waktu:* ${selectedEvent.day}, ${selectedEvent.startTime || ''} – ${selectedEvent.endTime || ''} WIB\n*Ruangan:* ${selectedEvent.room || '-'}\n*Dosen:* ${selectedLecturerInfo.lecturerName || selectedEvent.lecturer || '-'}${selectedEvent.description ? `\n*Catatan:* ${selectedEvent.description}` : ''}\n\nPortal Kelas: ${typeof window !== 'undefined' ? window.location.origin : ''}`
+                    `*${selectedEvent.isTemporary ? '⚡ INFORMASI JADWAL SEMENTARA / KELAS PENGGANTI' : 'INFORMASI JADWAL / RUANGAN KULIAH'}*\n*Kelas:* ${currentClass?.name || 'Kuliah'}\n\n*Mata Kuliah:* ${selectedEvent.title || selectedEvent.course || '-'}${selectedEvent.isTemporary ? `\n*Status:* ${selectedEvent.temporaryType || 'Jadwal Sementara'}${selectedEvent.temporaryDate ? ` (${formatDateIndonesian(selectedEvent.temporaryDate)})` : ''}` : ''}\n*Hari/Waktu:* ${selectedEvent.day}, ${selectedEvent.startTime || ''} – ${selectedEvent.endTime || ''} WIB\n*Ruangan:* ${selectedEvent.room || '-'}\n*Dosen:* ${selectedLecturerInfo.lecturerName || selectedEvent.lecturer || '-'}${selectedEvent.temporaryReason ? `\n*Keterangan Alasan:* ${selectedEvent.temporaryReason}` : ''}${selectedEvent.description ? `\n*Catatan:* ${selectedEvent.description}` : ''}\n\nPortal Kelas: ${typeof window !== 'undefined' ? window.location.origin : ''}`
                   )}`}
                   target="_blank"
                   rel="noreferrer"
@@ -1402,6 +1595,96 @@ export default function ClassSchedule({
                   required
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] bg-white text-xs sm:text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] focus:ring-2 focus:ring-[#0F172A]/10 shadow-2xs transition-all"
                 />
+              </div>
+
+              {/* Temporary / Makeup Schedule Section */}
+              <div className={`p-3.5 rounded-2xl border transition-all ${
+                isTemporary 
+                  ? 'border-amber-300 bg-amber-50/60 shadow-2xs' 
+                  : 'border-slate-200 bg-slate-50/60 hover:bg-slate-50'
+              }`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className={`p-1.5 rounded-xl shrink-0 ${isTemporary ? 'bg-amber-100 text-amber-700' : 'bg-slate-200/70 text-slate-500'}`}>
+                      <Zap size={15} className={isTemporary ? 'fill-amber-500 text-amber-600' : ''} />
+                    </div>
+                    <div>
+                      <label htmlFor="toggle-temporary-schedule" className="text-xs font-bold text-slate-800 cursor-pointer block">
+                        Jadwal Sementara / Pengganti
+                      </label>
+                      <p className="text-[11px] text-slate-500 leading-snug">
+                        Untuk kuliah pengganti, perubahan jam darurat, atau jadwal khusus
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    id="toggle-temporary-schedule"
+                    type="checkbox"
+                    checked={isTemporary}
+                    onChange={(e) => setIsTemporary(e.target.checked)}
+                    className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer accent-amber-600 shrink-0"
+                  />
+                </div>
+
+                {isTemporary && (
+                  <div className="space-y-3 pt-3 mt-2.5 border-t border-amber-200/70">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-slate-700">Tipe Perubahan</label>
+                        <select
+                          value={temporaryType}
+                          onChange={(e) => setTemporaryType(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs cursor-pointer"
+                        >
+                          <option value="Kuliah Pengganti">Kuliah Pengganti</option>
+                          <option value="Jadwal Sementara">Jadwal Sementara</option>
+                          <option value="Kelas Tambahan">Kelas Tambahan</option>
+                          <option value="Jadwal Ujian / Kuis">Jadwal Ujian / Kuis</option>
+                          <option value="Lainnya">Lainnya</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-slate-700">Cakupan Jadwal</label>
+                        <select
+                          value={temporaryScope}
+                          onChange={(e) => setTemporaryScope(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs cursor-pointer"
+                        >
+                          <option value="specific_date">Khusus Tanggal Tertentu</option>
+                          <option value="weekly">Berlaku Mingguan Sementara</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {temporaryScope === 'specific_date' && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-semibold text-slate-700">Tanggal Pelaksanaan</label>
+                          <span className="text-[10px] text-amber-700 font-medium">Hari otomatis terisi</span>
+                        </div>
+                        <input
+                          type="date"
+                          value={temporaryDate}
+                          onChange={(e) => handleTemporaryDateChange(e.target.value)}
+                          required={temporaryScope === 'specific_date'}
+                          className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-700">Keterangan / Alasan (Opsional)</label>
+                      <input
+                        type="text"
+                        placeholder="Contoh: Dosen berhalangan di hari reguler, dimajukan"
+                        value={temporaryReason}
+                        onChange={(e) => setTemporaryReason(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

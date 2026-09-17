@@ -405,20 +405,44 @@ export default function App() {
     const created = await dbService.schedules.create(currentClass.id, item);
     setSchedules(prev => [...prev, created]);
 
+    const isTemp = Boolean(created.isTemporary);
+    const tempType = created.temporaryType || 'Jadwal Sementara';
+    const subj = created.subject || created.title || 'Mata Kuliah';
+
+    // Log creation
+    try {
+      await dbService.logs.create(currentClass.id, {
+        actionType: 'schedule_create',
+        title: isTemp ? `Jadwal Sementara: ${subj}` : `Jadwal baru: ${subj}`,
+        details: `${user?.displayName || 'Komti'} menambahkan ${isTemp ? `jadwal sementara (${tempType})` : 'jadwal perkuliahan'} "${subj}" pada hari ${created.day} jam ${created.startTime}-${created.endTime} WIB${created.room ? ` di ${created.room}` : ''}.${created.temporaryReason ? ` Alasan: ${created.temporaryReason}` : ''}`,
+        actor: { name: user?.displayName, email: user?.email, role: currentClass?.userRole },
+        targetName: subj,
+        color: isTemp ? 'amber' : 'indigo'
+      });
+      handleRefreshLogs();
+    } catch {}
+
     // Send email notification for new class schedule
     sendClassNotificationEmail({
-      subject: `[Jadwal Baru] ${created.subject || created.title} - Ruang ${created.room || 'Kelas'}`,
+      subject: `${isTemp ? `[JADWAL SEMENTARA: ${tempType}] ` : '[Jadwal Baru] '}${subj} - Ruang ${created.room || 'Kelas'}`,
       type: 'schedule_update',
-      title: `Jadwal Kuliah Baru: ${created.subject || created.title}`,
+      title: `${isTemp ? `⚡ ${tempType}: ` : 'Jadwal Kuliah Baru: '}${subj}`,
       subtitle: `Jadwal Kuliah ${currentClass?.name || 'Classy'}`,
-      message: `Jadwal perkuliahan baru telah ditambahkan untuk mata kuliah ${created.subject || created.title}.`,
+      message: isTemp
+        ? `Terdapat jadwal kuliah sementara / pengganti baru untuk mata kuliah ${subj}.${created.temporaryReason ? ` Alasan/Keterangan: ${created.temporaryReason}` : ''}`
+        : `Jadwal perkuliahan baru telah ditambahkan untuk mata kuliah ${subj}.`,
       metaRows: [
-        ['Mata Kuliah', created.subject || created.title || 'Mata Kuliah'],
+        ['Mata Kuliah', subj],
+        ...(isTemp ? [
+          ['Status Jadwal', `⚠️ ${tempType}`],
+          ...(created.temporaryDate ? [['Tanggal Berlaku', created.temporaryDate]] : []),
+          ...(created.temporaryReason ? [['Keterangan Alasan', created.temporaryReason]] : [])
+        ] : []),
         ['Dosen Pengajar', created.lecturer || 'Dosen Pengajar'],
         ['Hari & Jam', `${created.day}, ${created.startTime} - ${created.endTime || 'Selesai'} WIB`],
         ['Ruang Kuliah', created.room || 'Ruang Kelas / Online'],
         ['Kelas / Rombel', currentClass?.name || 'Classy'],
-        ...(created.notes ? [['Catatan', created.notes]] : [])
+        ...(created.description || created.notes ? [['Catatan', created.description || created.notes]] : [])
       ]
     });
 
@@ -429,23 +453,31 @@ export default function App() {
     const updated = await dbService.schedules.update(scheduleId, updates);
     setSchedules(prev => prev.map(s => s.id === scheduleId ? { ...s, ...updated } : s));
 
+    const isTemp = Boolean(updated.isTemporary);
+    const tempType = updated.temporaryType || 'Jadwal Sementara';
+
     // Send email notification for schedule/room update
     const sch = { ...schedules?.find(s => s.id === scheduleId), ...updated };
     if (sch?.subject || sch?.title) {
       const subjectName = sch.subject || sch.title;
       sendClassNotificationEmail({
-        subject: `[Update Jadwal / Ruangan] ${subjectName} - Ruang ${sch.room || 'Kelas'}`,
+        subject: `${isTemp ? `[Update Jadwal Sementara] ` : '[Update Jadwal / Ruangan] '}${subjectName} - Ruang ${sch.room || 'Kelas'}`,
         type: 'schedule_update',
-        title: `Pembaruan Jadwal: ${subjectName}`,
+        title: `${isTemp ? `⚡ Update ${tempType}: ` : 'Pembaruan Jadwal: '}${subjectName}`,
         subtitle: `Pembaruan Jadwal Kelas ${currentClass?.name || 'Classy'}`,
-        message: `Terdapat pembaruan informasi jadwal atau ruangan pada mata kuliah ${subjectName}. Mohon periksa jadwal terbaru sebelum perkuliahan dimulai.`,
+        message: `Terdapat pembaruan informasi jadwal ${isTemp ? `sementara (${tempType})` : ''} atau ruangan pada mata kuliah ${subjectName}. Mohon periksa jadwal terbaru sebelum perkuliahan dimulai.${sch.temporaryReason ? ` Keterangan: ${sch.temporaryReason}` : ''}`,
         metaRows: [
           ['Mata Kuliah', subjectName],
+          ...(isTemp ? [
+            ['Status Jadwal', `⚠️ ${tempType}`],
+            ...(sch.temporaryDate ? [['Tanggal Berlaku', sch.temporaryDate]] : []),
+            ...(sch.temporaryReason ? [['Keterangan Alasan', sch.temporaryReason]] : [])
+          ] : []),
           ['Dosen Pengajar', sch.lecturer || 'Dosen Pengajar'],
           ['Hari & Jam', `${sch.day}, ${sch.startTime} - ${sch.endTime || 'Selesai'} WIB`],
           ['Ruangan Terkini', sch.room || 'Ruang Kelas / Online'],
           ['Kelas / Rombel', currentClass?.name || 'Classy'],
-          ...(sch.notes ? [['Catatan Khusus', sch.notes]] : [])
+          ...(sch.description || sch.notes ? [['Catatan Khusus', sch.description || sch.notes]] : [])
         ]
       });
     }

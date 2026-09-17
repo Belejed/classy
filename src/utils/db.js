@@ -1360,7 +1360,11 @@ export const dbService = {
           room: s.room || '',
           sks: s.sks || 3,
           type: s.code || 'class',
-          description: s.notes || ''
+          description: s.notes || '',
+          isTemporary: Boolean(s.is_temporary || s.isTemporary),
+          temporaryDate: s.temporary_date || s.temporaryDate || null,
+          temporaryType: s.temporary_type || s.temporaryType || (s.is_temporary || s.isTemporary ? 'Jadwal Sementara' : ''),
+          temporaryReason: s.temporary_reason || s.temporaryReason || ''
         };
       });
     },
@@ -1373,6 +1377,7 @@ export const dbService = {
         ? `${lecturerName} (${lecturerPhone})`
         : lecturerName;
 
+      const isTemp = Boolean(item.isTemporary);
       const row = {
         id,
         workspace_id: classId,
@@ -1384,6 +1389,10 @@ export const dbService = {
         end_time: item.endTime || '10:00',
         room: (item.room || '').trim(),
         notes: (item.description || '').trim(),
+        is_temporary: isTemp,
+        temporary_date: isTemp ? (item.temporaryDate || null) : null,
+        temporary_type: isTemp ? (item.temporaryType || 'Jadwal Sementara') : null,
+        temporary_reason: isTemp ? (item.temporaryReason || '').trim() : null,
         updated_at: new Date().toISOString()
       };
       const { error } = await supabase.from('schedules').insert(row);
@@ -1404,7 +1413,11 @@ export const dbService = {
         endTime: row.end_time,
         room: row.room,
         type: row.code,
-        description: row.notes
+        description: row.notes,
+        isTemporary: isTemp,
+        temporaryDate: row.temporary_date,
+        temporaryType: row.temporary_type || (isTemp ? 'Jadwal Sementara' : ''),
+        temporaryReason: row.temporary_reason || ''
       };
     },
 
@@ -1415,6 +1428,7 @@ export const dbService = {
         ? `${lecturerName} (${lecturerPhone})`
         : lecturerName;
 
+      const isTemp = Boolean(item.isTemporary);
       const row = {
         subject: (item.title || item.course || '').trim(),
         code: item.type || 'class',
@@ -1424,6 +1438,10 @@ export const dbService = {
         end_time: item.endTime || '10:00',
         room: (item.room || '').trim(),
         notes: (item.description || '').trim(),
+        is_temporary: isTemp,
+        temporary_date: isTemp ? (item.temporaryDate || null) : null,
+        temporary_type: isTemp ? (item.temporaryType || 'Jadwal Sementara') : null,
+        temporary_reason: isTemp ? (item.temporaryReason || '').trim() : null,
         updated_at: new Date().toISOString()
       };
       const { error } = await supabase.from('schedules').update(row).eq('id', scheduleId);
@@ -1443,7 +1461,11 @@ export const dbService = {
         endTime: row.end_time,
         room: row.room,
         type: row.code,
-        description: row.notes
+        description: row.notes,
+        isTemporary: isTemp,
+        temporaryDate: row.temporary_date,
+        temporaryType: row.temporary_type || (isTemp ? 'Jadwal Sementara' : ''),
+        temporaryReason: row.temporary_reason || ''
       };
     },
 
