@@ -224,16 +224,21 @@ export const isUserMatchingSubmission = (sub, currentUser) => {
   if (!sub || !currentUser) return false;
   const uid = currentUser.uid || currentUser.id;
   const email = (currentUser.email || '').toLowerCase().trim();
+  const name = (currentUser.displayName || currentUser.name || '').toLowerCase().trim();
 
   if (uid && sub.userId === uid) return true;
   if (email && ((sub.userEmail && sub.userEmail.toLowerCase().trim() === email) || (sub.email && sub.email.toLowerCase().trim() === email))) return true;
+  if (name && sub.userName && sub.userName.toLowerCase().trim() === name) return true;
 
   if (Array.isArray(sub.groupMembers)) {
     return sub.groupMembers.some(m => {
-      const mId = m.userId || m.uid || m.id;
-      const mEmail = (m.userEmail || m.email || '').toLowerCase().trim();
+      if (!m) return false;
+      const mId = typeof m === 'string' ? m : (m.userId || m.uid || m.id);
+      const mEmail = typeof m === 'string' ? '' : (m.userEmail || m.email || '').toLowerCase().trim();
+      const mName = typeof m === 'string' ? m.toLowerCase().trim() : (m.userName || m.name || '').toLowerCase().trim();
       if (uid && mId === uid) return true;
       if (email && mEmail === email) return true;
+      if (name && mName === name) return true;
       return false;
     });
   }

@@ -40,7 +40,7 @@ import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
 import CustomSelect from './CustomSelect';
 import { canDeleteAnything } from '../utils/permissions';
-import { isSuperAdminEmail } from '../utils/db';
+import { isSuperAdminEmail, dbService } from '../utils/db';
 
 export default function ClassSubmissionsManager({
   currentClass,
@@ -48,6 +48,7 @@ export default function ClassSubmissionsManager({
   tasks = [],
   files = [],
   schedules = [],
+  onSubmitAssignment,
   onUpdateSubmission,
   onMoveSubmission,
   onDeleteSubmission,
@@ -99,6 +100,16 @@ export default function ClassSubmissionsManager({
   const [manualMemberName, setManualMemberName] = useState('');
   const [manualMemberNim, setManualMemberNim] = useState('');
   const [showManualMemberInput, setShowManualMemberInput] = useState(false);
+
+  // 4. Catat Pengumpulan Manual / Offline Modal State
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualTaskId, setManualTaskId] = useState('');
+  const [manualSelectedMembers, setManualSelectedMembers] = useState([]); // array of member objects
+  const [manualNote, setManualNote] = useState('Tugas Fisik (Paper / Kertas) - Dikonfirmasi Komti');
+  const [manualSearch, setManualSearch] = useState('');
+  const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+  const [manualIsGroup, setManualIsGroup] = useState(false);
+  const [manualGroupName, setManualGroupName] = useState('');
 
   // Delete submission modal
   const [subToDelete, setSubToDelete] = useState(null);
@@ -217,10 +228,11 @@ export default function ClassSubmissionsManager({
           return null;
         }).filter(Boolean);
 
-        const isGroup = Boolean(s.isGroup || normalizedMembers.length > 1);
+        // Check group status: respect s.isGroup if explicitly set, else fallback to t.isGroup
+        const isGroup = Boolean(s.isGroup !== undefined ? s.isGroup : (t.isGroup && normalizedMembers.length > 1));
         const memberCount = normalizedMembers.length;
         
-        // Smart problem indicator: if group task but 0 or 1 member
+        // Smart problem indicator: only if group task and <= 1 member
         const needsFixing = isGroup && memberCount <= 1;
 
         list.push({
@@ -407,7 +419,7 @@ export default function ClassSubmissionsManager({
         if (currentName && mName && currentName === mName) return false;
         return true;
       }));
-      toast.success(`${memberObj.name} dihapus dari kelompok`);
+      toast.success(editIsGroup ? `${memberObj.name} dihapus dari kelompok` : `${memberObj.name} dibatalkan dari daftar pengumpulan`);
     } else {
       // CHECK / ADD
       const isSub = (mId && editingSub?.userId && mId === editingSub.userId) ||
@@ -422,8 +434,10 @@ export default function ClassSubmissionsManager({
         isSubmitter: isSub
       };
       setEditGroupMembers(prev => [...prev, newMember]);
-      setEditIsGroup(true); // Automatically switch to group mode
-      toast.success(`${memberObj.name} ditambahkan ke kelompok`);
+      if (editingSub?.task?.isGroup) {
+        setEditIsGroup(true);
+      }
+      toast.success(editIsGroup ? `${memberObj.name} ditambahkan ke kelompok` : `${memberObj.name} ditandai sudah mengumpulkan`);
     }
   };
 
@@ -449,8 +463,10 @@ export default function ClassSubmissionsManager({
     });
     if (toAdd.length === 0) return;
     setEditGroupMembers(prev => [...prev, ...toAdd]);
-    setEditIsGroup(true);
-    toast.success(`${toAdd.length} teman kelompok dicentang!`);
+    if (editingSub?.task?.isGroup) {
+      setEditIsGroup(true);
+    }
+    toast.success(editIsGroup ? `${toAdd.length} teman kelompok dicentang!` : `${toAdd.length} mahasiswa ditandai sudah mengumpulkan!`);
   };
 
   // Clear / Uncheck all members
@@ -527,7 +543,7 @@ export default function ClassSubmissionsManager({
     const name = manualMemberName.trim();
     const nim = manualMemberNim.trim();
     if (!name) {
-      toast.error('Nama teman kelompok wajib diisi!');
+      toast.error(editIsGroup ? 'Nama teman kelompok wajib diisi!' : 'Nama mahasiswa wajib diisi!');
       return;
     }
 
@@ -541,17 +557,19 @@ export default function ClassSubmissionsManager({
     };
 
     setEditGroupMembers(prev => [...prev, newMember]);
-    setEditIsGroup(true);
+    if (editingSub?.task?.isGroup) {
+      setEditIsGroup(true);
+    }
     setManualMemberName('');
     setManualMemberNim('');
     setShowManualMemberInput(false);
-    toast.success(`Teman kelompok ${name} berhasil dicantumkan!`);
+    toast.success(editIsGroup ? `Teman kelompok ${name} berhasil dicantumkan!` : `Mahasiswa ${name} berhasil ditandai sudah kumpul!`);
   };
 
   // Remove Member from Edit List (by index)
   const handleRemoveMember = (idxToRemove) => {
     setEditGroupMembers(prev => prev.filter((_, idx) => idx !== idxToRemove));
-    toast.success('Anggota dihapus dari kelompok');
+    toast.success(editIsGroup ? 'Anggota dihapus dari kelompok' : 'Mahasiswa dibatalkan dari daftar pengumpulan');
   };
 
   // Save Edit Submission Changes
@@ -564,8 +582,8 @@ export default function ClassSubmissionsManager({
       // Assemble full members list directly from editGroupMembers
       const finalMembers = [...editGroupMembers];
 
-      // If user selected Kelompok or finalMembers has more than 1 member
-      const finalIsGroup = editIsGroup || finalMembers.length > 1;
+      // Respect user's selected mode (do not force group just because multiple members are recorded)
+      const finalIsGroup = Boolean(editIsGroup);
 
       const updates = {
         groupName: editGroupName.trim(),
@@ -601,6 +619,195 @@ export default function ClassSubmissionsManager({
     }
   };
 
+  // ----------------------------------------------------
+  // MANUAL SUBMISSION HELPERS & HANDLERS
+  // ----------------------------------------------------
+  const targetManualTask = useMemo(() => {
+    return tasks.find(t => t.id === manualTaskId);
+  }, [tasks, manualTaskId]);
+
+  // When opening manual modal or changing manualTaskId, sync group type
+  const handleOpenManualModal = (preselectedTaskId = '') => {
+    const tId = preselectedTaskId || (selectedTaskId !== 'all' ? selectedTaskId : (tasks[0]?.id || ''));
+    setManualTaskId(tId);
+    const tObj = tasks.find(t => t.id === tId);
+    setManualIsGroup(Boolean(tObj?.isGroup));
+    setManualGroupName('');
+    setManualSelectedMembers([]);
+    setManualSearch('');
+    setManualNote('Tugas Fisik (Paper / Kertas) - Dikonfirmasi Komti');
+    setShowManualModal(true);
+  };
+
+  // Map of members who already submitted targetManualTask
+  const manualMemberStatusMap = useMemo(() => {
+    const map = new Map();
+    if (!targetManualTask?.submissions) return map;
+    targetManualTask.submissions.forEach(sub => {
+      if (sub.userId) map.set(sub.userId, sub);
+      if (sub.userEmail) map.set(sub.userEmail.toLowerCase().trim(), sub);
+      if (sub.userName) map.set(sub.userName.toLowerCase().trim(), sub);
+      if (Array.isArray(sub.groupMembers)) {
+        sub.groupMembers.forEach(m => {
+          if (!m) return;
+          const mId = typeof m === 'string' ? m : (m.userId || m.uid || m.id);
+          const mEmail = typeof m === 'string' ? '' : (m.userEmail || m.email || '').toLowerCase().trim();
+          const mName = typeof m === 'string' ? m.toLowerCase().trim() : (m.userName || m.name || '').toLowerCase().trim();
+          if (mId) map.set(mId, sub);
+          if (mEmail) map.set(mEmail, sub);
+          if (mName) map.set(mName, sub);
+        });
+      }
+    });
+    return map;
+  }, [targetManualTask]);
+
+  const isMemberAlreadySubmittedManual = (member) => {
+    if (!member) return false;
+    const uid = member.userId || member.id;
+    const email = (member.email || '').toLowerCase().trim();
+    const name = (member.name || '').toLowerCase().trim();
+    return Boolean(
+      (uid && manualMemberStatusMap.has(uid)) ||
+      (email && manualMemberStatusMap.has(email)) ||
+      (name && manualMemberStatusMap.has(name))
+    );
+  };
+
+  const filteredManualMembers = useMemo(() => {
+    if (!manualSearch.trim()) return registeredMembers;
+    const q = manualSearch.toLowerCase();
+    return registeredMembers.filter(m => 
+      (m.name || '').toLowerCase().includes(q) ||
+      (m.nim || m.studentId || '').toLowerCase().includes(q) ||
+      (m.email || '').toLowerCase().includes(q)
+    );
+  }, [registeredMembers, manualSearch]);
+
+  const handleToggleManualMember = (member) => {
+    const mId = member.userId || member.id;
+    setManualSelectedMembers(prev => {
+      const exists = prev.some(m => (m.userId || m.id) === mId);
+      if (exists) {
+        return prev.filter(m => (m.userId || m.id) !== mId);
+      } else {
+        return [...prev, member];
+      }
+    });
+  };
+
+  const handleSelectAllUnsubmittedManual = () => {
+    const unsubmitted = filteredManualMembers.filter(m => !isMemberAlreadySubmittedManual(m));
+    setManualSelectedMembers(unsubmitted);
+    toast.success(`${unsubmitted.length} mahasiswa yang belum kumpul dicentang.`);
+  };
+
+  const handleClearAllManualMembers = () => {
+    setManualSelectedMembers([]);
+  };
+
+  const handleSaveManualSubmission = async (e) => {
+    if (e) e.preventDefault();
+    if (!manualTaskId) {
+      toast.error('Pilih judul tugas terlebih dahulu!');
+      return;
+    }
+    if (manualSelectedMembers.length === 0) {
+      toast.error('Pilih minimal 1 mahasiswa yang sudah mengumpulkan!');
+      return;
+    }
+
+    setIsSubmittingManual(true);
+    const toastId = toast.loading('Mencatat pengumpulan...');
+    try {
+      const isGroup = Boolean(manualIsGroup);
+      const note = manualNote.trim() || 'Tugas Fisik (Paper / Kertas) - Dikonfirmasi Komti';
+
+      if (isGroup) {
+        // Group task: 1 collective submission with all selected members
+        const primary = manualSelectedMembers[0];
+        const subData = {
+          userId: primary.userId || primary.id,
+          userName: primary.name,
+          userEmail: primary.email || '',
+          studentId: primary.studentId || primary.nim || '',
+          fileName: note,
+          fileUrl: '',
+          fileSize: 'Fisik / Offline',
+          files: [],
+          isGroup: true,
+          groupName: manualGroupName.trim() || `Kelompok ${primary.name}`,
+          groupMembers: manualSelectedMembers.map(m => ({
+            userId: m.userId || m.id,
+            userName: m.name,
+            name: m.name,
+            userEmail: m.email || '',
+            studentId: m.studentId || m.nim || '',
+            nim: m.studentId || m.nim || '',
+            isSubmitter: (m.userId || m.id) === (primary.userId || primary.id)
+          })),
+          isManualKomti: true
+        };
+
+        if (onSubmitAssignment) {
+          await onSubmitAssignment(manualTaskId, subData);
+        } else {
+          await dbService.tasks.submit(manualTaskId, subData);
+        }
+      } else {
+        // Individual task: Submit for each member so each individual student has their own verified submission
+        for (const member of manualSelectedMembers) {
+          const subData = {
+            userId: member.userId || member.id,
+            userName: member.name,
+            userEmail: member.email || '',
+            studentId: member.studentId || member.nim || '',
+            fileName: note,
+            fileUrl: '',
+            fileSize: 'Fisik / Offline',
+            files: [],
+            isGroup: false,
+            groupMembers: [{
+              userId: member.userId || member.id,
+              userName: member.name,
+              name: member.name,
+              userEmail: member.email || '',
+              studentId: member.studentId || member.nim || '',
+              nim: member.studentId || member.nim || '',
+              isSubmitter: true
+            }],
+            isManualKomti: true
+          };
+
+          if (onSubmitAssignment) {
+            await onSubmitAssignment(manualTaskId, subData);
+          } else {
+            await dbService.tasks.submit(manualTaskId, subData);
+          }
+        }
+      }
+
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+
+      toast.success(
+        isGroup 
+          ? `Pengumpulan kelompok "${manualGroupName || 'Kelompok'}" berhasil dicatat!` 
+          : `${manualSelectedMembers.length} mahasiswa berhasil ditandai sudah mengumpulkan tugas!`, 
+        { id: toastId }
+      );
+
+      setShowManualModal(false);
+      setManualSelectedMembers([]);
+      setManualSearch('');
+    } catch (err) {
+      console.error('Failed manual submission:', err);
+      toast.error('Gagal mencatat pengumpulan: ' + (err.message || 'Terjadi kesalahan'), { id: toastId });
+    } finally {
+      setIsSubmittingManual(false);
+    }
+  };
 
   // Delete submission
   const handleConfirmDelete = async () => {
@@ -764,7 +971,15 @@ export default function ClassSubmissionsManager({
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              onClick={() => handleOpenManualModal()}
+              className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Tandai mahasiswa yang sudah mengumpulkan tugas secara manual/offline tanpa upload berkas"
+            >
+              <UserCheck size={14} className="text-indigo-600" />
+              <span>+ Catat Pengumpulan Manual</span>
+            </button>
             <button
               onClick={() => setShowPinModal(true)}
               className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/10 backdrop-blur-xs transition-all flex items-center gap-1.5 cursor-pointer"
@@ -946,13 +1161,23 @@ export default function ClassSubmissionsManager({
 
       {/* Submissions List */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="font-bold text-xs uppercase tracking-wider text-slate-600">
-            Daftar Pengumpulan Mahasiswa ({filteredSubmissions.length})
-          </h3>
-          <span className="text-[11px] text-slate-400">
-            Klik "Rapikan" untuk menambahkan teman kelompok
-          </span>
+        <div className="flex items-center justify-between px-1 flex-wrap gap-2">
+          <div>
+            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700">
+              Daftar Pengumpulan Mahasiswa ({filteredSubmissions.length})
+            </h3>
+            <span className="text-[11px] text-slate-400">
+              Kelola dan tandai pengumpulan tugas kelompok maupun tugas mandiri / individu
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleOpenManualModal()}
+            className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <UserCheck size={13} />
+            <span>+ Catat Pengumpulan Manual (Tugas Mandiri / Offline)</span>
+          </button>
         </div>
 
         {filteredSubmissions.length === 0 ? (
@@ -1048,7 +1273,11 @@ export default function ClassSubmissionsManager({
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                           isGroup ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-100 text-slate-700'
                         }`}>
-                          {isGroup ? '👥 Tugas Kelompok' : '👤 Tugas Individu'}
+                          {isGroup 
+                            ? '👥 Tugas Kelompok' 
+                            : members.length > 0 
+                              ? `👤 Tugas Individu (${members.length + 1} Mahasiswa)` 
+                              : '👤 Tugas Individu'}
                         </span>
 
                         {sub.groupName && (
@@ -1066,11 +1295,11 @@ export default function ClassSubmissionsManager({
                       </div>
 
                       <button
-                        onClick={() => handleOpenEdit(sub, true)}
+                        onClick={() => handleOpenEdit(sub, isGroup)}
                         className="text-[11px] font-semibold text-indigo-600 hover:underline cursor-pointer flex items-center gap-1"
                       >
                         <UserPlus size={12} />
-                        <span>+ Kelola Anggota</span>
+                        <span>{isGroup ? '+ Kelola Anggota' : '+ Kelola Mahasiswa Selesai'}</span>
                       </button>
                     </div>
 
@@ -1082,18 +1311,25 @@ export default function ClassSubmissionsManager({
                         <span>{sub.userName} (Pengunggah)</span>
                       </span>
 
-                      {/* Group Members Badges */}
+                      {/* Group / Additional Members Badges */}
                       {members.map((m, idx) => {
-                        const name = m.userName || m.name || 'Anggota';
+                        const name = m.userName || m.name || 'Mahasiswa';
                         const nim = m.studentId || m.nim || '';
                         return (
                           <span
                             key={m.userId || idx}
-                            className="px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-900 text-xs font-semibold flex items-center gap-1.5 border border-indigo-200"
+                            className={`px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 border ${
+                              isGroup
+                                ? 'bg-indigo-50 text-indigo-900 border-indigo-200'
+                                : 'bg-teal-50 text-teal-950 border-teal-200'
+                            }`}
                           >
-                            <UserCheck size={12} className="text-indigo-600" />
+                            <UserCheck size={12} className={isGroup ? 'text-indigo-600' : 'text-teal-600'} />
                             <span>{name}</span>
-                            {nim && <span className="text-[10px] font-mono text-indigo-500">({nim})</span>}
+                            {!isGroup && (
+                              <span className="text-[10px] font-bold text-teal-700">(Ditandai Selesai)</span>
+                            )}
+                            {nim && <span className={`text-[10px] font-mono ${isGroup ? 'text-indigo-500' : 'text-teal-600'}`}>({nim})</span>}
                           </span>
                         );
                       })}
@@ -1195,7 +1431,7 @@ export default function ClassSubmissionsManager({
                       }`}
                     >
                       <User size={13} />
-                      <span>Individu</span>
+                      <span>Individu / Mandiri</span>
                     </button>
                     <button
                       type="button"
@@ -1213,28 +1449,62 @@ export default function ClassSubmissionsManager({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700">Nama Kelompok (Opsional)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Kelompok 3 - Analisis Data"
-                    value={editGroupName}
-                    onChange={(e) => setEditGroupName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 font-medium"
-                  />
+                  <label className="text-xs font-semibold text-slate-700">
+                    {editIsGroup ? 'Nama Kelompok (Opsional)' : 'Status / Label Tugas'}
+                  </label>
+                  {editIsGroup ? (
+                    <input
+                      type="text"
+                      placeholder="e.g. Kelompok 3 - Analisis Data"
+                      value={editGroupName}
+                      onChange={(e) => setEditGroupName(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 font-medium"
+                    />
+                  ) : (
+                    <div className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />
+                      <span className="truncate">Tugas Mandiri (Setiap mahasiswa tercatat selesai)</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* DAFTAR TEMAN KELOMPOK (CORE FEATURE) */}
+              {/* Informative Guidance Banner */}
+              {!editIsGroup ? (
+                <div className="p-3 rounded-xl bg-teal-50/80 border border-teal-200 text-teal-950 text-xs flex items-start gap-2.5">
+                  <CheckCircle2 size={16} className="text-teal-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-teal-950">Mode Tugas Mandiri / Individu</p>
+                    <p className="text-[11px] text-teal-800 leading-relaxed">
+                      Mahasiswa yang dicentang di bawah otomatis dianggap <strong>Sudah Mengumpulkan</strong> tugas mandiri ini di sistem, meskipun mereka belum mengunggah file sendiri (misal: pengumpulan kertas fisik, via WA, atau diserahkan langsung).
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-indigo-50/80 border border-indigo-200 text-indigo-950 text-xs flex items-start gap-2.5">
+                  <Users size={16} className="text-indigo-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-indigo-950">Mode Tugas Kelompok</p>
+                    <p className="text-[11px] text-indigo-800 leading-relaxed">
+                      Satu berkas ini mewakili kelompok. Semua teman yang dicentang otomatis terdaftar sebagai anggota kelompok dan ditandai <strong>Sudah Mengumpulkan</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* DAFTAR TEMAN KELOMPOK / MAHASISWA (CORE FEATURE) */}
               <div className="space-y-3 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    <Users size={15} className="text-indigo-600" />
+                    {editIsGroup ? <Users size={15} className="text-indigo-600" /> : <UserCheck size={15} className="text-teal-600" />}
                     <label className="text-xs font-bold text-slate-900">
-                      Daftar Anggota Kelompok ({editGroupMembers.length} orang)
+                      {editIsGroup 
+                        ? `Daftar Anggota Kelompok (${editGroupMembers.length} orang)` 
+                        : `Daftar Mahasiswa yang Sudah Mengumpulkan (${editGroupMembers.length} orang)`}
                     </label>
                   </div>
                   <span className="text-[10px] text-indigo-700 font-medium">
-                    Semua anggota di bawah otomatis ditandai "Sudah Dikerjakan"
+                    Semua yang ada di bawah otomatis ditandai "Sudah Mengumpulkan"
                   </span>
                 </div>
 
@@ -1243,7 +1513,9 @@ export default function ClassSubmissionsManager({
                   <div className="flex items-center justify-between text-[11px] font-bold text-indigo-950">
                     <span className="flex items-center gap-1.5">
                       <UserCheck size={13} className="text-indigo-600" />
-                      Anggota yang Terdaftar ({editGroupMembers.length}):
+                      {editIsGroup 
+                        ? `Anggota yang Terdaftar (${editGroupMembers.length}):` 
+                        : `Mahasiswa Ditandai Selesai (${editGroupMembers.length}):`}
                     </span>
                     {editGroupMembers.length > 0 && (
                       <button
@@ -1258,7 +1530,9 @@ export default function ClassSubmissionsManager({
 
                   {editGroupMembers.length === 0 ? (
                     <p className="text-[11px] text-slate-500 italic py-2 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                      Belum ada anggota. Centang teman sekelas dari daftar di bawah untuk menambahkan mereka.
+                      {editIsGroup 
+                        ? 'Belum ada anggota. Centang teman sekelas dari daftar di bawah untuk menambahkan mereka ke kelompok.'
+                        : 'Belum ada mahasiswa. Centang teman sekelas dari daftar di bawah untuk menandai mereka sudah mengumpulkan.'}
                     </p>
                   ) : (
                     <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1 custom-scrollbar">
@@ -1270,15 +1544,21 @@ export default function ClassSubmissionsManager({
                             className={`inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-lg text-xs font-semibold shadow-2xs group transition-all ${
                               isSub
                                 ? 'bg-emerald-50 border border-emerald-300 text-emerald-950'
-                                : 'bg-indigo-50 border border-indigo-200 text-indigo-950'
+                                : editIsGroup
+                                  ? 'bg-indigo-50 border border-indigo-200 text-indigo-950'
+                                  : 'bg-teal-50 border border-teal-300 text-teal-950'
                             }`}
                           >
                             <span className="truncate max-w-[140px]">{m.userName || m.name}</span>
-                            {isSub && (
+                            {isSub ? (
                               <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
                                 Pengunggah
                               </span>
-                            )}
+                            ) : !editIsGroup ? (
+                              <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-teal-100 text-teal-800 border border-teal-200">
+                                Ditandai Selesai
+                              </span>
+                            ) : null}
                             {(m.studentId || m.nim) && (
                               <span className="text-[10px] opacity-70 font-mono">({m.studentId || m.nim})</span>
                             )}
@@ -1286,7 +1566,7 @@ export default function ClassSubmissionsManager({
                               type="button"
                               onClick={() => handleRemoveMember(idx)}
                               className="text-slate-400 hover:text-rose-600 hover:bg-rose-100/80 p-0.5 rounded-md transition-colors cursor-pointer ml-0.5"
-                              title={`Hapus ${m.userName || m.name} dari kelompok`}
+                              title={editIsGroup ? `Hapus ${m.userName || m.name} dari kelompok` : `Batalkan status selesai ${m.userName || m.name}`}
                             >
                               <X size={13} strokeWidth={2.5} />
                             </button>
@@ -1587,6 +1867,313 @@ export default function ClassSubmissionsManager({
                   className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
                 >
                   {isSavingPin ? 'Menyimpan...' : 'Simpan PIN'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* ================================================= */}
+      {/* MODAL 3: CATAT PENGUMPULAN MANUAL (TUGAS MANDIRI / OFFLINE) */}
+      {/* ================================================= */}
+      {showManualModal && (
+        <ModalPortal onClose={() => !isSubmittingManual && setShowManualModal(false)} maxWidth="max-w-2xl">
+          <div className="bg-white border border-slate-200/90 rounded-3xl w-full p-6 space-y-5 shadow-2xl max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-3.5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 shadow-2xs shrink-0">
+                  <UserCheck size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 leading-tight">
+                    Catat Pengumpulan Tugas Manual / Offline
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Tandai mahasiswa sudah mengumpulkan tugas mandiri atau kelompok tanpa perlu mereka upload berkas sendiri.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowManualModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveManualSubmission} className="space-y-4">
+              {/* Task Selector */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Pilih Tugas Kuliah *</label>
+                <CustomSelect
+                  value={manualTaskId}
+                  onChange={(newId) => {
+                    setManualTaskId(newId);
+                    const t = tasks.find(item => item.id === newId);
+                    setManualIsGroup(Boolean(t?.isGroup));
+                    setManualSelectedMembers([]);
+                  }}
+                  options={tasks.map(t => ({
+                    value: t.id,
+                    label: t.title,
+                    subtitle: `${(t.subject || t.course || '').trim()}${t.dueDate ? ` · Deadline: ${t.dueDate}` : ''}${t.isGroup ? ' · 👥 Kelompok' : ' · 👤 Individu'}`
+                  }))}
+                  placeholder="Pilih Judul Tugas..."
+                  searchPlaceholder="Cari tugas kuliah..."
+                  icon={FileText}
+                />
+              </div>
+
+              {/* Task Details & Mode Banner */}
+              {targetManualTask && (
+                <div className={`p-3 rounded-2xl border text-xs flex items-start justify-between gap-3 ${
+                  manualIsGroup 
+                    ? 'bg-indigo-50/60 border-indigo-200 text-indigo-950' 
+                    : 'bg-teal-50/60 border-teal-200 text-teal-950'
+                }`}>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900">{targetManualTask.title}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold bg-white border border-current">
+                        {targetManualTask.subject || targetManualTask.course || 'Mata Kuliah'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] opacity-80">
+                      {manualIsGroup 
+                        ? '👥 Tugas Kelompok: 1 submission dicatat mewakili kelompok dengan semua anggota terpilih.' 
+                        : '👤 Tugas Mandiri / Individu: Setiap mahasiswa terpilih akan otomatis tercatat memiliki status "Sudah Mengumpulkan".'}
+                    </p>
+                  </div>
+                  
+                  {/* Toggle Mode if user wants to change */}
+                  <button
+                    type="button"
+                    onClick={() => setManualIsGroup(!manualIsGroup)}
+                    className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition-colors shrink-0 shadow-2xs cursor-pointer"
+                  >
+                    Ubah: {manualIsGroup ? 'Set Mandiri' : 'Set Kelompok'}
+                  </button>
+                </div>
+              )}
+
+              {/* Group Name input if group */}
+              {manualIsGroup && (
+                <div className="space-y-1.5 animate-in fade-in duration-150">
+                  <label className="text-xs font-semibold text-slate-700">Nama Kelompok (Opsional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Kelompok 4 - Akuntansi"
+                    value={manualGroupName}
+                    onChange={(e) => setManualGroupName(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 font-medium"
+                  />
+                </div>
+              )}
+
+              {/* Note / Preset Keterangan Pengumpulan */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-700">Keterangan / Catatan Pengumpulan</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Tugas Fisik (Paper / Kertas) - Dikonfirmasi Komti',
+                    'Diserahkan Langsung ke Dosen',
+                    'Dikumpulkan via WA / Komti',
+                    'Dikonfirmasi Selesai oleh Komti'
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setManualNote(preset)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer ${
+                        manualNote === preset
+                          ? 'bg-slate-900 text-white border-slate-900 font-bold'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={manualNote}
+                  onChange={(e) => setManualNote(e.target.value)}
+                  placeholder="Ketik catatan pengumpulan..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              {/* STUDENT SELECTION SECTION */}
+              <div className="space-y-3 p-4 rounded-2xl bg-slate-50/70 border border-slate-200/90">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Users size={15} className="text-slate-700" />
+                    <label className="text-xs font-bold text-slate-900">
+                      Pilih Mahasiswa yang Sudah Kumpul ({manualSelectedMembers.length} terpilih)
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {manualSelectedMembers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllManualMembers}
+                        className="text-[11px] text-rose-600 hover:text-rose-800 font-bold px-2 py-0.5 rounded cursor-pointer hover:bg-rose-50"
+                      >
+                        Reset Pilihan
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSelectAllUnsubmittedManual}
+                      className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold px-2 py-0.5 rounded cursor-pointer bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                    >
+                      ✓ Centang Semua yang Belum
+                    </button>
+                  </div>
+                </div>
+
+                {/* Selected Members Chips */}
+                {manualSelectedMembers.length > 0 && (
+                  <div className="p-2.5 rounded-xl bg-white border border-slate-200 space-y-1.5">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Mahasiswa Terpilih ({manualSelectedMembers.length}):
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1 custom-scrollbar">
+                      {manualSelectedMembers.map((m) => (
+                        <span
+                          key={m.userId || m.id}
+                          className="inline-flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-lg text-xs font-semibold bg-teal-50 border border-teal-300 text-teal-950"
+                        >
+                          <span className="truncate max-w-[140px]">{m.name}</span>
+                          {(m.nim || m.studentId) && (
+                            <span className="text-[10px] opacity-70 font-mono">({m.nim || m.studentId})</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleManualMember(m)}
+                            className="text-slate-400 hover:text-rose-600 p-0.5 rounded cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari mahasiswa kelas (nama, NIM)..."
+                    value={manualSearch}
+                    onChange={(e) => setManualSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                  />
+                </div>
+
+                {/* Checklist of Members */}
+                <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar border border-slate-200/80 rounded-xl p-1.5 bg-white">
+                  {filteredManualMembers.length === 0 ? (
+                    <p className="text-center text-[11px] text-slate-400 py-4">
+                      {manualSearch ? 'Tidak ada mahasiswa yang cocok.' : 'Belum ada data anggota kelas.'}
+                    </p>
+                  ) : (
+                    filteredManualMembers.map(member => {
+                      const mId = member.userId || member.id;
+                      const isSelected = manualSelectedMembers.some(m => (m.userId || m.id) === mId);
+                      const isAlready = isMemberAlreadySubmittedManual(member);
+
+                      return (
+                        <div
+                          key={mId}
+                          role="checkbox"
+                          aria-checked={isSelected}
+                          tabIndex={0}
+                          onClick={() => handleToggleManualMember(member)}
+                          onKeyDown={(e) => {
+                            if (e.key === ' ' || e.key === 'Enter') {
+                              e.preventDefault();
+                              handleToggleManualMember(member);
+                            }
+                          }}
+                          className={`p-2 rounded-xl border flex items-center justify-between gap-2.5 text-xs select-none transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-teal-50 border-teal-300 text-teal-950 font-semibold shadow-2xs'
+                              : isAlready
+                                ? 'bg-slate-50/70 border-slate-200 text-slate-500'
+                                : 'bg-white border-slate-150 hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1 pointer-events-none">
+                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors shrink-0 ${
+                              isSelected
+                                ? 'bg-teal-600 border-teal-600 text-white'
+                                : 'bg-white border-slate-300'
+                            }`}>
+                              {isSelected && <Check size={11} strokeWidth={3} />}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="truncate font-semibold">{member.name}</span>
+                                {member.nim && (
+                                  <span className="text-[10px] font-mono text-slate-400 font-normal">
+                                    ({member.nim})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Status Badge */}
+                          {isSelected ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-200 text-teal-900 shrink-0">
+                              Dipilih ✓
+                            </span>
+                          ) : isAlready ? (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0 flex items-center gap-1">
+                              <Check size={10} strokeWidth={2.5} />
+                              <span>Sudah Kumpul</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-normal shrink-0">
+                              Belum Kumpul
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={isSubmittingManual}
+                  onClick={() => setShowManualModal(false)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingManual || manualSelectedMembers.length === 0}
+                  className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md hover:shadow-teal-500/20 active:scale-[0.99] transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingManual ? (
+                    <span>Menyimpan...</span>
+                  ) : (
+                    <>
+                      <Check size={15} />
+                      <span>Simpan ({manualSelectedMembers.length} Mahasiswa)</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

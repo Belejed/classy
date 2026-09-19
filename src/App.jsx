@@ -1787,6 +1787,7 @@ function ClassWorkspace({
                   tasks={tasks || []}
                   files={files || []}
                   schedules={schedules || []}
+                  onSubmitAssignment={handleSubmitAssignment}
                   onUpdateSubmission={handleAdminUpdateSubmission}
                   onMoveSubmission={handleAdminMoveSubmission}
                   onDeleteSubmission={handleDeleteSubmission}
