@@ -92,7 +92,6 @@ export default function ClassSubmissionsManager({
   const [editFileName, setEditFileName] = useState('');
   const [editTargetTaskId, setEditTargetTaskId] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [includeSubmitter, setIncludeSubmitter] = useState(true);
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
 
   // Quick add member inside edit modal
@@ -361,20 +360,11 @@ export default function ClassSubmissionsManager({
   // Filtered classmates for the interactive checklist
   const filteredClassmates = useMemo(() => {
     if (!editingSub) return registeredMembers;
-    const submitterId = editingSub.userId;
-    const submitterName = (editingSub.userName || '').toLowerCase().trim();
 
-    // Exclude the submitter from the checklist because the submitter has their own dedicated card with include/exclude toggle
-    const list = registeredMembers.filter(m => {
-      if (submitterId && (m.userId === submitterId || m.id === submitterId)) return false;
-      if (submitterName && m.name.toLowerCase() === submitterName) return false;
-      return true;
-    });
-
-    if (!memberSearchTerm.trim()) return list;
+    if (!memberSearchTerm.trim()) return registeredMembers;
     const q = memberSearchTerm.toLowerCase().trim();
-    return list.filter(m => 
-      m.name.toLowerCase().includes(q) ||
+    return registeredMembers.filter(m => 
+      (m.name && m.name.toLowerCase().includes(q)) ||
       (m.nim && m.nim.toLowerCase().includes(q)) ||
       (m.email && m.email.toLowerCase().includes(q))
     );
@@ -383,11 +373,17 @@ export default function ClassSubmissionsManager({
   // Check if a member is currently selected in editGroupMembers
   const isMemberSelected = (memberObj) => {
     const mId = memberObj.userId || memberObj.id;
-    const mEmail = (memberObj.email || '').toLowerCase();
+    const mName = (memberObj.name || '').toLowerCase().trim();
+    const mEmail = (memberObj.email || '').toLowerCase().trim();
+
     return editGroupMembers.some(m => {
       const currentId = m.userId || m.uid || m.id;
-      if (currentId && currentId === mId) return true;
-      if (mEmail && (m.userEmail || m.email)?.toLowerCase() === mEmail) return true;
+      const currentName = (m.userName || m.name || '').toLowerCase().trim();
+      const currentEmail = (m.userEmail || m.email || '').toLowerCase().trim();
+
+      if (currentId && mId && currentId === mId) return true;
+      if (currentEmail && mEmail && currentEmail === mEmail) return true;
+      if (currentName && mName && currentName === mName) return true;
       return false;
     });
   };
@@ -395,26 +391,35 @@ export default function ClassSubmissionsManager({
   // Toggle (check / uncheck) a classmate in editGroupMembers
   const handleToggleMember = (memberObj) => {
     const mId = memberObj.userId || memberObj.id;
+    const mName = (memberObj.name || '').toLowerCase().trim();
+    const mEmail = (memberObj.email || '').toLowerCase().trim();
     const isSelected = isMemberSelected(memberObj);
 
     if (isSelected) {
-      // UNCHECK
+      // UNCHECK / REMOVE
       setEditGroupMembers(prev => prev.filter(m => {
         const currentId = m.userId || m.uid || m.id;
-        if (currentId && currentId === mId) return false;
-        if (memberObj.email && (m.userEmail || m.email)?.toLowerCase() === memberObj.email.toLowerCase()) return false;
+        const currentName = (m.userName || m.name || '').toLowerCase().trim();
+        const currentEmail = (m.userEmail || m.email || '').toLowerCase().trim();
+
+        if (currentId && mId && currentId === mId) return false;
+        if (currentEmail && mEmail && currentEmail === mEmail) return false;
+        if (currentName && mName && currentName === mName) return false;
         return true;
       }));
       toast.success(`${memberObj.name} dihapus dari kelompok`);
     } else {
-      // CHECK
+      // CHECK / ADD
+      const isSub = (mId && editingSub?.userId && mId === editingSub.userId) ||
+                    (mName === (editingSub?.userName || '').toLowerCase().trim());
       const newMember = {
         userId: mId,
         userName: memberObj.name,
         name: memberObj.name,
         userEmail: memberObj.email || '',
         studentId: memberObj.studentId || memberObj.nim || '',
-        nim: memberObj.studentId || memberObj.nim || ''
+        nim: memberObj.studentId || memberObj.nim || '',
+        isSubmitter: isSub
       };
       setEditGroupMembers(prev => [...prev, newMember]);
       setEditIsGroup(true); // Automatically switch to group mode
@@ -427,13 +432,18 @@ export default function ClassSubmissionsManager({
     const toAdd = [];
     filteredClassmates.forEach(m => {
       if (!isMemberSelected(m)) {
+        const mId = m.userId || m.id;
+        const mName = (m.name || '').toLowerCase().trim();
+        const isSub = (mId && editingSub?.userId && mId === editingSub.userId) ||
+                      (mName === (editingSub?.userName || '').toLowerCase().trim());
         toAdd.push({
-          userId: m.userId,
+          userId: mId,
           userName: m.name,
           name: m.name,
           userEmail: m.email || '',
           studentId: m.studentId || m.nim || '',
-          nim: m.studentId || m.nim || ''
+          nim: m.studentId || m.nim || '',
+          isSubmitter: isSub
         });
       }
     });
@@ -446,7 +456,7 @@ export default function ClassSubmissionsManager({
   // Clear / Uncheck all members
   const handleClearAllMembers = () => {
     setEditGroupMembers([]);
-    toast.success('Semua teman kelompok dibatalkan.');
+    toast.success('Semua anggota dibatalkan/dikosongkan.');
   };
 
   // Open Edit Modal
@@ -455,35 +465,54 @@ export default function ClassSubmissionsManager({
     setEditGroupName(item.groupName || '');
     setEditIsGroup(forceGroup ? true : Boolean(item.isGroup));
     
-    // Normalize existing group members
+    // Normalize and deduplicate existing group members
     const rawMembers = Array.isArray(item.groupMembers) ? item.groupMembers : [];
-    const normalized = rawMembers.map(m => {
-      if (typeof m === 'string') {
-        return { userId: m, name: m, userName: m, studentId: '', nim: '', userEmail: '' };
+    const membersMap = new Map();
+
+    const addMemberToMap = (m, forceSubmitter = false) => {
+      if (!m) return;
+      const id = typeof m === 'string' ? m : (m.userId || m.uid || m.id || '');
+      const name = typeof m === 'string' ? m : (m.userName || m.name || 'Anggota');
+      const email = typeof m === 'string' ? '' : (m.userEmail || m.email || '');
+      const nim = typeof m === 'string' ? '' : (m.studentId || m.nim || '');
+      
+      const isSub = forceSubmitter || m.isSubmitter || (id && item.userId && id === item.userId) || (name.toLowerCase().trim() === (item.userName || '').toLowerCase().trim());
+      
+      const key = (id && id.trim()) ? id.trim() : name.toLowerCase().trim();
+      if (!membersMap.has(key)) {
+        membersMap.set(key, {
+          userId: id,
+          userName: name,
+          name: name,
+          userEmail: email,
+          studentId: nim,
+          nim: nim,
+          isSubmitter: Boolean(isSub)
+        });
       }
-      return {
-        userId: m.userId || m.uid || m.id || '',
-        userName: m.userName || m.name || 'Anggota',
-        name: m.name || m.userName || 'Anggota',
-        userEmail: m.userEmail || m.email || '',
-        studentId: m.studentId || m.nim || '',
-        nim: m.studentId || m.nim || ''
-      };
-    });
+    };
 
-    // Submitter is default included in group
-    setIncludeSubmitter(true);
-    
-    // Filter out submitter from editGroupMembers so submitter is handled cleanly by includeSubmitter
-    const submitterId = item.userId;
-    const submitterName = (item.userName || '').toLowerCase().trim();
-    const withoutSubmitter = normalized.filter(m => {
-      if (submitterId && (m.userId === submitterId || m.uid === submitterId || m.id === submitterId)) return false;
-      if (submitterName && m.name.toLowerCase() === submitterName) return false;
-      return true;
-    });
+    // 1. Add raw members
+    rawMembers.forEach(m => addMemberToMap(m, false));
 
-    setEditGroupMembers(withoutSubmitter);
+    // 2. If submitter is not in membersMap yet, include submitter
+    if (item.userName) {
+      const submitterKey = (item.userId && item.userId.trim()) ? item.userId.trim() : item.userName.toLowerCase().trim();
+      const nameKey = item.userName.toLowerCase().trim();
+      if (!membersMap.has(submitterKey) && !membersMap.has(nameKey)) {
+        membersMap.set(submitterKey, {
+          userId: item.userId || '',
+          userName: item.userName,
+          name: item.userName,
+          userEmail: item.userEmail || '',
+          studentId: item.studentId || item.nim || '',
+          nim: item.studentId || item.nim || '',
+          isSubmitter: true
+        });
+      }
+    }
+
+    setEditGroupMembers(Array.from(membersMap.values()));
     setEditFileName(item.fileName || '');
     setEditTargetTaskId(item.taskId);
     setSelectedMemberToAdd('');
@@ -507,7 +536,8 @@ export default function ClassSubmissionsManager({
       userName: name,
       name: name,
       studentId: nim,
-      nim: nim
+      nim: nim,
+      isSubmitter: false
     };
 
     setEditGroupMembers(prev => [...prev, newMember]);
@@ -531,18 +561,8 @@ export default function ClassSubmissionsManager({
 
     setIsSavingEdit(true);
     try {
-      // Assemble full members list
+      // Assemble full members list directly from editGroupMembers
       const finalMembers = [...editGroupMembers];
-      if (includeSubmitter) {
-        finalMembers.unshift({
-          userId: editingSub.userId || '',
-          userName: editingSub.userName || 'Pengunggah',
-          name: editingSub.userName || 'Pengunggah',
-          userEmail: editingSub.userEmail || '',
-          studentId: editingSub.studentId || editingSub.nim || '',
-          nim: editingSub.studentId || editingSub.nim || ''
-        });
-      }
 
       // If user selected Kelompok or finalMembers has more than 1 member
       const finalIsGroup = editIsGroup || finalMembers.length > 1;
@@ -571,15 +591,16 @@ export default function ClassSubmissionsManager({
         await onRefreshData();
       }
 
+      toast.success('Perubahan data pengumpulan berhasil disimpan!');
       setEditingSub(null);
-      toast.success('Pengumpulan berhasil dirapikan! Anggota kelompok tersimpan.');
     } catch (err) {
-      console.error('Save edit error:', err);
-      toast.error(err.message || 'Gagal menyimpan perubahan.');
+      console.error('Failed to save edit submission:', err);
+      toast.error('Gagal menyimpan perubahan');
     } finally {
       setIsSavingEdit(false);
     }
   };
+
 
   // Delete submission
   const handleConfirmDelete = async () => {
@@ -1209,87 +1230,74 @@ export default function ClassSubmissionsManager({
                   <div className="flex items-center gap-1.5">
                     <Users size={15} className="text-indigo-600" />
                     <label className="text-xs font-bold text-slate-900">
-                      Daftar Anggota Kelompok ({editGroupMembers.length + (includeSubmitter ? 1 : 0)})
+                      Daftar Anggota Kelompok ({editGroupMembers.length} orang)
                     </label>
                   </div>
                   <span className="text-[10px] text-indigo-700 font-medium">
-                    Teman yang dicentang otomatis ditandai "Sudah Dikerjakan"
+                    Semua anggota di bawah otomatis ditandai "Sudah Dikerjakan"
                   </span>
                 </div>
 
-                {/* 1. Pengunggah Utama Card (with uncheck/include toggle!) */}
-                <div className="p-3 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0 border border-emerald-200">
-                      ✓
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-slate-900 truncate">
-                          {editingSub.userName}
-                        </span>
-                        <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                          Pengunggah
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 truncate">
-                        {editingSub.userEmail || 'Akun pengunggah berkas ini'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer select-none shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={includeSubmitter}
-                      onChange={(e) => setIncludeSubmitter(e.target.checked)}
-                      className="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
-                    />
-                    <span className="text-[11px] font-bold text-slate-700">
-                      {includeSubmitter ? 'Anggota Kelompok' : 'Hanya Pengunggah (Bukan Anggota)'}
+                {/* Selected Group Members Chips */}
+                <div className="p-3 rounded-xl bg-white border border-indigo-200/80 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-indigo-950">
+                    <span className="flex items-center gap-1.5">
+                      <UserCheck size={13} className="text-indigo-600" />
+                      Anggota yang Terdaftar ({editGroupMembers.length}):
                     </span>
-                  </label>
-                </div>
-
-                {/* 2. Selected Group Members Chips Preview */}
-                {editGroupMembers.length > 0 && (
-                  <div className="p-2.5 rounded-xl bg-white border border-indigo-200/80 space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-indigo-950">
-                      <span>Teman Terpilih ({editGroupMembers.length})</span>
+                    {editGroupMembers.length > 0 && (
                       <button
                         type="button"
                         onClick={handleClearAllMembers}
-                        className="text-[10px] text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
+                        className="text-[10px] text-rose-600 hover:text-rose-800 font-semibold cursor-pointer px-1.5 py-0.5 rounded hover:bg-rose-50 transition-colors"
                       >
-                        Batal Pilih Semua
+                        Hapus Semua
                       </button>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
-                      {editGroupMembers.map((m, idx) => (
-                        <span
-                          key={m.userId || idx}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-950 text-xs font-semibold shadow-2xs group"
-                        >
-                          <UserCheck size={12} className="text-indigo-600" />
-                          <span className="truncate max-w-[130px]">{m.userName || m.name}</span>
-                          {(m.studentId || m.nim) && (
-                            <span className="text-[10px] text-indigo-600 font-mono">({m.studentId || m.nim})</span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveMember(idx)}
-                            className="text-indigo-400 hover:text-rose-600 p-0.5 rounded cursor-pointer"
-                            title="Hapus / batalkan centang"
-                          >
-                            <X size={12} />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
+                    )}
                   </div>
-                )}
 
-                {/* 3. Search & Interactive Classmates Checklist */}
+                  {editGroupMembers.length === 0 ? (
+                    <p className="text-[11px] text-slate-500 italic py-2 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                      Belum ada anggota. Centang teman sekelas dari daftar di bawah untuk menambahkan mereka.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1 custom-scrollbar">
+                      {editGroupMembers.map((m, idx) => {
+                        const isSub = Boolean(m.isSubmitter || (editingSub.userId && m.userId === editingSub.userId) || ((m.userName || m.name || '').toLowerCase().trim() === (editingSub.userName || '').toLowerCase().trim()));
+                        return (
+                          <span
+                            key={m.userId || `${m.name || m.userName}_${idx}`}
+                            className={`inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-lg text-xs font-semibold shadow-2xs group transition-all ${
+                              isSub
+                                ? 'bg-emerald-50 border border-emerald-300 text-emerald-950'
+                                : 'bg-indigo-50 border border-indigo-200 text-indigo-950'
+                            }`}
+                          >
+                            <span className="truncate max-w-[140px]">{m.userName || m.name}</span>
+                            {isSub && (
+                              <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                Pengunggah
+                              </span>
+                            )}
+                            {(m.studentId || m.nim) && (
+                              <span className="text-[10px] opacity-70 font-mono">({m.studentId || m.nim})</span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMember(idx)}
+                              className="text-slate-400 hover:text-rose-600 hover:bg-rose-100/80 p-0.5 rounded-md transition-colors cursor-pointer ml-0.5"
+                              title={`Hapus ${m.userName || m.name} dari kelompok`}
+                            >
+                              <X size={13} strokeWidth={2.5} />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Search & Interactive Classmates Checklist */}
                 <div className="space-y-2 pt-1">
                   <div className="flex items-center justify-between gap-2">
                     <div className="relative flex-1">
@@ -1357,6 +1365,11 @@ export default function ClassSubmissionsManager({
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="truncate font-semibold">{member.name}</span>
+                                  {Boolean((editingSub?.userId && mId === editingSub.userId) || (member.name?.toLowerCase().trim() === editingSub?.userName?.toLowerCase().trim())) && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                                      Pengunggah
+                                    </span>
+                                  )}
                                   {member.nim && (
                                     <span className="text-[10px] font-mono text-slate-400 font-normal">
                                       ({member.nim})
