@@ -1740,6 +1740,7 @@ function ClassWorkspace({
                 <ClassStructure
                   currentClass={currentClass}
                   currentUser={user}
+                  schedules={schedules}
                 />
               </Suspense>
             )}

@@ -51,7 +51,8 @@ const getInitials = (name) => {
 
 export default function ClassStructure({
   currentClass,
-  currentUser
+  currentUser,
+  schedules = []
 }) {
   const [structure, setStructure] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +62,21 @@ export default function ClassStructure({
   const [divisionSearch, setDivisionSearch] = useState('');
   // View mode: 'map' (Bagan Bergaris / Org Chart) or 'cards' (Daftar Kartu Grid)
   const [viewMode, setViewMode] = useState('map');
+
+  // Local schedules state with automatic fallback fetch if prop is not provided or empty
+  const [localSchedules, setLocalSchedules] = useState(Array.isArray(schedules) ? schedules : []);
+
+  useEffect(() => {
+    if (Array.isArray(schedules) && schedules.length > 0) {
+      setLocalSchedules(schedules);
+    } else if (currentClass?.id) {
+      dbService.schedules.list(currentClass.id).then(res => {
+        if (Array.isArray(res) && res.length > 0) {
+          setLocalSchedules(res);
+        }
+      }).catch(() => {});
+    }
+  }, [schedules, currentClass?.id]);
 
   // Editing draft state
   const [draft, setDraft] = useState(null);
@@ -270,6 +286,64 @@ export default function ClassStructure({
     });
   };
 
+  // Import courses from class schedules
+  const handleImportCoursesFromSchedule = () => {
+    if (!localSchedules || localSchedules.length === 0) {
+      toast.error('Tidak ada jadwal kuliah yang ditemukan untuk diimpor.');
+      return;
+    }
+
+    // Extract unique course names and lecturer info
+    const courseMap = new Map();
+    localSchedules.forEach(s => {
+      const courseTitle = (s.course || s.subject || s.title || '').trim();
+      if (courseTitle && !courseMap.has(courseTitle.toLowerCase())) {
+        courseMap.set(courseTitle.toLowerCase(), {
+          title: courseTitle,
+          lecturer: s.lecturer || s.lecturerName || '',
+          room: s.room || '',
+          day: s.day || '',
+          time: s.startTime && s.endTime ? `${s.startTime} - ${s.endTime}` : ''
+        });
+      }
+    });
+
+    const existingTitles = new Set((draft?.divisions || []).map(d => (d.title || '').trim().toLowerCase()));
+    const newSlots = [];
+
+    for (const [key, info] of courseMap.entries()) {
+      if (!existingTitles.has(key)) {
+        const descParts = [];
+        if (info.lecturer) descParts.push(`Dosen: ${info.lecturer}`);
+        if (info.day && info.time) descParts.push(`(${info.day} ${info.time}${info.room ? ', R.' + info.room : ''})`);
+
+        newSlots.push({
+          id: 'div_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          title: info.title,
+          leaderName: '',
+          phone: '',
+          nim: '',
+          leaderName2: '',
+          phone2: '',
+          nim2: '',
+          description: descParts.join(' ')
+        });
+      }
+    }
+
+    if (newSlots.length === 0) {
+      toast('Semua mata kuliah dari jadwal sudah ada di dalam daftar divisi.', { icon: 'ℹ️' });
+      return;
+    }
+
+    setDraft(prev => ({
+      ...prev,
+      divisions: [...(prev.divisions || []), ...newSlots]
+    }));
+
+    toast.success(`Berhasil mengimpor ${newSlots.length} mata kuliah dari jadwal!`);
+  };
+
   // Auto-fill person info from member selection in editor
   const handleSelectMemberFor = (memberId, targetType, targetIndex = null) => {
     const mem = (currentClass?.members || []).find(m => (m.userId || m.uid || m.id) === memberId);
@@ -332,6 +406,20 @@ export default function ClassStructure({
   const activeMembersList = useMemo(() => {
     return (currentClass?.members || []).filter(m => m && m.role !== 'superadmin');
   }, [currentClass?.members]);
+
+  // Grouped members for quick PJ selection
+  const { pjMembers, otherMembers } = useMemo(() => {
+    const pjs = [];
+    const others = [];
+    activeMembersList.forEach(m => {
+      if (m.role === 'division_head' || m.role === 'pj') {
+        pjs.push(m);
+      } else {
+        others.push(m);
+      }
+    });
+    return { pjMembers: pjs, otherMembers: others };
+  }, [activeMembersList]);
 
   const divisionsCount = resolvedStructure.divisions?.length || 0;
   const treasurersCount = resolvedStructure.treasurers?.length || 0;
@@ -782,6 +870,17 @@ export default function ClassStructure({
                 ) : (
                   <div className="relative w-full">
                     
+                    {/* Central Level 5 Anchor Badge */}
+                    <div className="flex flex-col items-center mb-1">
+                      <div className="px-4 py-1.5 rounded-full bg-violet-700 text-white text-[11px] font-black tracking-wider uppercase flex items-center gap-2 shadow-sm ring-4 ring-violet-100">
+                        <Layers size={13} className="text-violet-200" />
+                        <span>Penanggung Jawab Mata Kuliah & Divisi ({divisionsCount} Matkul)</span>
+                      </div>
+                      <div className="w-0.5 h-4 bg-slate-300 relative">
+                        <div className="w-2 h-2 border-r-2 border-b-2 border-slate-400 rotate-45 -mt-0.5" />
+                      </div>
+                    </div>
+
                     {/* Horizontal Branching Bar spanning all division cards */}
                     {divisionsCount > 1 && (
                       <div className="w-full flex items-center justify-center mb-0">
@@ -1793,20 +1892,31 @@ export default function ClassStructure({
                         Setiap mata kuliah / divisi dapat diisi hingga 2 orang penanggung jawab.
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={addDivisionSlot}
-                      className="px-2.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-800 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
-                    >
-                      <Plus size={13} />
-                      <span>Tambah Matkul / Divisi</span>
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleImportCoursesFromSchedule}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Otomatis impor mata kuliah dari jadwal kelas"
+                      >
+                        <Sparkles size={13} className="text-indigo-600" />
+                        <span>Impor dari Jadwal</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={addDivisionSlot}
+                        className="px-2.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-800 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Plus size={13} />
+                        <span>Tambah Matkul / Divisi</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-4">
                     {(draft.divisions || []).length === 0 ? (
                       <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-2xl text-center border border-dashed border-slate-200">
-                        Belum ada Divisi atau PJ. Klik tombol "+ Tambah Matkul / Divisi" di atas untuk menambahkan.
+                        Belum ada Divisi atau PJ. Klik tombol "+ Tambah Matkul / Divisi" atau "Impor dari Jadwal" di atas untuk menambahkan.
                       </p>
                     ) : (
                       (draft.divisions || []).map((div, idx) => (
@@ -1841,16 +1951,29 @@ export default function ClassStructure({
                                 </span>
                                 {activeMembersList.length > 0 && (
                                   <select
-                                    className="text-[10px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-slate-600 font-semibold"
+                                    className="text-[10px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-slate-600 font-semibold max-w-[140px] truncate"
                                     onChange={(e) => handleSelectMemberFor(e.target.value, 'division', idx)}
                                     defaultValue=""
                                   >
                                     <option value="" disabled>-- Pilih Mahasiswa --</option>
-                                    {activeMembersList.map(m => (
-                                      <option key={m.userId || m.uid || m.id} value={m.userId || m.uid || m.id}>
-                                        {m.name || m.email}
-                                      </option>
-                                    ))}
+                                    {pjMembers.length > 0 && (
+                                      <optgroup label="⭐ Anggota Berperan PJ">
+                                        {pjMembers.map(m => (
+                                          <option key={m.userId || m.uid || m.id} value={m.userId || m.uid || m.id}>
+                                            {m.name || m.email} (PJ)
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    )}
+                                    {otherMembers.length > 0 && (
+                                      <optgroup label="Mahasiswa Lainnya">
+                                        {otherMembers.map(m => (
+                                          <option key={m.userId || m.uid || m.id} value={m.userId || m.uid || m.id}>
+                                            {m.name || m.email}
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    )}
                                   </select>
                                 )}
                               </div>
@@ -1890,16 +2013,29 @@ export default function ClassStructure({
                                 </span>
                                 {activeMembersList.length > 0 && (
                                   <select
-                                    className="text-[10px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-slate-600 font-semibold"
+                                    className="text-[10px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-slate-600 font-semibold max-w-[140px] truncate"
                                     onChange={(e) => handleSelectMemberFor(e.target.value, 'division_pj2', idx)}
                                     defaultValue=""
                                   >
                                     <option value="" disabled>-- Pilih Mahasiswa --</option>
-                                    {activeMembersList.map(m => (
-                                      <option key={m.userId || m.uid || m.id} value={m.userId || m.uid || m.id}>
-                                        {m.name || m.email}
-                                      </option>
-                                    ))}
+                                    {pjMembers.length > 0 && (
+                                      <optgroup label="⭐ Anggota Berperan PJ">
+                                        {pjMembers.map(m => (
+                                          <option key={m.userId || m.uid || m.id} value={m.userId || m.uid || m.id}>
+                                            {m.name || m.email} (PJ)
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    )}
+                                    {otherMembers.length > 0 && (
+                                      <optgroup label="Mahasiswa Lainnya">
+                                        {otherMembers.map(m => (
+                                          <option key={m.userId || m.uid || m.id} value={m.userId || m.uid || m.id}>
+                                            {m.name || m.email}
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    )}
                                   </select>
                                 )}
                               </div>
