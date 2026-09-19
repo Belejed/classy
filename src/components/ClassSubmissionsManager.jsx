@@ -40,6 +40,7 @@ import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
 import CustomSelect from './CustomSelect';
 import { canDeleteAnything } from '../utils/permissions';
+import { isSuperAdminEmail } from '../utils/db';
 
 export default function ClassSubmissionsManager({
   currentClass,
@@ -91,6 +92,8 @@ export default function ClassSubmissionsManager({
   const [editFileName, setEditFileName] = useState('');
   const [editTargetTaskId, setEditTargetTaskId] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [includeSubmitter, setIncludeSubmitter] = useState(true);
+  const [memberSearchTerm, setMemberSearchTerm] = useState('');
 
   // Quick add member inside edit modal
   const [selectedMemberToAdd, setSelectedMemberToAdd] = useState('');
@@ -296,52 +299,198 @@ export default function ClassSubmissionsManager({
     return { total, needsFixing, groupCount, individualCount };
   }, [allSubmissions]);
 
-  // Approved class members for quick selection
+  // Approved class members for quick selection (normalized with userId || uid || id)
   const registeredMembers = useMemo(() => {
-    return (currentClass?.members || [])
-      .filter(m => m && typeof m === 'object' && (m.status || 'approved') === 'approved')
-      .sort((a, b) => (a.name || a.displayName || a.email || '').localeCompare(b.name || b.displayName || b.email || '', 'id'));
+    const rawList = currentClass?.members || [];
+    return rawList
+      .filter(m => m && typeof m === 'object' && (m.status || 'approved') === 'approved' && m.role !== 'superadmin' && !isSuperAdminEmail(m.email))
+      .map(m => {
+        const id = m.userId || m.uid || m.id || (m.email ? `email_${m.email.toLowerCase()}` : '');
+        const name = (m.name || m.displayName || m.userName || m.email || 'Mahasiswa').trim();
+        const nim = (m.studentId || m.nim || '').trim();
+        const email = (m.email || '').trim();
+        return {
+          ...m,
+          userId: id,
+          id,
+          name,
+          displayName: name,
+          userName: name,
+          nim,
+          studentId: nim,
+          email
+        };
+      })
+      .filter(m => Boolean(m.userId))
+      .sort((a, b) => a.name.localeCompare(b.name, 'id'));
   }, [currentClass?.members]);
 
+  // Map of other submissions on the currently edited task to show which members are already recorded
+  const otherSubmissionsMap = useMemo(() => {
+    if (!editingSub) return new Map();
+    const map = new Map();
+    const currentTaskId = editingSub.taskId;
+    const taskObj = tasks?.find(t => t.id === currentTaskId);
+    if (!taskObj?.submissions) return map;
+
+    taskObj.submissions.forEach(sub => {
+      // Skip the current submission being edited
+      const isSelf = sub.id === editingSub.id || (sub.userId === editingSub.userId && sub.submittedAt === editingSub.submittedAt);
+      if (isSelf) return;
+
+      const subLabel = sub.groupName ? `Kelompok "${sub.groupName}"` : (sub.userName ? `Kelompok ${sub.userName}` : 'Kelompok lain');
+
+      if (sub.userId) {
+        map.set(sub.userId, subLabel);
+      }
+      if (sub.userEmail) {
+        map.set(sub.userEmail.toLowerCase(), subLabel);
+      }
+      if (Array.isArray(sub.groupMembers)) {
+        sub.groupMembers.forEach(gm => {
+          const gmId = gm.userId || gm.uid || gm.id;
+          if (gmId) map.set(gmId, subLabel);
+          if (gm.email) map.set(gm.email.toLowerCase(), subLabel);
+          if (gm.userEmail) map.set(gm.userEmail.toLowerCase(), subLabel);
+        });
+      }
+    });
+    return map;
+  }, [editingSub, tasks]);
+
+  // Filtered classmates for the interactive checklist
+  const filteredClassmates = useMemo(() => {
+    if (!editingSub) return registeredMembers;
+    const submitterId = editingSub.userId;
+    const submitterName = (editingSub.userName || '').toLowerCase().trim();
+
+    // Exclude the submitter from the checklist because the submitter has their own dedicated card with include/exclude toggle
+    const list = registeredMembers.filter(m => {
+      if (submitterId && (m.userId === submitterId || m.id === submitterId)) return false;
+      if (submitterName && m.name.toLowerCase() === submitterName) return false;
+      return true;
+    });
+
+    if (!memberSearchTerm.trim()) return list;
+    const q = memberSearchTerm.toLowerCase().trim();
+    return list.filter(m => 
+      m.name.toLowerCase().includes(q) ||
+      (m.nim && m.nim.toLowerCase().includes(q)) ||
+      (m.email && m.email.toLowerCase().includes(q))
+    );
+  }, [registeredMembers, editingSub, memberSearchTerm]);
+
+  // Check if a member is currently selected in editGroupMembers
+  const isMemberSelected = (memberObj) => {
+    const mId = memberObj.userId || memberObj.id;
+    const mEmail = (memberObj.email || '').toLowerCase();
+    return editGroupMembers.some(m => {
+      const currentId = m.userId || m.uid || m.id;
+      if (currentId && currentId === mId) return true;
+      if (mEmail && (m.userEmail || m.email)?.toLowerCase() === mEmail) return true;
+      return false;
+    });
+  };
+
+  // Toggle (check / uncheck) a classmate in editGroupMembers
+  const handleToggleMember = (memberObj) => {
+    const mId = memberObj.userId || memberObj.id;
+    const isSelected = isMemberSelected(memberObj);
+
+    if (isSelected) {
+      // UNCHECK
+      setEditGroupMembers(prev => prev.filter(m => {
+        const currentId = m.userId || m.uid || m.id;
+        if (currentId && currentId === mId) return false;
+        if (memberObj.email && (m.userEmail || m.email)?.toLowerCase() === memberObj.email.toLowerCase()) return false;
+        return true;
+      }));
+      toast.success(`${memberObj.name} dihapus dari kelompok`);
+    } else {
+      // CHECK
+      const newMember = {
+        userId: mId,
+        userName: memberObj.name,
+        name: memberObj.name,
+        userEmail: memberObj.email || '',
+        studentId: memberObj.studentId || memberObj.nim || '',
+        nim: memberObj.studentId || memberObj.nim || ''
+      };
+      setEditGroupMembers(prev => [...prev, newMember]);
+      setEditIsGroup(true); // Automatically switch to group mode
+      toast.success(`${memberObj.name} ditambahkan ke kelompok`);
+    }
+  };
+
+  // Select all filtered classmates
+  const handleSelectAllFiltered = () => {
+    const toAdd = [];
+    filteredClassmates.forEach(m => {
+      if (!isMemberSelected(m)) {
+        toAdd.push({
+          userId: m.userId,
+          userName: m.name,
+          name: m.name,
+          userEmail: m.email || '',
+          studentId: m.studentId || m.nim || '',
+          nim: m.studentId || m.nim || ''
+        });
+      }
+    });
+    if (toAdd.length === 0) return;
+    setEditGroupMembers(prev => [...prev, ...toAdd]);
+    setEditIsGroup(true);
+    toast.success(`${toAdd.length} teman kelompok dicentang!`);
+  };
+
+  // Clear / Uncheck all members
+  const handleClearAllMembers = () => {
+    setEditGroupMembers([]);
+    toast.success('Semua teman kelompok dibatalkan.');
+  };
+
   // Open Edit Modal
-  const handleOpenEdit = (item) => {
+  const handleOpenEdit = (item, forceGroup = false) => {
     setEditingSub(item);
     setEditGroupName(item.groupName || '');
-    setEditIsGroup(Boolean(item.isGroup));
-    setEditGroupMembers(Array.isArray(item.groupMembers) ? [...item.groupMembers] : []);
+    setEditIsGroup(forceGroup ? true : Boolean(item.isGroup));
+    
+    // Normalize existing group members
+    const rawMembers = Array.isArray(item.groupMembers) ? item.groupMembers : [];
+    const normalized = rawMembers.map(m => {
+      if (typeof m === 'string') {
+        return { userId: m, name: m, userName: m, studentId: '', nim: '', userEmail: '' };
+      }
+      return {
+        userId: m.userId || m.uid || m.id || '',
+        userName: m.userName || m.name || 'Anggota',
+        name: m.name || m.userName || 'Anggota',
+        userEmail: m.userEmail || m.email || '',
+        studentId: m.studentId || m.nim || '',
+        nim: m.studentId || m.nim || ''
+      };
+    });
+
+    // Submitter is default included in group
+    setIncludeSubmitter(true);
+    
+    // Filter out submitter from editGroupMembers so submitter is handled cleanly by includeSubmitter
+    const submitterId = item.userId;
+    const submitterName = (item.userName || '').toLowerCase().trim();
+    const withoutSubmitter = normalized.filter(m => {
+      if (submitterId && (m.userId === submitterId || m.uid === submitterId || m.id === submitterId)) return false;
+      if (submitterName && m.name.toLowerCase() === submitterName) return false;
+      return true;
+    });
+
+    setEditGroupMembers(withoutSubmitter);
     setEditFileName(item.fileName || '');
     setEditTargetTaskId(item.taskId);
     setSelectedMemberToAdd('');
+    setMemberSearchTerm('');
     setManualMemberName('');
     setManualMemberNim('');
     setShowManualMemberInput(false);
-  };
-
-  // Add Member from registered class members
-  const handleAddRegisteredMember = () => {
-    if (!selectedMemberToAdd) return;
-    const memberObj = registeredMembers.find(m => m.userId === selectedMemberToAdd);
-    if (!memberObj) return;
-
-    // Check if already in list
-    const already = editGroupMembers.some(m => m.userId === memberObj.userId);
-    if (already) {
-      toast.error(`${memberObj.name || memberObj.email} sudah ada dalam kelompok!`);
-      return;
-    }
-
-    const newMember = {
-      userId: memberObj.userId,
-      userName: memberObj.name || memberObj.displayName || memberObj.email,
-      name: memberObj.name || memberObj.displayName || memberObj.email,
-      userEmail: memberObj.email || '',
-      studentId: memberObj.studentId || memberObj.nim || ''
-    };
-
-    setEditGroupMembers(prev => [...prev, newMember]);
-    setEditIsGroup(true); // Automatically ensure isGroup is active
-    setSelectedMemberToAdd('');
-    toast.success(`${newMember.name} ditambahkan ke kelompok!`);
   };
 
   // Add Member Manually (NIM + Name)
@@ -369,7 +518,7 @@ export default function ClassSubmissionsManager({
     toast.success(`Teman kelompok ${name} berhasil dicantumkan!`);
   };
 
-  // Remove Member from Edit List
+  // Remove Member from Edit List (by index)
   const handleRemoveMember = (idxToRemove) => {
     setEditGroupMembers(prev => prev.filter((_, idx) => idx !== idxToRemove));
     toast.success('Anggota dihapus dari kelompok');
@@ -382,10 +531,26 @@ export default function ClassSubmissionsManager({
 
     setIsSavingEdit(true);
     try {
+      // Assemble full members list
+      const finalMembers = [...editGroupMembers];
+      if (includeSubmitter) {
+        finalMembers.unshift({
+          userId: editingSub.userId || '',
+          userName: editingSub.userName || 'Pengunggah',
+          name: editingSub.userName || 'Pengunggah',
+          userEmail: editingSub.userEmail || '',
+          studentId: editingSub.studentId || editingSub.nim || '',
+          nim: editingSub.studentId || editingSub.nim || ''
+        });
+      }
+
+      // If user selected Kelompok or finalMembers has more than 1 member
+      const finalIsGroup = editIsGroup || finalMembers.length > 1;
+
       const updates = {
         groupName: editGroupName.trim(),
-        isGroup: editIsGroup,
-        groupMembers: editGroupMembers,
+        isGroup: finalIsGroup,
+        groupMembers: finalMembers,
         fileName: editFileName.trim() || editingSub.fileName
       };
 
@@ -407,7 +572,7 @@ export default function ClassSubmissionsManager({
       }
 
       setEditingSub(null);
-      toast.success('Pengumpulan berhasil dirapikan! Perubahan anggota kelompok tersimpan.');
+      toast.success('Pengumpulan berhasil dirapikan! Anggota kelompok tersimpan.');
     } catch (err) {
       console.error('Save edit error:', err);
       toast.error(err.message || 'Gagal menyimpan perubahan.');
@@ -880,7 +1045,7 @@ export default function ClassSubmissionsManager({
                       </div>
 
                       <button
-                        onClick={() => handleOpenEdit(sub)}
+                        onClick={() => handleOpenEdit(sub, true)}
                         className="text-[11px] font-semibold text-indigo-600 hover:underline cursor-pointer flex items-center gap-1"
                       >
                         <UserPlus size={12} />
@@ -914,7 +1079,7 @@ export default function ClassSubmissionsManager({
 
                       {members.length === 0 && isGroup && (
                         <button
-                          onClick={() => handleOpenEdit(sub)}
+                          onClick={() => handleOpenEdit(sub, true)}
                           className="px-2.5 py-1 rounded-xl border border-dashed border-amber-400 bg-amber-50/50 hover:bg-amber-100 text-amber-800 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
                         >
                           <Plus size={12} />
@@ -1039,97 +1204,209 @@ export default function ClassSubmissionsManager({
               </div>
 
               {/* DAFTAR TEMAN KELOMPOK (CORE FEATURE) */}
-              <div className="space-y-2.5 p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100/80">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <Users size={14} className="text-indigo-600" />
-                    <span>Daftar Teman Kelompok ({editGroupMembers.length})</span>
-                  </label>
+              <div className="space-y-3 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Users size={15} className="text-indigo-600" />
+                    <label className="text-xs font-bold text-slate-900">
+                      Daftar Anggota Kelompok ({editGroupMembers.length + (includeSubmitter ? 1 : 0)})
+                    </label>
+                  </div>
                   <span className="text-[10px] text-indigo-700 font-medium">
-                    Otomatis ditandai "Sudah Dikerjakan" di akun mereka
+                    Teman yang dicentang otomatis ditandai "Sudah Dikerjakan"
                   </span>
                 </div>
 
-                {/* Member Pills */}
-                <div className="flex items-center gap-1.5 flex-wrap min-h-[36px] bg-white border border-slate-200/80 rounded-xl p-2">
-                  {/* Primary Submitter Pill (Fixed) */}
-                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1.5 border border-slate-200" title="Pengunggah utama berkas">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span>{editingSub.userName} (Pengunggah)</span>
-                  </span>
+                {/* 1. Pengunggah Utama Card (with uncheck/include toggle!) */}
+                <div className="p-3 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0 border border-emerald-200">
+                      ✓
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-slate-900 truncate">
+                          {editingSub.userName}
+                        </span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                          Pengunggah
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 truncate">
+                        {editingSub.userEmail || 'Akun pengunggah berkas ini'}
+                      </p>
+                    </div>
+                  </div>
 
-                  {editGroupMembers.map((m, idx) => (
-                    <span
-                      key={m.userId || idx}
-                      className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-900 text-xs font-semibold flex items-center gap-1.5 border border-indigo-200 shadow-2xs group"
-                    >
-                      <UserCheck size={12} className="text-indigo-600" />
-                      <span>{m.userName || m.name}</span>
-                      {(m.studentId || m.nim) && <span className="text-[10px] text-indigo-500">({m.studentId || m.nim})</span>}
+                  <label className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer select-none shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={includeSubmitter}
+                      onChange={(e) => setIncludeSubmitter(e.target.checked)}
+                      className="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
+                    />
+                    <span className="text-[11px] font-bold text-slate-700">
+                      {includeSubmitter ? 'Anggota Kelompok' : 'Hanya Pengunggah (Bukan Anggota)'}
+                    </span>
+                  </label>
+                </div>
+
+                {/* 2. Selected Group Members Chips Preview */}
+                {editGroupMembers.length > 0 && (
+                  <div className="p-2.5 rounded-xl bg-white border border-indigo-200/80 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-indigo-950">
+                      <span>Teman Terpilih ({editGroupMembers.length})</span>
                       <button
                         type="button"
-                        onClick={() => handleRemoveMember(idx)}
-                        className="text-slate-400 hover:text-rose-600 p-0.5 rounded cursor-pointer"
-                        title="Hapus dari kelompok"
+                        onClick={handleClearAllMembers}
+                        className="text-[10px] text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
                       >
-                        <X size={13} />
+                        Batal Pilih Semua
                       </button>
-                    </span>
-                  ))}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
+                      {editGroupMembers.map((m, idx) => (
+                        <span
+                          key={m.userId || idx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-950 text-xs font-semibold shadow-2xs group"
+                        >
+                          <UserCheck size={12} className="text-indigo-600" />
+                          <span className="truncate max-w-[130px]">{m.userName || m.name}</span>
+                          {(m.studentId || m.nim) && (
+                            <span className="text-[10px] text-indigo-600 font-mono">({m.studentId || m.nim})</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMember(idx)}
+                            className="text-indigo-400 hover:text-rose-600 p-0.5 rounded cursor-pointer"
+                            title="Hapus / batalkan centang"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                  {editGroupMembers.length === 0 && (
-                    <span className="text-xs text-slate-400 italic px-1">
-                      Belum ada teman kelompok yang dicantumkan.
-                    </span>
-                  )}
-                </div>
-
-                {/* Form to Add Member */}
-                <div className="pt-2 border-t border-indigo-100/60 space-y-2">
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    {/* Quick Add from Registered Members */}
-                    <div className="flex-1">
-                      <CustomSelect
-                        value={selectedMemberToAdd}
-                        onChange={setSelectedMemberToAdd}
-                        options={registeredMembers
-                          .filter(rm => rm.name !== editingSub.userName && !editGroupMembers.some(em => em.userId === rm.userId))
-                          .map(m => ({
-                            value: m.userId,
-                            label: m.name || m.displayName || m.email,
-                            subtitle: m.studentId || m.nim ? `NIM: ${m.studentId || m.nim}` : m.email
-                          }))}
-                        placeholder="-- Pilih Mahasiswa dari Kelas --"
-                        searchPlaceholder="Cari nama mahasiswa..."
-                        icon={User}
+                {/* 3. Search & Interactive Classmates Checklist */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="relative flex-1">
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Cari teman sekelas (nama, NIM, email)..."
+                        value={memberSearchTerm}
+                        onChange={(e) => setMemberSearchTerm(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
                       />
                     </div>
                     <button
                       type="button"
-                      onClick={handleAddRegisteredMember}
-                      disabled={!selectedMemberToAdd}
-                      className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold transition-all shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
+                      onClick={handleSelectAllFiltered}
+                      className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-[11px] font-bold text-slate-700 transition-colors cursor-pointer shrink-0"
+                      title="Centang semua teman yang tampil"
                     >
-                      <Plus size={14} />
-                      <span>Tambah ke Kelompok</span>
+                      Pilih Semua
                     </button>
                   </div>
 
-                  {/* Manual Input Toggle */}
-                  <div className="flex items-center justify-between text-[11px] pt-1">
-                    <span className="text-slate-500">Teman belum terdaftar di aplikasi?</span>
+                  {/* Scrollable Checklist */}
+                  <div className="max-h-52 overflow-y-auto space-y-1 pr-1 custom-scrollbar border border-slate-200/80 rounded-xl p-1.5 bg-white">
+                    {filteredClassmates.length === 0 ? (
+                      <p className="text-center text-[11px] text-slate-400 py-4">
+                        {memberSearchTerm ? 'Tidak ada teman kelas yang cocok dengan pencarian.' : 'Belum ada anggota kelas lainnya.'}
+                      </p>
+                    ) : (
+                      filteredClassmates.map(member => {
+                        const mId = member.userId || member.id;
+                        const isSelected = isMemberSelected(member);
+                        const otherGroupLabel = otherSubmissionsMap.get(mId) || (member.email ? otherSubmissionsMap.get(member.email.toLowerCase()) : null);
+
+                        return (
+                          <div
+                            key={mId}
+                            role="checkbox"
+                            aria-checked={isSelected}
+                            tabIndex={0}
+                            onClick={() => handleToggleMember(member)}
+                            onKeyDown={(e) => {
+                              if (e.key === ' ' || e.key === 'Enter') {
+                                e.preventDefault();
+                                handleToggleMember(member);
+                              }
+                            }}
+                            className={`p-2 rounded-xl border flex items-center justify-between gap-2.5 text-xs select-none transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-indigo-50 border-indigo-300 text-indigo-950 font-semibold shadow-2xs'
+                                : otherGroupLabel
+                                  ? 'bg-amber-50/40 border-amber-200/70 hover:bg-amber-50 text-slate-800'
+                                  : 'bg-white border-slate-150 hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1 pointer-events-none">
+                              {/* Checkbox Box */}
+                              <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors shrink-0 ${
+                                isSelected
+                                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                                  : 'bg-white border-slate-300'
+                              }`}>
+                                {isSelected && <Check size={11} strokeWidth={3} />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="truncate font-semibold">{member.name}</span>
+                                  {member.nim && (
+                                    <span className="text-[10px] font-mono text-slate-400 font-normal">
+                                      ({member.nim})
+                                    </span>
+                                  )}
+                                </div>
+                                {otherGroupLabel ? (
+                                  <span className="text-[10px] text-amber-700 font-medium truncate block">
+                                    ⚠️ {otherGroupLabel}
+                                  </span>
+                                ) : member.email ? (
+                                  <span className="text-[10px] text-slate-400 font-normal truncate block">
+                                    {member.email}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            {/* Badge */}
+                            {isSelected ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-800 shrink-0">
+                                Terpilih ✓
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-normal shrink-0">
+                                Centang
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. Manual Input Option for unregistered classmates */}
+                <div className="pt-2 border-t border-indigo-100/70">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500">Teman belum punya akun di aplikasi?</span>
                     <button
                       type="button"
                       onClick={() => setShowManualMemberInput(!showManualMemberInput)}
-                      className="text-indigo-600 hover:underline font-semibold cursor-pointer"
+                      className="text-indigo-600 hover:underline font-bold cursor-pointer"
                     >
                       {showManualMemberInput ? 'Tutup Input Manual' : '+ Input Nama & NIM Manual'}
                     </button>
                   </div>
 
-                  {/* Manual Input Fields */}
                   {showManualMemberInput && (
-                    <div className="p-3 rounded-xl bg-white border border-slate-200 space-y-2 animate-in fade-in duration-150">
+                    <div className="mt-2 p-3 rounded-xl bg-white border border-slate-200 space-y-2 animate-in fade-in duration-150">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Input Manual Teman Kelompok</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <input
@@ -1137,14 +1414,14 @@ export default function ClassSubmissionsManager({
                           placeholder="Nama Mahasiswa *"
                           value={manualMemberName}
                           onChange={(e) => setManualMemberName(e.target.value)}
-                          className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400"
+                          className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
                         />
                         <input
                           type="text"
                           placeholder="NIM (Opsional)"
                           value={manualMemberNim}
                           onChange={(e) => setManualMemberNim(e.target.value)}
-                          className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400"
+                          className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
                         />
                       </div>
                       <button

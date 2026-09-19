@@ -2746,6 +2746,7 @@ export default function ClassTasks({
                                   s.userId === mId || s.groupMembers?.some(gm => (gm.userId || gm.uid || gm.id) === mId)
                                 );
                                 const isAlreadyInOtherGroup = alreadySub && alreadySub.userId !== currentUser?.uid;
+                                const isBlockedForStudent = isAlreadyInOtherGroup && !isSelected && !isManager;
 
                                 return (
                                   <div
@@ -2754,16 +2755,28 @@ export default function ClassTasks({
                                     aria-checked={isSelected}
                                     tabIndex={0}
                                     onClick={() => {
-                                      if (isAlreadyInOtherGroup) {
+                                      if (isSelected) {
+                                        // Always allow unchecking!
+                                        toggleGroupMember(mId);
+                                        return;
+                                      }
+                                      if (isBlockedForStudent) {
                                         toast.info(`${name} sudah tercatat di ${alreadySub.groupName || 'kelompok lain'} (Submitted by ${alreadySub.userName})`);
                                         return;
                                       }
                                       toggleGroupMember(mId);
+                                      if (isAlreadyInOtherGroup && isManager) {
+                                        toast.info(`${name} dicantumkan ke kelompok ini`);
+                                      }
                                     }}
                                     onKeyDown={(e) => {
                                       if (e.key === ' ' || e.key === 'Enter') {
                                         e.preventDefault();
-                                        if (isAlreadyInOtherGroup) {
+                                        if (isSelected) {
+                                          toggleGroupMember(mId);
+                                          return;
+                                        }
+                                        if (isBlockedForStudent) {
                                           toast.info(`${name} sudah tercatat di ${alreadySub.groupName || 'kelompok lain'} (Submitted by ${alreadySub.userName})`);
                                           return;
                                         }
@@ -2771,22 +2784,22 @@ export default function ClassTasks({
                                       }
                                     }}
                                     className={`p-2 rounded-xl border flex items-center justify-between gap-2 text-xs select-none transition-all ${
-                                      isAlreadyInOtherGroup
-                                        ? 'bg-amber-50/70 border-amber-200 text-amber-900 cursor-not-allowed opacity-90'
-                                        : isSelected 
-                                          ? 'bg-violet-100/90 border-violet-400 text-violet-950 font-semibold shadow-2xs cursor-pointer' 
+                                      isSelected
+                                        ? 'bg-violet-100/90 border-violet-400 text-violet-950 font-semibold shadow-2xs cursor-pointer'
+                                        : isBlockedForStudent
+                                          ? 'bg-amber-50/70 border-amber-200 text-amber-900 cursor-not-allowed opacity-90'
                                           : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer'
                                     }`}
                                   >
                                     <div className="flex items-center gap-2.5 min-w-0 flex-1 pointer-events-none">
                                       <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors shrink-0 ${
-                                        isAlreadyInOtherGroup
-                                          ? 'bg-amber-200 border-amber-300 text-amber-800 font-bold text-[9px]'
-                                          : isSelected
-                                            ? 'bg-violet-600 border-violet-600 text-white'
+                                        isSelected
+                                          ? 'bg-violet-600 border-violet-600 text-white'
+                                          : isBlockedForStudent
+                                            ? 'bg-amber-200 border-amber-300 text-amber-800 font-bold text-[9px]'
                                             : 'bg-white border-slate-300'
                                       }`}>
-                                        {isAlreadyInOtherGroup ? '!' : isSelected && <Check size={11} strokeWidth={3} />}
+                                        {isSelected ? <Check size={11} strokeWidth={3} /> : isBlockedForStudent && '!'}
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <span className="truncate block font-medium">{name}</span>
@@ -2799,13 +2812,13 @@ export default function ClassTasks({
                                         ) : null}
                                       </div>
                                     </div>
-                                    {isAlreadyInOtherGroup ? (
+                                    {isSelected ? (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-200 text-violet-800 shrink-0">
+                                        Terpilih ✓
+                                      </span>
+                                    ) : isBlockedForStudent ? (
                                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900 shrink-0">
                                         Submitted by {alreadySub.userName.split(' ')[0]}
-                                      </span>
-                                    ) : isSelected ? (
-                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-200 text-violet-800 shrink-0">
-                                        Terpilih
                                       </span>
                                     ) : (
                                       <span className="text-[10px] text-slate-400 font-normal shrink-0">
