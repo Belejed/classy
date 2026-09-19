@@ -17,11 +17,12 @@ import {
   Phone,
   Sparkles,
   Dices,
-  Network
+  Network,
+  ListTodo
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-import { canAccessSubmissionsManager } from '../utils/permissions';
+import { canAccessSubmissionsManager, canAccessMemberTasks } from '../utils/permissions';
 
 export default function ClassNavbar({
   currentClass,
@@ -61,6 +62,7 @@ export default function ClassNavbar({
   const role = currentClass?.userRole || 'student';
   const isOwner = currentClass?.ownerId === currentUser?.uid;
   const showSubmissions = canAccessSubmissionsManager(role, isOwner);
+  const showMemberTasks = canAccessMemberTasks(role, isOwner, currentClass, currentUser);
 
   const navTabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -71,6 +73,7 @@ export default function ClassNavbar({
     { id: 'forum', label: 'Tools Kelas', icon: Dices },
     { id: 'structure', label: 'Struktur Kelas', icon: Network },
     { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
+    ...(showMemberTasks ? [{ id: 'member-tasks', label: 'Cek Tugas Member', icon: ListTodo }] : []),
     ...(showSubmissions ? [{ id: 'submissions', label: 'Rapikan Tugas', icon: Sparkles }] : [])
   ];
 

@@ -22,12 +22,13 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ClassTopHeader from './components/ClassTopHeader';
 import { DashboardSkeleton, TasksSkeleton, ScheduleSkeleton } from './components/SkeletonLoader';
 import { setupGlobalUpdateListeners } from './utils/appUpdater';
-import { canDeleteAnything } from './utils/permissions';
+import { canDeleteAnything, canAccessMemberTasks } from './utils/permissions';
 import { shouldShowChangelogAuto, markChangelogSeen } from './utils/changelogHelper';
 import ChangeTemporaryPasswordModal from './components/ChangeTemporaryPasswordModal';
 import { setupIdleSessionWatcher, resetActivityEpoch, clearActivityEpoch } from './utils/sessionTimeout';
 
 // Heavy modals and non-critical sub-tabs: Lazy loaded for optimal mobile performance and small bundle
+const ClassMemberTasks = lazy(() => import('./components/ClassMemberTasks'));
 const ClassSubmissionsManager = lazy(() => import('./components/ClassSubmissionsManager'));
 const ClassActivityLog = lazy(() => import('./components/ClassActivityLog'));
 const ClassStructure = lazy(() => import('./components/ClassStructure'));
@@ -1446,7 +1447,7 @@ function ClassWorkspace({
     }
   };
 
-  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'structure', 'contacts', 'members', 'logs', 'submissions'];
+  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'structure', 'contacts', 'members', 'logs', 'submissions', 'member-tasks'];
   const activeTab = validTabs.includes(tab) ? tab : 'dashboard';
 
   // Ensure currentClass matches the URL classId
@@ -1791,6 +1792,38 @@ function ClassWorkspace({
                   onUpdateClassSettings={handleUpdateClassSettings}
                   onRefreshData={handleRefreshSubmissionsData}
                 />
+              </Suspense>
+            )}
+
+            {activeTab === 'member-tasks' && (
+              <Suspense fallback={<TasksSkeleton />}>
+                {canAccessMemberTasks(currentClass?.userRole, currentClass?.ownerId === user?.uid, currentClass, user) ? (
+                  <ClassMemberTasks
+                    currentClass={currentClass}
+                    currentUser={user}
+                    tasks={tasks || []}
+                    schedules={schedules || []}
+                    onNavigateToTask={(taskId) => {
+                      navigate(`/class/${classId}/tasks`);
+                    }}
+                  />
+                ) : (
+                  <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 max-w-md mx-auto my-12 space-y-3 shadow-sm">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+                      <ShieldAlert size={24} />
+                    </div>
+                    <h3 className="font-extrabold text-base text-slate-900">Akses Terbatas</h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Halaman monitoring progres tugas per anggota hanya dapat diakses oleh Komti, Wakil Komti, dan Penanggung Jawab (PJ) kelas.
+                    </p>
+                    <button
+                      onClick={() => navigate(`/class/${classId}/dashboard`)}
+                      className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
+                    >
+                      Kembali ke Dashboard
+                    </button>
+                  </div>
+                )}
               </Suspense>
             )}
               </>

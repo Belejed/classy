@@ -92,6 +92,51 @@ export const canManageClassStructure = (role, isOwner = false) => {
   return [ROLES.KOMTI, ROLES.VICE_KOMTI, ROLES.SUPERADMIN].includes(r);
 };
 
+// Can access Monitoring / Cek Tugas Member: Komti, Wakil Komti, PJ (division_head or in structure.divisions), Lecturer, Superadmin, Owner
+export const canAccessMemberTasks = (role, isOwner = false, currentClass = null, currentUser = null) => {
+  if (isOwner) return true;
+  const r = normalizeRole(role);
+  if ([ROLES.KOMTI, ROLES.VICE_KOMTI, ROLES.DIVISION_HEAD, ROLES.LECTURER, ROLES.SUPERADMIN].includes(r)) {
+    return true;
+  }
+
+  // Check if currentUser is assigned as PJ in structure.divisions
+  if (currentClass?.structure?.divisions && Array.isArray(currentClass.structure.divisions) && currentUser) {
+    const uName = (currentUser.displayName || currentUser.name || '').toLowerCase().trim();
+    const uEmail = (currentUser.email || '').toLowerCase().trim();
+    const uId = currentUser.uid || currentUser.id;
+
+    const isStructurePJ = currentClass.structure.divisions.some(div => {
+      if (!div) return false;
+      const pj1 = (div.leaderName || '').toLowerCase().trim();
+      const pj2 = (div.leaderName2 || '').toLowerCase().trim();
+      const divUid1 = div.memberId || div.userId || '';
+      const divUid2 = div.memberId2 || div.userId2 || '';
+
+      if (uId && (divUid1 === uId || divUid2 === uId)) return true;
+      if (uName && (pj1 === uName || pj2 === uName)) return true;
+      return false;
+    });
+
+    if (isStructurePJ) return true;
+  }
+
+  // Check if currentUser is assigned as komti / viceKomti in structure
+  if (currentClass?.structure && currentUser) {
+    const uId = currentUser.uid || currentUser.id;
+    const uName = (currentUser.displayName || currentUser.name || '').toLowerCase().trim();
+    const komtiId = currentClass.structure.komti?.memberId || '';
+    const viceId = currentClass.structure.viceKomti?.memberId || '';
+    const komtiName = (currentClass.structure.komti?.name || '').toLowerCase().trim();
+    const viceName = (currentClass.structure.viceKomti?.name || '').toLowerCase().trim();
+
+    if (uId && (komtiId === uId || viceId === uId)) return true;
+    if (uName && (komtiName === uName || viceName === uName)) return true;
+  }
+
+  return false;
+};
+
 // CAN DELETE: ONLY Komti, Lecturer, Superadmin, Owner!
 // WAKIL KOMTI AND KEPALA DIVISI CANNOT DELETE ANYTHING!
 export const canDeleteAnything = (role, isOwner = false) => {

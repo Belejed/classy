@@ -22,10 +22,11 @@ import {
   History,
   Sparkles,
   Dices,
-  Network
+  Network,
+  ListTodo
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { isClassManager, canAccessSubmissionsManager, normalizeRole } from '../utils/permissions';
+import { isClassManager, canAccessSubmissionsManager, canAccessMemberTasks, normalizeRole } from '../utils/permissions';
 
 export default function ClassSidebar({
   currentClass,
@@ -142,6 +143,7 @@ export default function ClassSidebar({
   const isOwner = currentClass?.ownerId === currentUser?.uid;
   const isManager = isClassManager(role, isOwner);
   const canAccessSubmissions = canAccessSubmissionsManager(role, isOwner);
+  const canAccessMemberProgress = canAccessMemberTasks(role, isOwner, currentClass, currentUser);
 
   const navTabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -153,6 +155,9 @@ export default function ClassSidebar({
     { id: 'structure', label: 'Struktur Kelas', icon: Network },
     { id: 'contacts', label: 'Kontak Dosen', icon: Phone },
     { id: 'members', label: role === 'superadmin' ? 'Members' : 'Members (Komti)', icon: Users, isSpecial: true },
+    ...(canAccessMemberProgress ? [
+      { id: 'member-tasks', label: 'Cek Tugas Member', icon: ListTodo, isSpecial: true }
+    ] : []),
     ...(canAccessSubmissions ? [
       { id: 'submissions', label: 'Rapikan Tugas', icon: Sparkles, isSpecial: true }
     ] : []),
@@ -352,6 +357,13 @@ export default function ClassSidebar({
                     Manage
                   </span>
                 )}
+                {tab.id === 'member-tasks' && (
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-bold tracking-wider ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+                  }`}>
+                    PJ/Komti
+                  </span>
+                )}
                 {tab.id === 'submissions' && (
                   <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-bold tracking-wider ${
                     isActive ? 'bg-white/20 text-white' : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300'
@@ -445,7 +457,7 @@ export default function ClassSidebar({
 
         {/* 5th Tab: Menu Drawer Button (Files, Anggota, Kontak, Forum, Switch Class, Profile) */}
         {(() => {
-          const isOtherTabActive = ['files', 'forum', 'structure', 'contacts', 'members', 'logs', 'submissions'].includes(activeTab) || mobileMenuOpen;
+          const isOtherTabActive = ['files', 'forum', 'structure', 'contacts', 'members', 'logs', 'submissions', 'member-tasks'].includes(activeTab) || mobileMenuOpen;
           return (
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -772,6 +784,40 @@ export default function ClassSidebar({
                         activeTab === 'submissions' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-800'
                       }`}>
                         PIN
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Cek Tugas Member (Komti, Wakil, PJ Only) */}
+                  {canAccessMemberProgress && (
+                    <button
+                      onClick={() => {
+                        onSelectTab('member-tasks');
+                        handleCloseMobileMenu();
+                      }}
+                      className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer animate-sheet-item-5 active:scale-[0.98] ${
+                        activeTab === 'member-tasks'
+                          ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-xs'
+                          : 'bg-white border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                          activeTab === 'member-tasks' ? 'bg-white/20 text-white' : 'bg-rose-50 text-rose-700'
+                        }`}>
+                          <ListTodo size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs truncate">Cek Tugas Member</p>
+                          <p className={`text-[10px] truncate ${activeTab === 'member-tasks' ? 'text-white/80' : 'text-[#64748B]'}`}>
+                            Tugas belum selesai per orang
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-1 ${
+                        activeTab === 'member-tasks' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-800'
+                      }`}>
+                        PJ/Komti
                       </span>
                     </button>
                   )}
