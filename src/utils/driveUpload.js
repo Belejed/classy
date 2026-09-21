@@ -5,15 +5,30 @@ const DIRECT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwi3vHYbWBRva
 
 // Pre-mapped known folder IDs to ensure 100% placement inside M.Log B without stray root folders
 export const KNOWN_SUBFOLDER_IDS = {
+  // M.Log B Tasks
   'M.Log B:Tugas: Bussiness Value Mapping': '1onArmPNPMErsISDvv9RiQ43T35ahF7p5',
+  'M.Log B:Tugas: Analisis Benchmarking Perusahaan': '16nT7DjMqLeJm9JYexVj5SncZbjWwNFxb',
+  'M.Log B:Tugas: Penyusunan Paper': '1RLsG1Lr3mwDyD8Tpp-8czlsuHNVCToEo',
   'M.Log B:Tugas: Tugas Individu': '1vNmsOTYef1vEYCUmpQwwj_gqeKDwkKIn',
   'M.Log B:Tugas: PPT Permasalahan Transportasi': '1m-EgXYUjhaLdlJDKG4s2d_u2kt4YGoro',
   'M.Log B:Tugas: Makalah Riset 2 Halaman': '1goE6yRZfOW0adgVsG9VKQSYKLrfBNlwb',
-  'M.Log B:Tugas: Analisis Benchmarking Perusahaan': '16nT7DjMqLeJm9JYexVj5SncZbjWwNFxb',
-  'M.Log B:Tugas: Penyusunan Paper': '1RLsG1Lr3mwDyD8Tpp-8czlsuHNVCToEo',
-  'M.Log B:Materi Kuliah': '1oedY2DbXYwQIC5S6XahXNoEvAtFaGJIz',
+  'M.Log B:Tugas: Pancasila sebagai dasar hukum': '1LiUlXCfnM4_gRp076FDs_JNceFoDL0-v',
+  'M.Log B:Tugas: Laporan tertulis  Innovation Case Analysis': '1_Wm0wbOoqh_rOdozETjfRBMwlw5lfNOr',
+  'M.Log B:Tugas: Laporan tertulis Innovation Case Analysis': '1_Wm0wbOoqh_rOdozETjfRBMwlw5lfNOr',
+  'M.Log B:Tugas: quiz individu': '13dKKw8ZCcXy-B3NjDgCQevqWmjgi9rP9',
+  'M.Log B:Tugas: Tugas Individu Transportasi': '1IjCeuJ1ViiLyJ0e_CheYcIp66_-z4J4V',
+  'M.Log B:Tugas: Buat PPT pilih judul dan 3 bab buku andrew mathews': '1COob9TDwFDOPKUGYPEhAPc71mHaN4ak3',
+  'M.Log B:Tugas: tugas kelompok paper makalah ppt soal pancasila': '1mrRPYRoJFbAFx9DHdeC_qu6_TROrLCz_',
+  'M.Log B:Tugas: bikin ringkasan dipresentasiin materi etika pancasila': '1RBl3dCXOl0tuveD47NjMoQiW3IudKOUb',
+  'M.Log B:Tugas: Hafalan Butir Butir Pancasila': '1gYlqJxGGESg8DjHRCx8EPhX9lI5ffMLM',
+  'M.Log B:Tugas: Tugas Kelompok Video Pancasila': '1QtQTf0jgT4-n9H_b2lTKc6Vb8w73dhuZ',
+
+  // M.Log B General Folders
   'M.Log B:Pedoman': '14qmi8TBJSFnWdXEGxDTSurRHQp1JJmIF',
   'M.Log B:Lampiran Pengumuman': '1MVMWi8D1BwFuOdNMGlI3nKRorrQa4S_C',
+  'M.Log B:Materi Kuliah': '1oedY2DbXYwQIC5S6XahXNoEvAtFaGJIz',
+
+  // Workspaces
   'M.Log B': '1cflGkvF46agbdU_hWwHXPdc1iCmniWgF',
   'MLog A 2026': '1blMVEK27MmjwvgrvK26Hs-FNfug5yquZ'
 };
@@ -31,6 +46,12 @@ export async function resolveDriveFolderId(workspaceName, folderName) {
 
   if (KNOWN_SUBFOLDER_IDS[directKey]) {
     return KNOWN_SUBFOLDER_IDS[directKey];
+  }
+
+  // Also check without double space if any
+  const normalizedKey = `${targetWorkspace}:${targetFolder.replace(/\s+/g, ' ')}`;
+  if (KNOWN_SUBFOLDER_IDS[normalizedKey]) {
+    return KNOWN_SUBFOLDER_IDS[normalizedKey];
   }
 
   const cacheKey = `fld_${targetWorkspace}_${targetFolder}`;
@@ -76,7 +97,46 @@ export async function resolveDriveFolderId(workspaceName, folderName) {
     console.warn('Could not resolve Drive folder ID:', err);
   }
 
+  // If this was a specific task folder, do NOT fall back to workspace root (M.Log B),
+  // because that would place the files directly in root instead of in a task folder!
+  if (targetFolder.startsWith('Tugas:')) {
+    return null;
+  }
+
   return KNOWN_SUBFOLDER_IDS[targetWorkspace] || null;
+}
+
+/**
+ * Ensures a Google Drive folder exists for a newly created or existing task
+ */
+export async function ensureDriveTaskFolder(taskTitle, workspaceName = 'M.Log B') {
+  if (!taskTitle || !taskTitle.trim()) return null;
+  const folderName = `Tugas: ${taskTitle.trim()}`;
+  return resolveDriveFolderId(workspaceName, folderName);
+}
+
+/**
+ * Triggers backend Google Drive tidy-up to create missing folders and move loose files
+ */
+export async function tidyDriveWorkspace(workspaceName = 'M.Log B', taskTitles = []) {
+  try {
+    const res = await fetch('/api/tidy-drive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workspaceName,
+        taskTitles
+      })
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Gagal merapikan Drive');
+  } catch (err) {
+    console.error('tidyDriveWorkspace error:', err);
+    throw err;
+  }
 }
 
 export async function uploadToGoogleDrive({ file, name, folderName, workspaceName }) {

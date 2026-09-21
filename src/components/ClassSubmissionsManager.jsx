@@ -41,6 +41,7 @@ import EmptyState from './EmptyState';
 import CustomSelect from './CustomSelect';
 import { canDeleteAnything } from '../utils/permissions';
 import { isSuperAdminEmail, dbService } from '../utils/db';
+import { tidyDriveWorkspace } from '../utils/driveUpload';
 
 export default function ClassSubmissionsManager({
   currentClass,
@@ -114,6 +115,7 @@ export default function ClassSubmissionsManager({
   // Delete submission modal
   const [subToDelete, setSubToDelete] = useState(null);
   const [isDeletingSub, setIsDeletingSub] = useState(false);
+  const [isTidyingDrive, setIsTidyingDrive] = useState(false);
 
   // Determine active PIN for the class (custom PIN or default 123456 / joinCode)
   const currentPin = useMemo(() => {
@@ -834,6 +836,28 @@ export default function ClassSubmissionsManager({
     }
   };
 
+  // Tidy up Google Drive and ensure all task folders exist
+  const handleTidyDrive = async () => {
+    setIsTidyingDrive(true);
+    const toastId = toast.loading('Sedang merapikan Google Drive & memastikan folder tugas...');
+    try {
+      const taskTitles = (tasks || []).map(t => t.title).filter(Boolean);
+      const res = await tidyDriveWorkspace(currentClass?.name || 'M.Log B', taskTitles);
+      toast.success(
+        res.message || 'Google Drive berhasil disinkronkan & dirapikan!',
+        { id: toastId, duration: 5000 }
+      );
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+    } catch (err) {
+      console.error('Failed to tidy drive:', err);
+      toast.error(err.message || 'Gagal merapikan Google Drive', { id: toastId });
+    } finally {
+      setIsTidyingDrive(false);
+    }
+  };
+
   // ==========================================
   // VIEW 1: PIN LOCK SCREEN
   // ==========================================
@@ -972,6 +996,15 @@ export default function ClassSubmissionsManager({
 
           {/* Quick Actions */}
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              onClick={handleTidyDrive}
+              disabled={isTidyingDrive}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+              title="Sinkronkan & rapikan Google Drive: buat folder tugas yang belum ada dan tata berkas ke folder masing-masing"
+            >
+              <FolderKanban size={14} className={isTidyingDrive ? 'animate-spin' : ''} />
+              <span>{isTidyingDrive ? 'Merapikan Drive...' : '📁 Rapikan Drive'}</span>
+            </button>
             <button
               onClick={() => handleOpenManualModal()}
               className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"

@@ -38,7 +38,7 @@ import {
   Link as LinkIcon
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId } from '../utils/driveUpload';
+import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId, ensureDriveTaskFolder } from '../utils/driveUpload';
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
@@ -938,6 +938,13 @@ export default function ClassTasks({
         attachments: taskAttachments,
         sendEmailNotification
       });
+
+      // Automatically create dedicated Google Drive folder for this new task
+      const newTitle = taskTitle.trim();
+      ensureDriveTaskFolder(newTitle, currentClass?.name || 'M.Log B').catch(err => {
+        console.warn('Auto-create Drive folder warning:', err);
+      });
+
       toast.success(
         sendEmailNotification 
           ? 'Tugas baru berhasil dipublikasikan & notifikasi email dikirim!' 
@@ -1108,6 +1115,11 @@ export default function ClassTasks({
       }
 
       setEditingTask(null);
+      if (editTitle.trim() && editTitle.trim() !== editingTask?.title) {
+        ensureDriveTaskFolder(editTitle.trim(), currentClass?.name || 'M.Log B').catch(err => {
+          console.warn('Auto-create Drive folder on edit warning:', err);
+        });
+      }
       toast.success('Perubahan tugas berhasil disimpan!');
     } catch (err) {
       toast.error(err.message || 'Gagal memperbarui tugas');
