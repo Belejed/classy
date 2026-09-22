@@ -217,6 +217,66 @@ export default async function handler(req, res) {
       }
     }
 
+    // 5. Scan subfolders for duplicate files and move older versions to Trash folder
+    let trashFolderId = null;
+    let deduplicatedCount = 0;
+
+    for (const [_, subfolderId] of folderMap.entries()) {
+      let pageToken = null;
+      const subFiles = [];
+
+      do {
+        const subFilesRes = await drive.files.list({
+          q: `'${subfolderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
+          fields: 'nextPageToken, files(id, name, createdTime)',
+          pageSize: 100,
+          pageToken,
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true
+        });
+        subFiles.push(...(subFilesRes.data.files || []));
+        pageToken = subFilesRes.data.nextPageToken;
+      } while (pageToken);
+
+      // Group by normalized filename
+      const nameGroups = new Map();
+      for (const sf of subFiles) {
+        const key = sf.name.toLowerCase().trim();
+        if (!nameGroups.has(key)) {
+          nameGroups.set(key, []);
+        }
+        nameGroups.get(key).push(sf);
+      }
+
+      for (const [_, list] of nameGroups.entries()) {
+        if (list.length > 1) {
+          // Sort oldest to newest
+          list.sort((a, b) => new Date(a.createdTime) - new Date(b.createdTime));
+
+          // Ensure trashFolderId exists
+          if (!trashFolderId) {
+            trashFolderId = await getOrCreateDriveFolder(drive, 'Trash', ROOT_FOLDER_ID);
+          }
+
+          // Keep the newest (last in list), move all older copies to Trash
+          const olderCopies = list.slice(0, list.length - 1);
+          for (const oldFile of olderCopies) {
+            try {
+              await drive.files.update({
+                fileId: oldFile.id,
+                addParents: trashFolderId,
+                removeParents: subfolderId,
+                supportsAllDrives: true
+              });
+              deduplicatedCount++;
+            } catch (dedupeErr) {
+              console.warn(`Failed to move duplicate ${oldFile.id} to Trash:`, dedupeErr.message);
+            }
+          }
+        }
+      }
+    }
+
     return res.status(200).json({
       success: true,
       workspace: targetWorkspace,
@@ -225,8 +285,9 @@ export default async function handler(req, res) {
       createdFolders,
       looseFilesFound: looseFiles.length,
       movedFilesCount: movedCount,
+      deduplicatedCount,
       totalFolders: folderMap.size,
-      message: `Google Drive "${targetWorkspace}" rapi! ${createdFolders.length} folder baru dibuat, ${movedCount} berkas tertata.`
+      message: `Google Drive "${targetWorkspace}" rapi! ${createdFolders.length} folder baru dibuat, ${movedCount} berkas tertata${deduplicatedCount > 0 ? `, ${deduplicatedCount} berkas duplikat lama dipindahkan ke Trash` : ''}.`
     });
   } catch (error) {
     console.error('tidy-drive error:', error);
