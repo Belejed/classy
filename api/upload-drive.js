@@ -108,7 +108,7 @@ export default async function handler(req, res) {
   try {
     const { fileName, mimeType, fileData, folderName, workspaceName, resolveOnly, folderId, moveOnly, fileId } = req.body || {};
 
-    const targetWorkspace = (workspaceName || '').trim() || 'Umum';
+    const targetWorkspace = (workspaceName && workspaceName !== 'Umum' ? workspaceName : '').trim() || 'M.Log B';
     const targetSubfolder = (folderName || '').trim() || 'Materi Kuliah';
 
     let resolvedFolderId = folderId || null;
@@ -134,9 +134,16 @@ export default async function handler(req, res) {
     }
 
     // Move an existing file into the target subfolder (used post direct-script upload)
-    if (moveOnly && fileId && resolvedFolderId) {
+    if (moveOnly && fileId) {
       try {
         const drive = getDriveClient();
+        if (!resolvedFolderId) {
+          const workspaceFolderId = await getOrCreateDriveFolder(drive, targetWorkspace, ROOT_FOLDER_ID);
+          resolvedFolderId = await getOrCreateDriveFolder(drive, targetSubfolder, workspaceFolderId);
+        }
+        if (!resolvedFolderId) {
+          return res.status(400).json({ error: 'Could not resolve destination folder' });
+        }
         const fileInfo = await drive.files.get({
           fileId,
           fields: 'id, parents',

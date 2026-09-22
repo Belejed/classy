@@ -1176,7 +1176,7 @@ export default function ClassTasks({
           file: currentFile,
           name: currentName,
           folderName: taskFolder,
-          workspaceName: currentClass?.name || taskObj?.course || 'M.Log B'
+          workspaceName: currentClass?.name || 'M.Log B'
         });
 
         const fileUrl = driveRes.webViewLink || driveRes.previewUrl;

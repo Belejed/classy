@@ -5,7 +5,7 @@ const DIRECT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwi3vHYbWBRva
 
 // Pre-mapped known folder IDs to ensure 100% placement inside M.Log B without stray root folders
 export const KNOWN_SUBFOLDER_IDS = {
-  // M.Log B Tasks
+  // M.Log B Tasks (Prefixed)
   'M.Log B:Tugas: Bussiness Value Mapping': '1onArmPNPMErsISDvv9RiQ43T35ahF7p5',
   'M.Log B:Tugas: Analisis Benchmarking Perusahaan': '16nT7DjMqLeJm9JYexVj5SncZbjWwNFxb',
   'M.Log B:Tugas: Penyusunan Paper': '1RLsG1Lr3mwDyD8Tpp-8czlsuHNVCToEo',
@@ -22,11 +22,34 @@ export const KNOWN_SUBFOLDER_IDS = {
   'M.Log B:Tugas: bikin ringkasan dipresentasiin materi etika pancasila': '1RBl3dCXOl0tuveD47NjMoQiW3IudKOUb',
   'M.Log B:Tugas: Hafalan Butir Butir Pancasila': '1gYlqJxGGESg8DjHRCx8EPhX9lI5ffMLM',
   'M.Log B:Tugas: Tugas Kelompok Video Pancasila': '1QtQTf0jgT4-n9H_b2lTKc6Vb8w73dhuZ',
+  'M.Log B:Tugas: Tugas 2 Soal MTK': '1lzSdxx0ujSG8uvMQoUN-Q4X4ldQpD75A',
+
+  // Direct Task Folder Names (Safe against any workspaceName variations)
+  'Tugas: Bussiness Value Mapping': '1onArmPNPMErsISDvv9RiQ43T35ahF7p5',
+  'Tugas: Analisis Benchmarking Perusahaan': '16nT7DjMqLeJm9JYexVj5SncZbjWwNFxb',
+  'Tugas: Penyusunan Paper': '1RLsG1Lr3mwDyD8Tpp-8czlsuHNVCToEo',
+  'Tugas: Tugas Individu': '1vNmsOTYef1vEYCUmpQwwj_gqeKDwkKIn',
+  'Tugas: PPT Permasalahan Transportasi': '1m-EgXYUjhaLdlJDKG4s2d_u2kt4YGoro',
+  'Tugas: Makalah Riset 2 Halaman': '1goE6yRZfOW0adgVsG9VKQSYKLrfBNlwb',
+  'Tugas: Pancasila sebagai dasar hukum': '1LiUlXCfnM4_gRp076FDs_JNceFoDL0-v',
+  'Tugas: Laporan tertulis  Innovation Case Analysis': '1_Wm0wbOoqh_rOdozETjfRBMwlw5lfNOr',
+  'Tugas: Laporan tertulis Innovation Case Analysis': '1_Wm0wbOoqh_rOdozETjfRBMwlw5lfNOr',
+  'Tugas: quiz individu': '13dKKw8ZCcXy-B3NjDgCQevqWmjgi9rP9',
+  'Tugas: Tugas Individu Transportasi': '1IjCeuJ1ViiLyJ0e_CheYcIp66_-z4J4V',
+  'Tugas: Buat PPT pilih judul dan 3 bab buku andrew mathews': '1COob9TDwFDOPKUGYPEhAPc71mHaN4ak3',
+  'Tugas: tugas kelompok paper makalah ppt soal pancasila': '1mrRPYRoJFbAFx9DHdeC_qu6_TROrLCz_',
+  'Tugas: bikin ringkasan dipresentasiin materi etika pancasila': '1RBl3dCXOl0tuveD47NjMoQiW3IudKOUb',
+  'Tugas: Hafalan Butir Butir Pancasila': '1gYlqJxGGESg8DjHRCx8EPhX9lI5ffMLM',
+  'Tugas: Tugas Kelompok Video Pancasila': '1QtQTf0jgT4-n9H_b2lTKc6Vb8w73dhuZ',
+  'Tugas: Tugas 2 Soal MTK': '1lzSdxx0ujSG8uvMQoUN-Q4X4ldQpD75A',
 
   // M.Log B General Folders
   'M.Log B:Pedoman': '14qmi8TBJSFnWdXEGxDTSurRHQp1JJmIF',
   'M.Log B:Lampiran Pengumuman': '1MVMWi8D1BwFuOdNMGlI3nKRorrQa4S_C',
   'M.Log B:Materi Kuliah': '1oedY2DbXYwQIC5S6XahXNoEvAtFaGJIz',
+  'Pedoman': '14qmi8TBJSFnWdXEGxDTSurRHQp1JJmIF',
+  'Lampiran Pengumuman': '1MVMWi8D1BwFuOdNMGlI3nKRorrQa4S_C',
+  'Materi Kuliah': '1oedY2DbXYwQIC5S6XahXNoEvAtFaGJIz',
 
   // Workspaces
   'M.Log B': '1cflGkvF46agbdU_hWwHXPdc1iCmniWgF',
@@ -40,7 +63,7 @@ const folderCache = new Map();
  * using lightweight metadata call without transmitting large file payloads
  */
 export async function resolveDriveFolderId(workspaceName, folderName) {
-  const targetWorkspace = (workspaceName || '').trim() || 'M.Log B';
+  const targetWorkspace = (workspaceName && workspaceName !== 'Umum' ? workspaceName : '').trim() || 'M.Log B';
   const targetFolder = (folderName || '').trim() || 'Materi Kuliah';
   const directKey = `${targetWorkspace}:${targetFolder}`;
 
@@ -48,10 +71,28 @@ export async function resolveDriveFolderId(workspaceName, folderName) {
     return KNOWN_SUBFOLDER_IDS[directKey];
   }
 
-  // Also check without double space if any
+  // 1. Direct folder lookup without workspace prefix
+  if (KNOWN_SUBFOLDER_IDS[targetFolder]) {
+    return KNOWN_SUBFOLDER_IDS[targetFolder];
+  }
+
+  // 2. Also check without double space
   const normalizedKey = `${targetWorkspace}:${targetFolder.replace(/\s+/g, ' ')}`;
   if (KNOWN_SUBFOLDER_IDS[normalizedKey]) {
     return KNOWN_SUBFOLDER_IDS[normalizedKey];
+  }
+
+  // 3. Normalized fuzzy keyword check across all known IDs
+  const cleanTarget = targetFolder.toLowerCase().replace(/^(tugas:\s*)/i, '').replace(/[_\-\s]+/g, ' ').trim();
+  for (const [key, id] of Object.entries(KNOWN_SUBFOLDER_IDS)) {
+    const cleanKey = (key.includes(':') ? key.split(':').slice(1).join(':') : key)
+      .toLowerCase()
+      .replace(/^(tugas:\s*)/i, '')
+      .replace(/[_\-\s]+/g, ' ')
+      .trim();
+    if (cleanKey && cleanTarget && (cleanKey === cleanTarget || cleanTarget.includes(cleanKey) || cleanKey.includes(cleanTarget))) {
+      return id;
+    }
   }
 
   const cacheKey = `fld_${targetWorkspace}_${targetFolder}`;
@@ -152,7 +193,7 @@ export async function uploadToGoogleDrive({ file, name, folderName, workspaceNam
   const fileName = name || file.name;
   const mimeType = file.type || 'application/octet-stream';
   const targetFolder = folderName || 'Materi Kuliah';
-  const targetWorkspace = (workspaceName || '').trim() || 'Umum';
+  const targetWorkspace = (workspaceName && workspaceName !== 'Umum' ? workspaceName : '').trim() || 'M.Log B';
 
   // Pre-resolve nested folder ID to guarantee placement in Workspace > Subfolder
   const resolvedFolderId = await resolveDriveFolderId(targetWorkspace, targetFolder);
@@ -219,7 +260,7 @@ export async function uploadToGoogleDrive({ file, name, folderName, workspaceNam
       body: JSON.stringify({
         moveOnly: true,
         fileId: directData.fileId,
-        folderId: resolvedFolderId,
+        folderId: resolvedFolderId || directData.folderId,
         workspaceName: targetWorkspace,
         folderName: targetFolder
       })

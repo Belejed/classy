@@ -131,6 +131,27 @@ export default function ClassSubmissionsManager({
     }
   }, [isUnlocked]);
 
+  // Auto-tidy drive once per unlock session in the background
+  useEffect(() => {
+    if (isUnlocked && classId) {
+      const tidyKey = `last_tidy_${classId}`;
+      const lastTidy = sessionStorage.getItem(tidyKey);
+      const now = Date.now();
+      if (!lastTidy || (now - Number(lastTidy)) > 300000) { // 5 minutes throttle
+        sessionStorage.setItem(tidyKey, String(now));
+        const taskTitles = (tasks || []).map(t => t.title).filter(Boolean);
+        tidyDriveWorkspace(currentClass?.name || 'M.Log B', taskTitles)
+          .then(res => {
+            if (res && res.movedFilesCount > 0) {
+              toast.success(`📁 Google Drive otomatis dirapikan: ${res.movedFilesCount} berkas tertata ke folder tugas!`, { icon: '✨' });
+              if (onRefreshData) onRefreshData();
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [isUnlocked, classId, tasks]);
+
   // Handle PIN Unlock Submission
   const handleUnlock = (e) => {
     if (e) e.preventDefault();
