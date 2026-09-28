@@ -362,7 +362,7 @@ export default function ClassMembers({
     const className = currentClass?.name || 'Kelas';
     const portalUrl = typeof window !== 'undefined' ? window.location.origin : 'https://classy.web.app';
 
-    return `Halo *${studentName}*!\n\nPengurus kelas *${className}* telah mengirimkan *tautan perubahan kata sandi (reset password)* ke alamat email kamu:\n📧 *${email}*\n\nSilakan buka kotak masuk email kamu (atau periksa folder Spam jika belum masuk), lalu buka tautan untuk membuat kata sandi baru.\n\nSetelah berhasil mengganti sandi, kamu bisa langsung login ke portal kelas di:\n🔗 ${portalUrl}\n\nTerima kasih! 🙏`;
+    return `Halo *${studentName}*!\n\nPengurus kelas *${className}* telah mengirimkan *tautan perubahan kata sandi (reset password)* ke alamat email kamu:\n📧 *${email}*\n\n⚠️ *Penting*: Email dikirim dari *noreply@noted-7deda.firebaseapp.com*. Jika tidak ada di Kotak Masuk (Inbox), silakan periksa folder *Spam / Sampah* atau cari kata *noted-7deda* di aplikasi Gmail kamu.\n\nSetelah berhasil mengganti sandi, kamu bisa langsung login ke portal kelas di:\n🔗 ${portalUrl}\n\nTerima kasih! 🙏`;
   };
 
   const handleSendResetPassword = async () => {

@@ -83,14 +83,15 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
 
   const handleSendResetEmail = async (e) => {
     if (e) e.preventDefault();
-    if (!email.trim()) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
       toast.error('Masukkan alamat email terdaftar');
       return;
     }
 
     setLoading(true);
     try {
-      await authService.resetPassword(email.trim());
+      await authService.resetPassword(cleanEmail);
       toast.success('Tautan reset password berhasil dikirim!');
       setMode('reset_sent');
     } catch (err) {
@@ -457,6 +458,9 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       autoFocus
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck="false"
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#CBD5E1] text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0F172A] transition-colors"
                     />
                   </div>
@@ -490,7 +494,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
 
           {/* VIEW 4: RESET LINK SENT CONFIRMATION */}
           {mode === 'reset_sent' && (
-            <div className="space-y-5 text-center">
+            <div className="space-y-4 text-center">
               <div className="w-14 h-14 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto shadow-2xs">
                 <CheckCircle2 size={28} />
               </div>
@@ -500,15 +504,27 @@ export default function Auth({ onAuthSuccess, initialMode = 'login' }) {
                   Tautan Telah Dikirim!
                 </h2>
                 <p className="text-xs text-[#64748B] leading-relaxed max-w-sm mx-auto">
-                  Instruksi reset password telah dikirim ke <strong className="text-[#0F172A] font-mono">{email}</strong>. Silakan periksa kotak masuk (inbox) atau folder Spam Anda.
+                  Instruksi reset password telah dikirim ke <strong className="text-[#0F172A] font-mono">{email}</strong>.
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] text-[11px] text-[#475569] text-left space-y-1">
-                <p className="font-semibold text-[#0F172A]">Petunjuk:</p>
-                <p>1. Buka email reset password yang dikirimkan oleh Classy.</p>
-                <p>2. Klik tautan <strong>Reset Password</strong> di dalam email.</p>
-                <p>3. Anda akan diarahkan ke halaman pembuatan password baru.</p>
+              <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-[11px] text-amber-900 text-left space-y-1.5">
+                <p className="font-bold flex items-center gap-1.5 text-amber-800">
+                  <span>⚠️</span> Wajib Cek Folder SPAM / JUNK / PROMOSI:
+                </p>
+                <p className="leading-relaxed">
+                  Email dikirim oleh sistem Google dengan pengirim <strong>noreply@noted-7deda.firebaseapp.com</strong>.
+                </p>
+                <p className="leading-relaxed">
+                  Jika tidak ada di Inbox utama, buka folder <strong>Spam / Junk</strong> atau ketik <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[10px]">in:spam noted-7deda</code> di pencarian Gmail Anda.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] text-[11px] text-[#475569] text-left space-y-1">
+                <p className="font-semibold text-[#0F172A]">Langkah Selanjutnya:</p>
+                <p>1. Buka email dari <strong>noreply@noted-7deda.firebaseapp.com</strong>.</p>
+                <p>2. Klik link reset password di dalam email tersebut.</p>
+                <p>3. Buat password baru Anda dan login kembali.</p>
               </div>
 
               <div className="space-y-2 pt-2">

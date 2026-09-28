@@ -575,7 +575,7 @@ export const authService = {
   },
 
   resetPassword: async (email) => {
-    const cleanEmail = String(email || '').trim();
+    const cleanEmail = String(email || '').trim().toLowerCase();
     if (!cleanEmail) throw new Error('Alamat email wajib diisi.');
 
     try {
