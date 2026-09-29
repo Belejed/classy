@@ -576,20 +576,22 @@ export default function App() {
     const existingSub = currentTask?.submissions?.find(s => s.userId === submissionData.userId || s.groupMembers?.some(m => m.userId === submissionData.userId));
     
     if (existingSub) {
-      const oldUrls = [
-        ...(existingSub.files?.map(f => f.url) || []),
+      const oldItems = [
+        ...(existingSub.files?.map(f => f.fileId || f.url) || []),
+        existingSub.fileId,
         existingSub.fileUrl
       ].filter(Boolean);
 
-      const newUrls = new Set([
-        ...(submissionData.files?.map(f => f.url) || []),
+      const newItems = new Set([
+        ...(submissionData.files?.map(f => f.fileId || f.url) || []),
+        submissionData.fileId,
         submissionData.fileUrl
       ].filter(Boolean));
 
-      const urlsToTrash = oldUrls.filter(u => !newUrls.has(u));
-      if (urlsToTrash.length > 0) {
+      const itemsToTrash = oldItems.filter(u => !newItems.has(u));
+      if (itemsToTrash.length > 0) {
         try {
-          await moveFilesToDriveTrash(urlsToTrash);
+          await moveFilesToDriveTrash(itemsToTrash);
         } catch (trashErr) {
           console.warn('Gagal memindahkan berkas tugas lama ke folder Trash di Drive:', trashErr);
         }

@@ -70,6 +70,80 @@ async function getOrCreateDriveFolder(drive, name, parentId) {
   return id;
 }
 
+const TRASH_FOLDER_NAME = 'Trash';
+let cachedTrashFolderId = null;
+
+async function getOrCreateTrashFolder(drive) {
+  if (cachedTrashFolderId) {
+    try {
+      const check = await drive.files.get({
+        fileId: cachedTrashFolderId,
+        fields: 'id, trashed',
+        supportsAllDrives: true
+      });
+      if (check.data && !check.data.trashed) return cachedTrashFolderId;
+    } catch {
+      cachedTrashFolderId = null;
+    }
+  }
+
+  const q = `mimeType = 'application/vnd.google-apps.folder' and name = '${TRASH_FOLDER_NAME}' and '${ROOT_FOLDER_ID}' in parents and trashed = false`;
+  const res = await drive.files.list({
+    q,
+    fields: 'files(id, name)',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true
+  });
+
+  if (res.data.files && res.data.files.length > 0) {
+    cachedTrashFolderId = res.data.files[0].id;
+    return cachedTrashFolderId;
+  }
+
+  const created = await drive.files.create({
+    requestBody: {
+      name: TRASH_FOLDER_NAME,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [ROOT_FOLDER_ID]
+    },
+    fields: 'id, name',
+    supportsAllDrives: true
+  });
+
+  cachedTrashFolderId = created.data.id;
+  return cachedTrashFolderId;
+}
+
+async function deduplicateFolder(drive, targetFolderId, fileName, newFileId) {
+  if (!targetFolderId || !fileName) return;
+  try {
+    const safeName = fileName.replace(/'/g, "\\'");
+    const q = `'${targetFolderId}' in parents and name = '${safeName}' and trashed = false`;
+    const res = await drive.files.list({
+      q,
+      fields: 'files(id, name, parents)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+
+    const dupes = (res.data.files || []).filter(f => f.id !== newFileId);
+    if (dupes.length > 0) {
+      const trashFolderId = await getOrCreateTrashFolder(drive);
+      for (const dup of dupes) {
+        const parents = (dup.parents || []).join(',');
+        await drive.files.update({
+          fileId: dup.id,
+          addParents: trashFolderId,
+          removeParents: parents || targetFolderId,
+          supportsAllDrives: true
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('deduplicateFolder warning:', err.message);
+  }
+}
+
 export default async function handler(req, res) {
   // Enable CORS
   const origin = req.headers.origin;
@@ -159,6 +233,9 @@ export default async function handler(req, res) {
             supportsAllDrives: true
           });
         }
+        // Deduplicate: auto-trash older files with the exact same name in this folder
+        await deduplicateFolder(drive, resolvedFolderId, fileInfo.data.name || fileName, fileId);
+
         return res.status(200).json({
           success: true,
           fileId,
@@ -208,7 +285,7 @@ export default async function handler(req, res) {
         const drive = getDriveClient();
         const fileInfo = await drive.files.get({
           fileId: scriptData.fileId,
-          fields: 'id, parents',
+          fields: 'id, parents, name',
           supportsAllDrives: true
         });
 
@@ -222,6 +299,8 @@ export default async function handler(req, res) {
             supportsAllDrives: true
           });
         }
+        // Deduplicate: auto-trash older files with the exact same name in this folder
+        await deduplicateFolder(drive, resolvedFolderId, scriptData.fileName || fileName, scriptData.fileId);
       } catch (moveErr) {
         console.warn('Could not move file to resolved workspace subfolder:', moveErr.message);
       }

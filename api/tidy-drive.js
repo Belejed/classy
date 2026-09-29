@@ -56,6 +56,50 @@ async function getOrCreateDriveFolder(drive, name, parentId) {
   return created.data.id;
 }
 
+const TRASH_FOLDER_NAME = 'Trash';
+let cachedTrashFolderId = null;
+
+async function getOrCreateTrashFolder(drive) {
+  if (cachedTrashFolderId) {
+    try {
+      const check = await drive.files.get({
+        fileId: cachedTrashFolderId,
+        fields: 'id, trashed',
+        supportsAllDrives: true
+      });
+      if (check.data && !check.data.trashed) return cachedTrashFolderId;
+    } catch {
+      cachedTrashFolderId = null;
+    }
+  }
+
+  const q = `mimeType = 'application/vnd.google-apps.folder' and name = '${TRASH_FOLDER_NAME}' and '${ROOT_FOLDER_ID}' in parents and trashed = false`;
+  const res = await drive.files.list({
+    q,
+    fields: 'files(id, name)',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true
+  });
+
+  if (res.data.files && res.data.files.length > 0) {
+    cachedTrashFolderId = res.data.files[0].id;
+    return cachedTrashFolderId;
+  }
+
+  const created = await drive.files.create({
+    requestBody: {
+      name: TRASH_FOLDER_NAME,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [ROOT_FOLDER_ID]
+    },
+    fields: 'id, name',
+    supportsAllDrives: true
+  });
+
+  cachedTrashFolderId = created.data.id;
+  return cachedTrashFolderId;
+}
+
 export default async function handler(req, res) {
   // CORS configuration
   const origin = req.headers.origin;
@@ -225,6 +269,47 @@ export default async function handler(req, res) {
       }
     }
 
+    // 5. Scan all subfolders for duplicate filenames and move older copies to Trash
+    let duplicatesCleaned = 0;
+    try {
+      const trashFolderId = await getOrCreateTrashFolder(drive);
+      for (const [_, subfolderId] of folderMap.entries()) {
+        const subFilesRes = await drive.files.list({
+          q: `'${subfolderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
+          fields: 'files(id, name, createdTime, parents)',
+          pageSize: 100,
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true
+        });
+
+        const byName = {};
+        for (const f of (subFilesRes.data.files || [])) {
+          if (!byName[f.name]) byName[f.name] = [];
+          byName[f.name].push(f);
+        }
+
+        for (const [name, list] of Object.entries(byName)) {
+          if (list.length > 1) {
+            // Sort ascending by creation time so latest is kept
+            list.sort((a, b) => new Date(a.createdTime) - new Date(b.createdTime));
+            const olderCopies = list.slice(0, list.length - 1);
+            for (const oldFile of olderCopies) {
+              const currentParents = (oldFile.parents || []).join(',');
+              await drive.files.update({
+                fileId: oldFile.id,
+                addParents: trashFolderId,
+                removeParents: currentParents || subfolderId,
+                supportsAllDrives: true
+              });
+              duplicatesCleaned++;
+            }
+          }
+        }
+      }
+    } catch (dupCleanErr) {
+      console.warn('Tidy subfolder duplicate cleanup error:', dupCleanErr.message);
+    }
+
     return res.status(200).json({
       success: true,
       workspace: targetWorkspace,
@@ -233,8 +318,9 @@ export default async function handler(req, res) {
       createdFolders,
       looseFilesFound: looseFiles.length,
       movedFilesCount: movedCount,
+      duplicatesCleaned,
       totalFolders: folderMap.size,
-      message: `Google Drive "${targetWorkspace}" rapi! ${createdFolders.length} folder baru dibuat, ${movedCount} berkas tertata.`
+      message: `Google Drive "${targetWorkspace}" rapi! ${createdFolders.length} folder dibuat, ${movedCount} berkas tertata, ${duplicatesCleaned} duplikat dibersihkan.`
     });
   } catch (error) {
     console.error('tidy-drive error:', error);

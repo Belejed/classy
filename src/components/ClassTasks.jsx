@@ -1554,6 +1554,15 @@ export default function ClassTasks({
   const handleSubmitStagedFiles = () => {
     if (!selectedTask || stagedSubmissionFiles.length === 0) return;
 
+    // Prevent duplicate concurrent uploads for the same task
+    const isAlreadyUploading = backgroundUploads.some(
+      u => u.taskId === selectedTask.id && u.status === 'uploading'
+    );
+    if (isAlreadyUploading) {
+      toast.error('Berkas tugas ini sedang dalam proses pengunggahan ke Google Drive. Mohon tunggu...');
+      return;
+    }
+
     const isGroupTask = selectedTask.submissionType === 'group';
     const isGroupSubmission = isGroupTask || selectedGroupMemberIds.length > 0;
     const taskToSubmit = selectedTask;
@@ -2937,10 +2946,15 @@ export default function ClassTasks({
                                   <button
                                     type="button"
                                     onClick={handleSubmitStagedFiles}
-                                    className="ml-auto px-3.5 py-1.5 rounded-lg bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer"
+                                    disabled={backgroundUploads.some(u => u.taskId === selectedTask?.id && u.status === 'uploading')}
+                                    className="ml-auto px-3.5 py-1.5 rounded-lg bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     <Upload size={11} />
-                                    <span>Kumpulkan via Drive</span>
+                                    <span>
+                                      {backgroundUploads.some(u => u.taskId === selectedTask?.id && u.status === 'uploading') 
+                                        ? 'Sedang Mengunggah...' 
+                                        : 'Kumpulkan via Drive'}
+                                    </span>
                                   </button>
                                 </div>
                               </div>
@@ -3229,13 +3243,16 @@ export default function ClassTasks({
                               <button
                                 type="button"
                                 onClick={handleSubmitStagedFiles}
-                                className="w-full sm:flex-1 px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer min-h-[42px]"
+                                disabled={backgroundUploads.some(u => u.taskId === selectedTask?.id && u.status === 'uploading')}
+                                className="w-full sm:flex-1 px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer min-h-[42px] disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Upload size={14} />
                                 <span>
-                                  {isGroupTask 
-                                    ? `Kumpulkan Tugas Kelompok (${stagedSubmissionFiles.length} Berkas)` 
-                                    : `Kumpulkan Tugas (${stagedSubmissionFiles.length} Berkas)`}
+                                  {backgroundUploads.some(u => u.taskId === selectedTask?.id && u.status === 'uploading')
+                                    ? 'Sedang Mengunggah...'
+                                    : (isGroupTask 
+                                        ? `Kumpulkan Tugas Kelompok (${stagedSubmissionFiles.length} Berkas)` 
+                                        : `Kumpulkan Tugas (${stagedSubmissionFiles.length} Berkas)`)}
                                 </span>
                               </button>
                             </div>
