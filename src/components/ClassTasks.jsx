@@ -38,7 +38,7 @@ import {
   Link as LinkIcon
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId, ensureDriveTaskFolder } from '../utils/driveUpload';
+import { uploadToGoogleDrive, checkDriveFiles, extractDriveFileId, ensureDriveTaskFolder, tidyDriveWorkspace } from '../utils/driveUpload';
 import ModalPortal from './ModalPortal';
 import ConfirmModal from './ConfirmModal';
 import EmptyState from './EmptyState';
@@ -265,6 +265,39 @@ export default function ClassTasks({
   const [managerTab, setManagerTab] = useState('unsubmitted'); // 'unsubmitted' | 'submitted'
   const [sendEmailNotification, setSendEmailNotification] = useState(true);
   const [isSendingDeadlineEmail, setIsSendingDeadlineEmail] = useState(false);
+  const [isTidyingDrive, setIsTidyingDrive] = useState(false);
+
+  // Tidy up Google Drive: organize stray files, ensure folders exist, and clean up duplicate submissions
+  const handleTidyDrive = async () => {
+    setIsTidyingDrive(true);
+    const toastId = toast.loading('Sedang merapikan Google Drive & memeriksa berkas duplikat...', { duration: 60000 });
+    try {
+      const taskTitles = (tasks || []).map(t => t.title).filter(Boolean);
+      const res = await tidyDriveWorkspace(currentClass?.name || 'M.Log B', taskTitles);
+      
+      const moved = res.movedFilesCount || 0;
+      const dupes = res.duplicatesCleaned || 0;
+      const folders = res.createdFoldersCount || 0;
+      
+      let msg = 'Google Drive rapi!';
+      if (dupes > 0 && moved > 0) {
+        msg = `Drive berhasil dirapikan! ${dupes} berkas duplikat dibersihkan ke Trash, ${moved} berkas tercecer ditata.`;
+      } else if (dupes > 0) {
+        msg = `Drive bersih! ${dupes} berkas duplikat berhasil dipindahkan ke Trash.`;
+      } else if (moved > 0) {
+        msg = `Drive rapi! ${moved} berkas tercecer berhasil dipindahkan ke foldernya.`;
+      } else {
+        msg = 'Google Drive sudah 100% rapi dan tidak ada berkas duplikat!';
+      }
+
+      toast.success(msg, { id: toastId, duration: 6000, icon: '✨' });
+    } catch (err) {
+      console.error('Failed to tidy drive:', err);
+      toast.error(err.message || 'Gagal merapikan Google Drive', { id: toastId });
+    } finally {
+      setIsTidyingDrive(false);
+    }
+  };
 
   // Send 1-on-1 task deadline reminder email to all unsubmitted students
   const handleSendTaskDeadlineEmail = async (task, unsubmittedList = []) => {
@@ -1775,17 +1808,30 @@ export default function ClassTasks({
         </div>
 
         {isManager && (
-          <button
-            onClick={() => {
-              setIsCustomCourse(false);
-              setTaskCourse(availableCourses.length > 0 ? availableCourses[0] : (currentClass?.name || ''));
-              setShowCreateModal(true);
-            }}
-            className="w-full sm:w-auto justify-center flex items-center gap-1.5 px-4 py-2.5 sm:py-1.5 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[40px]"
-          >
-            <Plus size={14} />
-            <span>Tambah Tugas Baru</span>
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={handleTidyDrive}
+              disabled={isTidyingDrive}
+              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 px-3.5 py-2.5 sm:py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition-all shrink-0 cursor-pointer min-h-[40px] disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Periksa berkas duplikat dan rapikan folder tugas di Google Drive"
+            >
+              <Sparkles size={14} className={isTidyingDrive ? 'animate-spin text-amber-500' : 'text-amber-500'} />
+              <span>{isTidyingDrive ? 'Merapikan...' : 'Rapikan & Cek Drive'}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setIsCustomCourse(false);
+                setTaskCourse(availableCourses.length > 0 ? availableCourses[0] : (currentClass?.name || ''));
+                setShowCreateModal(true);
+              }}
+              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 px-4 py-2.5 sm:py-2 rounded-xl bg-[#0F172A] text-white text-xs font-semibold hover:bg-[#1E293B] shadow-2xs transition-colors shrink-0 cursor-pointer min-h-[40px]"
+            >
+              <Plus size={14} />
+              <span>Tambah Tugas Baru</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -3729,30 +3775,43 @@ export default function ClassTasks({
                       </button>
                     </div>
 
-                    {/* Send Email Reminder & Copy List WhatsApp Buttons */}
-                    {hasUnsubmitted && (
-                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
-                        <button
-                          type="button"
-                          onClick={() => handleSendTaskDeadlineEmail(selectedTask, status.unsubmittedList)}
-                          disabled={isSendingDeadlineEmail}
-                          className="flex-1 sm:flex-initial text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px] disabled:opacity-50"
-                          title="Kirim email pengingat tenggat tugas otomatis ke mahasiswa yang belum mengumpulkan"
-                        >
-                          <Mail size={13} className="text-rose-600" />
-                          <span>{isSendingDeadlineEmail ? 'Mengirim...' : 'Kirim Pengingat Email'}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyUnsubmittedList(selectedTask, status.unsubmittedList)}
-                          className="flex-1 sm:flex-initial text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px]"
-                          title="Salin rekap nama yang belum kirim untuk dibagikan ke WhatsApp grup"
-                        >
-                          <Copy size={13} className="text-slate-500" />
-                          <span>Salin List WA</span>
-                        </button>
-                      </div>
-                    )}
+                    {/* Manager Quick Action Buttons */}
+                    <div className="flex items-center gap-1.5 w-full sm:w-auto flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleTidyDrive}
+                        disabled={isTidyingDrive}
+                        className="flex-1 sm:flex-initial text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px] disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Periksa berkas duplikat dan rapikan folder Drive tugas ini"
+                      >
+                        <Sparkles size={13} className={isTidyingDrive ? 'animate-spin text-amber-500' : 'text-amber-500'} />
+                        <span>{isTidyingDrive ? 'Merapikan...' : 'Cek Duplikat Drive'}</span>
+                      </button>
+
+                      {hasUnsubmitted && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleSendTaskDeadlineEmail(selectedTask, status.unsubmittedList)}
+                            disabled={isSendingDeadlineEmail}
+                            className="flex-1 sm:flex-initial text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px] disabled:opacity-50"
+                            title="Kirim email pengingat tenggat tugas otomatis ke mahasiswa yang belum mengumpulkan"
+                          >
+                            <Mail size={13} className="text-rose-600" />
+                            <span>{isSendingDeadlineEmail ? 'Mengirim...' : 'Kirim Pengingat Email'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyUnsubmittedList(selectedTask, status.unsubmittedList)}
+                            className="flex-1 sm:flex-initial text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px]"
+                            title="Salin rekap nama yang belum kirim untuk dibagikan ke WhatsApp grup"
+                          >
+                            <Copy size={13} className="text-slate-500" />
+                            <span>Salin List WA</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   {/* Tab 1: Unsubmitted Students List */}
