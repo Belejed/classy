@@ -1018,15 +1018,6 @@ export default function ClassSubmissionsManager({
           {/* Quick Actions */}
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
             <button
-              onClick={handleTidyDrive}
-              disabled={isTidyingDrive}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-              title="Sinkronkan & rapikan Google Drive: buat folder tugas yang belum ada dan tata berkas ke folder masing-masing"
-            >
-              <FolderKanban size={14} className={isTidyingDrive ? 'animate-spin' : ''} />
-              <span>{isTidyingDrive ? 'Merapikan Drive...' : '📁 Rapikan Drive'}</span>
-            </button>
-            <button
               onClick={() => handleOpenManualModal()}
               className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
               title="Tandai mahasiswa yang sudah mengumpulkan tugas secara manual/offline tanpa upload berkas"

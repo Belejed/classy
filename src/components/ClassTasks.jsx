@@ -1831,17 +1831,6 @@ export default function ClassTasks({
         {isManager && (
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
-              type="button"
-              onClick={handleTidyDrive}
-              disabled={isTidyingDrive}
-              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 px-3.5 py-2.5 sm:py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition-all shrink-0 cursor-pointer min-h-[40px] disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Periksa berkas duplikat dan rapikan folder tugas di Google Drive"
-            >
-              <Sparkles size={14} className={isTidyingDrive ? 'animate-spin text-amber-500' : 'text-amber-500'} />
-              <span>{isTidyingDrive ? 'Merapikan...' : 'Rapikan & Cek Drive'}</span>
-            </button>
-
-            <button
               onClick={() => {
                 setIsCustomCourse(false);
                 setTaskCourse(availableCourses.length > 0 ? availableCourses[0] : (currentClass?.name || ''));
@@ -3798,17 +3787,6 @@ export default function ClassTasks({
 
                     {/* Manager Quick Action Buttons */}
                     <div className="flex items-center gap-1.5 w-full sm:w-auto flex-wrap">
-                      <button
-                        type="button"
-                        onClick={handleTidyDrive}
-                        disabled={isTidyingDrive}
-                        className="flex-1 sm:flex-initial text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 sm:py-1.5 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0 min-h-[36px] disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Periksa berkas duplikat dan rapikan folder Drive tugas ini"
-                      >
-                        <Sparkles size={13} className={isTidyingDrive ? 'animate-spin text-amber-500' : 'text-amber-500'} />
-                        <span>{isTidyingDrive ? 'Merapikan...' : 'Cek Duplikat Drive'}</span>
-                      </button>
-
                       {hasUnsubmitted && (
                         <>
                           <button
