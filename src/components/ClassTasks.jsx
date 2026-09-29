@@ -1512,6 +1512,27 @@ export default function ClassTasks({
 
       await onSubmitAssignment(selectedTask.id, newSubData);
 
+      // Asynchronously create a Google Drive shortcut in the task folder if the URL is a Google Drive/Docs/Sheets/Slides link
+      const matchD = cleanUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      const matchId = cleanUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      const driveFileId = matchD ? matchD[1] : (matchId ? matchId[1] : null);
+
+      if (driveFileId) {
+        const taskFolder = `Tugas: ${selectedTask.title}`;
+        fetch('/api/upload-drive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            createShortcut: true,
+            targetUrl: cleanUrl,
+            fileId: driveFileId,
+            fileName: `${cleanTitle} (Google Docs Link)`,
+            folderName: taskFolder,
+            workspaceName: currentClass?.name || 'M.Log B'
+          })
+        }).catch(err => console.warn('Auto-create shortcut warning:', err));
+      }
+
       const newSubItem = {
         ...newSubData,
         submittedAt: new Date().toISOString()

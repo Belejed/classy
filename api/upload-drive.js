@@ -211,7 +211,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { fileName, mimeType, fileData, folderName, workspaceName, resolveOnly, folderId, moveOnly, fileId } = req.body || {};
+    const { fileName, mimeType, fileData, folderName, workspaceName, resolveOnly, folderId, moveOnly, fileId, createShortcut, targetUrl } = req.body || {};
 
     const targetWorkspace = (workspaceName && workspaceName !== 'Umum' ? workspaceName : '').trim() || 'M.Log B';
     const targetSubfolder = (folderName || '').trim() || 'Materi Kuliah';
@@ -236,6 +236,64 @@ export default async function handler(req, res) {
         success: true,
         folderId: resolvedFolderId
       });
+    }
+
+    // Create a Google Drive Shortcut inside folder for external Docs / Drive links
+    if (createShortcut && (targetUrl || fileId)) {
+      try {
+        const drive = getDriveClient();
+        if (!resolvedFolderId) {
+          const workspaceFolderId = await getOrCreateDriveFolder(drive, targetWorkspace, ROOT_FOLDER_ID);
+          resolvedFolderId = await getOrCreateDriveFolder(drive, targetSubfolder, workspaceFolderId);
+        }
+
+        const matchD = (targetUrl || '').match(/\/d\/([a-zA-Z0-9_-]+)/);
+        const matchId = (targetUrl || '').match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        const targetFileId = fileId || (matchD ? matchD[1] : (matchId ? matchId[1] : null));
+
+        if (targetFileId && resolvedFolderId) {
+          const shortcutName = fileName || 'Tautan Berkas Tugas (Shortcut)';
+          const safeShortcutName = shortcutName.replace(/'/g, "\\'");
+
+          // Deduplicate if shortcut with same name already exists in this folder
+          const checkRes = await drive.files.list({
+            q: `'${resolvedFolderId}' in parents and name = '${safeShortcutName}' and trashed = false`,
+            fields: 'files(id, name)',
+            supportsAllDrives: true,
+            includeItemsFromAllDrives: true
+          });
+
+          if (checkRes.data.files && checkRes.data.files.length > 0) {
+            return res.status(200).json({
+              success: true,
+              fileId: checkRes.data.files[0].id,
+              folderId: resolvedFolderId,
+              alreadyExists: true
+            });
+          }
+
+          const createdShortcut = await drive.files.create({
+            requestBody: {
+              name: shortcutName,
+              mimeType: 'application/vnd.google-apps.shortcut',
+              shortcutDetails: { targetId: targetFileId },
+              parents: [resolvedFolderId]
+            },
+            fields: 'id, name, mimeType',
+            supportsAllDrives: true
+          });
+
+          return res.status(200).json({
+            success: true,
+            fileId: createdShortcut.data.id,
+            folderId: resolvedFolderId,
+            isShortcut: true
+          });
+        }
+      } catch (shortcutErr) {
+        console.warn('createShortcut warning:', shortcutErr.message);
+        return res.status(200).json({ success: false, error: shortcutErr.message });
+      }
     }
 
     // Move an existing file into the target subfolder (used post direct-script upload)
