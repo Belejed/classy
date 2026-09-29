@@ -2,7 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { authService, dbService, isSuperAdmin, isClassBlocked } from './utils/db';
-import { moveFileToDriveTrash, moveFilesToDriveTrash } from './utils/driveUpload';
+import { moveFileToDriveTrash, moveFilesToDriveTrash, ensureDriveTaskFolder } from './utils/driveUpload';
 import { unlockBodyScroll } from './components/ModalPortal';
 import { Lock, ShieldCheck, Mail, ArrowLeft, ShieldAlert, Copy, Check, Wrench } from 'lucide-react';
 
@@ -499,6 +499,11 @@ export default function App() {
   const handleCreateTask = async (item) => {
     const created = await dbService.tasks.create(currentClass.id, item);
     setTasks(prev => [created, ...prev]);
+
+    // Automatically create designated task folder in Google Drive
+    ensureDriveTaskFolder(item.title, currentClass?.name || 'M.Log B').catch(err => {
+      console.warn('Gagal menyiapkan folder Drive untuk tugas baru:', err);
+    });
 
     try {
       const typeLabel = item.submissionType === 'group' ? ' (Tugas Kelompok)' : '';

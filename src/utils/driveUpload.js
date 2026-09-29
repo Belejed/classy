@@ -23,6 +23,9 @@ export const KNOWN_SUBFOLDER_IDS = {
   'M.Log B:Tugas: Hafalan Butir Butir Pancasila': '1gYlqJxGGESg8DjHRCx8EPhX9lI5ffMLM',
   'M.Log B:Tugas: Tugas Kelompok Video Pancasila': '1QtQTf0jgT4-n9H_b2lTKc6Vb8w73dhuZ',
   'M.Log B:Tugas: Tugas 2 Soal MTK': '1lzSdxx0ujSG8uvMQoUN-Q4X4ldQpD75A',
+  'M.Log B:Tugas: Tugas Individu Bisnis Inovasi': '1OdJzQUJqgWX_0FmXqUUHfMVbVs_xv7_C',
+  'M.Log B:Tugas: Tugas Pancasila Offline': '19Y7mkiWKxJCesZwxYNczutf942K93-1v',
+  'M.Log B:Tugas: Quiz Pengantar Akuntansi': '1akUVDOYrbxNX0CCfQfrvrY6GoHeO33Sf',
 
   // Direct Task Folder Names (Safe against any workspaceName variations)
   'Tugas: Bussiness Value Mapping': '1onArmPNPMErsISDvv9RiQ43T35ahF7p5',
@@ -42,6 +45,9 @@ export const KNOWN_SUBFOLDER_IDS = {
   'Tugas: Hafalan Butir Butir Pancasila': '1gYlqJxGGESg8DjHRCx8EPhX9lI5ffMLM',
   'Tugas: Tugas Kelompok Video Pancasila': '1QtQTf0jgT4-n9H_b2lTKc6Vb8w73dhuZ',
   'Tugas: Tugas 2 Soal MTK': '1lzSdxx0ujSG8uvMQoUN-Q4X4ldQpD75A',
+  'Tugas: Tugas Individu Bisnis Inovasi': '1OdJzQUJqgWX_0FmXqUUHfMVbVs_xv7_C',
+  'Tugas: Tugas Pancasila Offline': '19Y7mkiWKxJCesZwxYNczutf942K93-1v',
+  'Tugas: Quiz Pengantar Akuntansi': '1akUVDOYrbxNX0CCfQfrvrY6GoHeO33Sf',
 
   // M.Log B General Folders
   'M.Log B:Pedoman': '14qmi8TBJSFnWdXEGxDTSurRHQp1JJmIF',

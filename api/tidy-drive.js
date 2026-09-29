@@ -187,8 +187,14 @@ export default async function handler(req, res) {
           destFolderId = folderMap.get('tugas: hafalan butir butir pancasila');
         } else if (normalizedName.includes('paper') && normalizedName.includes('pancasila')) {
           destFolderId = folderMap.get('tugas: tugas kelompok paper makalah ppt soal pancasila');
-        } else if (normalizedName.includes('mtk') || normalizedName.includes('matematika')) {
+        } else if (normalizedName.includes('mtk') || normalizedName.includes('matematika') || normalizedName.includes('soal mtk')) {
           destFolderId = folderMap.get('tugas: tugas 2 soal mtk');
+        } else if (normalizedName.includes('bisnis inovasi') || normalizedName.includes('individu bisnis inovasi')) {
+          destFolderId = folderMap.get('tugas: tugas individu bisnis inovasi');
+        } else if (normalizedName.includes('pancasila') && normalizedName.includes('offline')) {
+          destFolderId = folderMap.get('tugas: tugas pancasila offline');
+        } else if (normalizedName.includes('quiz') && normalizedName.includes('akuntansi')) {
+          destFolderId = folderMap.get('tugas: quiz pengantar akuntansi');
         } else if (normalizedName.includes('value mapping') || normalizedName.includes('bussiness value')) {
           destFolderId = folderMap.get('tugas: bussiness value mapping');
         } else if (normalizedName.includes('benchmarking')) {
@@ -201,6 +207,8 @@ export default async function handler(req, res) {
           destFolderId = folderMap.get('tugas: makalah riset 2 halaman');
         } else if (lowerName.startsWith('img_9515') || lowerName.startsWith('img_9516')) {
           destFolderId = folderMap.get('tugas: bikin ringkasan dipresentasiin materi etika pancasila');
+        } else if (lowerName.startsWith('img_9595') || lowerName.startsWith('img_9596') || lowerName.startsWith('img_9597')) {
+          destFolderId = folderMap.get('tugas: tugas 2 soal mtk');
         } else if (lowerName.endsWith('.pdf') || lowerName.endsWith('.docx') || lowerName.endsWith('.pptx') || lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
           destFolderId = folderMap.get('materi kuliah');
         }
