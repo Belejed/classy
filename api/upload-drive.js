@@ -117,19 +117,50 @@ async function getOrCreateTrashFolder(drive) {
 async function deduplicateFolder(drive, targetFolderId, fileName, newFileId) {
   if (!targetFolderId || !fileName) return;
   try {
+    const trashFolderId = await getOrCreateTrashFolder(drive);
+
+    // 1. Check exact filename duplicate
     const safeName = fileName.replace(/'/g, "\\'");
-    const q = `'${targetFolderId}' in parents and name = '${safeName}' and trashed = false`;
-    const res = await drive.files.list({
-      q,
+    const qExact = `'${targetFolderId}' in parents and name = '${safeName}' and trashed = false`;
+    const resExact = await drive.files.list({
+      q: qExact,
       fields: 'files(id, name, parents)',
       supportsAllDrives: true,
       includeItemsFromAllDrives: true
     });
 
-    const dupes = (res.data.files || []).filter(f => f.id !== newFileId);
-    if (dupes.length > 0) {
-      const trashFolderId = await getOrCreateTrashFolder(drive);
-      for (const dup of dupes) {
+    const dupesExact = (resExact.data.files || []).filter(f => f.id !== newFileId);
+    for (const dup of dupesExact) {
+      const parents = (dup.parents || []).join(',');
+      await drive.files.update({
+        fileId: dup.id,
+        addParents: trashFolderId,
+        removeParents: parents || targetFolderId,
+        supportsAllDrives: true
+      });
+    }
+
+    // 2. Check date-versioned revision duplicates (e.g. StudentName_TaskName_YYYY-MM-DD.ext)
+    const dateMatch = fileName.match(/^(.*?)_\d{4}-\d{2}-\d{2}(\.\w+)$/);
+    if (dateMatch) {
+      const prefix = dateMatch[1];
+      const ext = dateMatch[2];
+      const safePrefix = prefix.replace(/'/g, "\\'");
+      const qPrefix = `'${targetFolderId}' in parents and name contains '${safePrefix}' and trashed = false`;
+      const resPrefix = await drive.files.list({
+        q: qPrefix,
+        fields: 'files(id, name, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      });
+
+      const dupesVersioned = (resPrefix.data.files || []).filter(f => {
+        if (f.id === newFileId) return false;
+        const fMatch = f.name.match(/^(.*?)_\d{4}-\d{2}-\d{2}(\.\w+)$/);
+        return fMatch && fMatch[1] === prefix && fMatch[2].toLowerCase() === ext.toLowerCase();
+      });
+
+      for (const dup of dupesVersioned) {
         const parents = (dup.parents || []).join(',');
         await drive.files.update({
           fileId: dup.id,

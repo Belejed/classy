@@ -49,6 +49,14 @@ export const KNOWN_SUBFOLDER_IDS = {
   'Tugas: Tugas Pancasila Offline': '19Y7mkiWKxJCesZwxYNczutf942K93-1v',
   'Tugas: Quiz Pengantar Akuntansi': '1akUVDOYrbxNX0CCfQfrvrY6GoHeO33Sf',
 
+  // Direct Task Folder Names without 'Tugas:' prefix
+  'M.Log B:Tugas Individu Bisnis Inovasi': '1OdJzQUJqgWX_0FmXqUUHfMVbVs_xv7_C',
+  'Tugas Individu Bisnis Inovasi': '1OdJzQUJqgWX_0FmXqUUHfMVbVs_xv7_C',
+  'M.Log B:Tugas Individu Transportasi': '1IjCeuJ1ViiLyJ0e_CheYcIp66_-z4J4V',
+  'Tugas Individu Transportasi': '1IjCeuJ1ViiLyJ0e_CheYcIp66_-z4J4V',
+  'M.Log B:Tugas Individu': '1vNmsOTYef1vEYCUmpQwwj_gqeKDwkKIn',
+  'Tugas Individu': '1vNmsOTYef1vEYCUmpQwwj_gqeKDwkKIn',
+
   // M.Log B General Folders
   'M.Log B:Pedoman': '14qmi8TBJSFnWdXEGxDTSurRHQp1JJmIF',
   'M.Log B:Lampiran Pengumuman': '1MVMWi8D1BwFuOdNMGlI3nKRorrQa4S_C',
@@ -88,16 +96,30 @@ export async function resolveDriveFolderId(workspaceName, folderName) {
     return KNOWN_SUBFOLDER_IDS[normalizedKey];
   }
 
-  // 3. Normalized fuzzy keyword check across all known IDs
+  // 3. Normalized check across all known IDs (Exact clean match first, then longest specific match)
   const cleanTarget = targetFolder.toLowerCase().replace(/^(tugas:\s*)/i, '').replace(/[_\-\s]+/g, ' ').trim();
-  for (const [key, id] of Object.entries(KNOWN_SUBFOLDER_IDS)) {
+  
+  const candidates = Object.entries(KNOWN_SUBFOLDER_IDS).map(([key, id]) => {
     const cleanKey = (key.includes(':') ? key.split(':').slice(1).join(':') : key)
       .toLowerCase()
       .replace(/^(tugas:\s*)/i, '')
       .replace(/[_\-\s]+/g, ' ')
       .trim();
-    if (cleanKey && cleanTarget && (cleanKey === cleanTarget || cleanTarget.includes(cleanKey) || cleanKey.includes(cleanTarget))) {
-      return id;
+    return { key, id, cleanKey };
+  });
+
+  // 3a. Exact match on normalized task name
+  for (const item of candidates) {
+    if (item.cleanKey && item.cleanKey === cleanTarget) {
+      return item.id;
+    }
+  }
+
+  // 3b. Longest substring match (longest first so "tugas individu bisnis inovasi" matches before "tugas individu")
+  const sortedCandidates = [...candidates].sort((a, b) => b.cleanKey.length - a.cleanKey.length);
+  for (const item of sortedCandidates) {
+    if (item.cleanKey && item.cleanKey.length >= 8 && (cleanTarget.includes(item.cleanKey) || item.cleanKey.includes(cleanTarget))) {
+      return item.id;
     }
   }
 

@@ -282,13 +282,15 @@ export default async function handler(req, res) {
           includeItemsFromAllDrives: true
         });
 
-        const byName = {};
+        const byKey = {};
         for (const f of (subFilesRes.data.files || [])) {
-          if (!byName[f.name]) byName[f.name] = [];
-          byName[f.name].push(f);
+          // Normalize base key: strip date suffix (_YYYY-MM-DD.ext) to detect student revision duplicates
+          const baseKey = f.name.replace(/_\d{4}-\d{2}-\d{2}(\.\w+)$/, '$1');
+          if (!byKey[baseKey]) byKey[baseKey] = [];
+          byKey[baseKey].push(f);
         }
 
-        for (const [name, list] of Object.entries(byName)) {
+        for (const [key, list] of Object.entries(byKey)) {
           if (list.length > 1) {
             // Sort ascending by creation time so latest is kept
             list.sort((a, b) => new Date(a.createdTime) - new Date(b.createdTime));
