@@ -132,16 +132,13 @@ export default async function handler(req, res) {
 
   try {
     const drive = getDriveClient();
-    const { workspaceName = 'M.Log B', taskTitles = [] } = req.body || {};
+    const { taskTitles = [] } = req.body || {};
 
-    const targetWorkspace = (workspaceName || '').trim() || 'M.Log B';
+    const targetFolderId = ROOT_FOLDER_ID;
 
-    // 1. Get or create Workspace Folder inside ROOT_FOLDER_ID
-    const workspaceFolderId = await getOrCreateDriveFolder(drive, targetWorkspace, ROOT_FOLDER_ID);
-
-    // 2. List all existing subfolders inside workspace
+    // 1. List all existing subfolders directly inside ROOT_FOLDER_ID
     const foldersRes = await drive.files.list({
-      q: `'${workspaceFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      q: `'${targetFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name)',
       pageSize: 100,
       supportsAllDrives: true,
@@ -149,11 +146,23 @@ export default async function handler(req, res) {
     });
 
     const folderMap = new Map();
-    (foldersRes.data.files || []).forEach(f => {
-      folderMap.set(f.name.toLowerCase().trim(), f.id);
-    });
+    for (const f of (foldersRes.data.files || [])) {
+      const lower = f.name.toLowerCase().trim();
+      // Auto-trash legacy intermediate workspace folders if encountered
+      if (lower === 'mlog a 2026' || lower === 'm.log a' || lower === 'm.log b') {
+        try {
+          await drive.files.update({
+            fileId: f.id,
+            requestBody: { trashed: true },
+            supportsAllDrives: true
+          });
+        } catch {}
+        continue;
+      }
+      folderMap.set(lower, f.id);
+    }
 
-    // 3. Ensure required task folders exist
+    // 2. Ensure required task folders exist directly in Root
     const createdFolders = [];
     const normalizedTitles = new Set([
       'Materi Kuliah',
@@ -169,15 +178,15 @@ export default async function handler(req, res) {
       if (!title || title === 'Tugas:') continue;
       const key = title.toLowerCase().trim();
       if (!folderMap.has(key)) {
-        const newFolderId = await getOrCreateDriveFolder(drive, title, workspaceFolderId);
+        const newFolderId = await getOrCreateDriveFolder(drive, title, targetFolderId);
         folderMap.set(key, newFolderId);
         createdFolders.push({ name: title, id: newFolderId });
       }
     }
 
-    // 4. Find any loose files directly in workspace root and move them into subfolders
+    // 3. Find any loose files directly in Root and move them into subfolders
     const looseFilesRes = await drive.files.list({
-      q: `'${workspaceFolderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
+      q: `'${targetFolderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
       fields: 'files(id, name)',
       pageSize: 100,
       supportsAllDrives: true,
@@ -262,7 +271,7 @@ export default async function handler(req, res) {
         await drive.files.update({
           fileId: file.id,
           addParents: destFolderId,
-          removeParents: workspaceFolderId,
+          removeParents: targetFolderId,
           supportsAllDrives: true
         });
         movedCount++;
@@ -314,15 +323,14 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      workspace: targetWorkspace,
-      workspaceFolderId,
+      folderId: targetFolderId,
       createdFoldersCount: createdFolders.length,
       createdFolders,
       looseFilesFound: looseFiles.length,
       movedFilesCount: movedCount,
       duplicatesCleaned,
       totalFolders: folderMap.size,
-      message: `Google Drive "${targetWorkspace}" rapi! ${createdFolders.length} folder dibuat, ${movedCount} berkas tertata, ${duplicatesCleaned} duplikat dibersihkan.`
+      message: `Google Drive rapi! ${createdFolders.length} folder dibuat, ${movedCount} berkas tertata, ${duplicatesCleaned} duplikat dibersihkan.`
     });
   } catch (error) {
     console.error('tidy-drive error:', error);

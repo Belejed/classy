@@ -65,9 +65,9 @@ export const KNOWN_SUBFOLDER_IDS = {
   'Lampiran Pengumuman': '1MVMWi8D1BwFuOdNMGlI3nKRorrQa4S_C',
   'Materi Kuliah': '1oedY2DbXYwQIC5S6XahXNoEvAtFaGJIz',
 
-  // Workspaces
-  'M.Log B': '1cflGkvF46agbdU_hWwHXPdc1iCmniWgF',
-  'MLog A 2026': '1blMVEK27MmjwvgrvK26Hs-FNfug5yquZ'
+  // Root / Workspace Fallback
+  'M.Log B': '1BK-P0mPQF9MSy0wsQ-tqNgVCXHXuCwmf',
+  'Umum': '1BK-P0mPQF9MSy0wsQ-tqNgVCXHXuCwmf'
 };
 
 const folderCache = new Map();

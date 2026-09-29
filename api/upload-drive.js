@@ -213,7 +213,6 @@ export default async function handler(req, res) {
   try {
     const { fileName, mimeType, fileData, folderName, workspaceName, resolveOnly, folderId, moveOnly, fileId, createShortcut, targetUrl } = req.body || {};
 
-    const targetWorkspace = (workspaceName && workspaceName !== 'Umum' ? workspaceName : '').trim() || 'M.Log B';
     const targetSubfolder = (folderName || '').trim() || 'Materi Kuliah';
 
     let resolvedFolderId = folderId || null;
@@ -221,13 +220,10 @@ export default async function handler(req, res) {
     if (!resolvedFolderId) {
       try {
         const drive = getDriveClient();
-        // 1. Get or create Workspace Folder inside ROOT_FOLDER_ID
-        const workspaceFolderId = await getOrCreateDriveFolder(drive, targetWorkspace, ROOT_FOLDER_ID);
-
-        // 2. Get or create Subfolder inside Workspace Folder
-        resolvedFolderId = await getOrCreateDriveFolder(drive, targetSubfolder, workspaceFolderId);
+        // Resolve subfolder directly inside ROOT_FOLDER_ID (flat, clean structure)
+        resolvedFolderId = await getOrCreateDriveFolder(drive, targetSubfolder, ROOT_FOLDER_ID);
       } catch (folderErr) {
-        console.warn('Could not resolve nested Drive folder via Google API, falling back:', folderErr);
+        console.warn('Could not resolve Drive folder via Google API, falling back:', folderErr);
       }
     }
 
@@ -243,8 +239,7 @@ export default async function handler(req, res) {
       try {
         const drive = getDriveClient();
         if (!resolvedFolderId) {
-          const workspaceFolderId = await getOrCreateDriveFolder(drive, targetWorkspace, ROOT_FOLDER_ID);
-          resolvedFolderId = await getOrCreateDriveFolder(drive, targetSubfolder, workspaceFolderId);
+          resolvedFolderId = await getOrCreateDriveFolder(drive, targetSubfolder, ROOT_FOLDER_ID);
         }
 
         const matchD = (targetUrl || '').match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -350,7 +345,6 @@ export default async function handler(req, res) {
     if (resolvedFolderId) {
       scriptBody.folderId = resolvedFolderId;
     } else {
-      scriptBody.workspaceName = targetWorkspace;
       scriptBody.folderName = targetSubfolder;
     }
 
