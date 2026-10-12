@@ -462,13 +462,13 @@ export default function ClassMemberTasks({
     <div className="space-y-5 pb-16 font-sans">
       
       {/* 1. Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-2xl sm:rounded-3xl p-5 sm:p-7 text-white shadow-md relative overflow-hidden">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-white shadow-md relative overflow-hidden">
         {/* Background Subtle Shapes */}
         <div className="absolute top-0 right-0 -mt-8 -mr-8 w-56 h-56 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 -mb-8 w-44 h-44 rounded-full bg-rose-500/10 blur-2xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5 max-w-2xl">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+          <div className="space-y-1 max-w-2xl">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 text-[11px] font-bold border border-indigo-400/30">
                 <ListTodo size={12} /> Monitoring Tugas
@@ -477,11 +477,11 @@ export default function ClassMemberTasks({
                 <Shield size={10} /> Khusus Komti, Wakil & PJ
               </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+            <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white">
               Cek Tugas Per Member
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Pantau siapa saja anggota yang belum mengumpulkan tugas, berapa banyak tugas tertunggak, dan apa saja tugasnya secara real-time.
+              Pantau siapa saja anggota yang belum mengumpulkan tugas dan tugas apa saja yang tertunggak secara real-time.
             </p>
           </div>
 
@@ -489,7 +489,7 @@ export default function ClassMemberTasks({
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowRekapModal(true)}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 cursor-pointer border border-indigo-400/40"
+              className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 cursor-pointer border border-emerald-400/40"
               title="Salin rekap siap kirim ke WhatsApp"
             >
               <Share2 size={15} />
@@ -498,34 +498,61 @@ export default function ClassMemberTasks({
           </div>
         </div>
 
-        {/* Quick KPI Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mt-6 pt-5 border-t border-white/10">
-          <div className="bg-white/5 backdrop-blur-xs border border-white/10 rounded-xl sm:rounded-2xl p-3 sm:p-3.5">
+        {/* Quick KPI Stats Cards (Interactive Click to Filter) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-4 sm:mt-5 pt-4 border-t border-white/10">
+          <div 
+            onClick={() => setStatusFilter('all')}
+            className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all cursor-pointer ${
+              statusFilter === 'all'
+                ? 'bg-white/15 border-white/40 ring-1 ring-white/40 shadow-sm'
+                : 'bg-white/5 border-white/10 hover:bg-white/10'
+            }`}
+            title="Klik untuk tampilkan semua mahasiswa"
+          >
             <p className="text-[10px] sm:text-xs font-semibold text-slate-400">Total Mahasiswa</p>
-            <p className="text-lg sm:text-2xl font-black text-white mt-0.5">{stats.totalMembers} <span className="text-xs font-normal text-slate-400">orang</span></p>
+            <p className="text-base sm:text-2xl font-black text-white mt-0.5">{stats.totalMembers} <span className="text-xs font-normal text-slate-400">orang</span></p>
           </div>
-          <div className="bg-white/5 backdrop-blur-xs border border-white/10 rounded-xl sm:rounded-2xl p-3 sm:p-3.5">
+
+          <div className="bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl p-2.5 sm:p-3">
             <p className="text-[10px] sm:text-xs font-semibold text-slate-400">Tugas Tersedia</p>
-            <p className="text-lg sm:text-2xl font-black text-indigo-300 mt-0.5">{stats.totalAvailableTasks} <span className="text-xs font-normal text-slate-400">tugas</span></p>
+            <p className="text-base sm:text-2xl font-black text-indigo-300 mt-0.5">{stats.totalAvailableTasks} <span className="text-xs font-normal text-slate-400">tugas</span></p>
           </div>
-          <div className="bg-rose-500/10 backdrop-blur-xs border border-rose-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-3.5">
+
+          <div 
+            onClick={() => setStatusFilter('uncompleted')}
+            className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all cursor-pointer ${
+              statusFilter === 'uncompleted'
+                ? 'bg-rose-500/25 border-rose-400 ring-1 ring-rose-400 shadow-sm'
+                : 'bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20'
+            }`}
+            title="Klik untuk filter mahasiswa yang belum tuntas"
+          >
             <p className="text-[10px] sm:text-xs font-semibold text-rose-300 flex items-center gap-1">
               <AlertCircle size={12} /> Belum Selesai
             </p>
-            <p className="text-lg sm:text-2xl font-black text-rose-200 mt-0.5">{stats.withIncomplete} <span className="text-xs font-normal text-rose-300">orang</span></p>
+            <p className="text-base sm:text-2xl font-black text-rose-200 mt-0.5">{stats.withIncomplete} <span className="text-xs font-normal text-rose-300">orang</span></p>
           </div>
-          <div className="bg-emerald-500/10 backdrop-blur-xs border border-emerald-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-3.5">
+
+          <div 
+            onClick={() => setStatusFilter('completed')}
+            className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all cursor-pointer ${
+              statusFilter === 'completed'
+                ? 'bg-emerald-500/25 border-emerald-400 ring-1 ring-emerald-400 shadow-sm'
+                : 'bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20'
+            }`}
+            title="Klik untuk filter mahasiswa tuntas 100%"
+          >
             <p className="text-[10px] sm:text-xs font-semibold text-emerald-300 flex items-center gap-1">
               <CheckCircle2 size={12} /> Tuntas 100%
             </p>
-            <p className="text-lg sm:text-2xl font-black text-emerald-200 mt-0.5">{stats.fullyCompleted} <span className="text-xs font-normal text-emerald-300">orang</span></p>
+            <p className="text-base sm:text-2xl font-black text-emerald-200 mt-0.5">{stats.fullyCompleted} <span className="text-xs font-normal text-emerald-300">orang</span></p>
           </div>
         </div>
       </div>
 
       {/* 2. Filter, Search & Controls Bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="bg-white border border-slate-200 rounded-2xl p-3.5 sm:p-4 shadow-2xs space-y-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3">
           
           {/* Search Input */}
           <div className="relative flex-1 min-w-[200px]">
@@ -540,7 +567,7 @@ export default function ClassMemberTasks({
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
                 <X size={13} />
               </button>
@@ -548,14 +575,14 @@ export default function ClassMemberTasks({
           </div>
 
           {/* Filter Course / Mata Kuliah */}
-          <div className="flex items-center gap-2">
-            <div className="relative shrink-0">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <div className="relative flex-1 sm:flex-initial shrink-0">
               <select
                 value={selectedCourse}
                 onChange={(e) => setSelectedCourse(e.target.value)}
-                className="px-3 py-2 pr-8 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:border-indigo-500 cursor-pointer appearance-none shadow-2xs transition-colors"
+                className="w-full sm:w-auto px-3 py-2 pr-8 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:border-indigo-500 cursor-pointer appearance-none shadow-2xs transition-colors"
               >
-                <option value="all">Semua Mata Kuliah</option>
+                <option value="all">Semua Mata Kuliah ({availableCourses.length})</option>
                 {availableCourses.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -564,11 +591,11 @@ export default function ClassMemberTasks({
             </div>
 
             {/* Sort Selector */}
-            <div className="relative shrink-0">
+            <div className="relative flex-1 sm:flex-initial shrink-0">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 pr-8 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:border-indigo-500 cursor-pointer appearance-none shadow-2xs transition-colors"
+                className="w-full sm:w-auto px-3 py-2 pr-8 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:border-indigo-500 cursor-pointer appearance-none shadow-2xs transition-colors"
               >
                 <option value="uncompleted_desc">Tugas Tertunggak Terbanyak</option>
                 <option value="name_asc">Nama Mahasiswa (A-Z)</option>
@@ -581,59 +608,64 @@ export default function ClassMemberTasks({
         </div>
 
         {/* Status Filter Pills */}
-        <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-slate-100">
+        <div className="flex items-center justify-between gap-2 flex-wrap pt-2.5 border-t border-slate-100">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] font-bold text-slate-400 mr-1 flex items-center gap-1">
               <Filter size={11} /> Filter:
             </span>
             <button
               onClick={() => setStatusFilter('uncompleted')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 statusFilter === 'uncompleted'
                   ? 'bg-rose-50 border border-rose-200 text-rose-800 shadow-2xs'
                   : 'bg-slate-100 hover:bg-slate-200/70 text-slate-600 border border-transparent'
               }`}
             >
-              Ada Tugas Belum Selesai ({stats.withIncomplete})
+              Belum Selesai ({stats.withIncomplete})
             </button>
             <button
               onClick={() => setStatusFilter('overdue')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 statusFilter === 'overdue'
                   ? 'bg-rose-600 text-white shadow-2xs'
                   : 'bg-slate-100 hover:bg-slate-200/70 text-slate-600 border border-transparent'
               }`}
             >
-              Ada Tugas Terlewat ({stats.totalOverdueMembers})
+              Terlewat ({stats.totalOverdueMembers})
             </button>
             <button
               onClick={() => setStatusFilter('completed')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 statusFilter === 'completed'
                   ? 'bg-emerald-50 border border-emerald-200 text-emerald-800 shadow-2xs'
                   : 'bg-slate-100 hover:bg-slate-200/70 text-slate-600 border border-transparent'
               }`}
             >
-              Tuntas 100% ({stats.fullyCompleted})
+              Tuntas ({stats.fullyCompleted})
             </button>
             <button
               onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 statusFilter === 'all'
                   ? 'bg-slate-900 text-white shadow-2xs'
                   : 'bg-slate-100 hover:bg-slate-200/70 text-slate-600 border border-transparent'
               }`}
             >
-              Semua Mahasiswa ({stats.totalMembers})
+              Semua ({stats.totalMembers})
             </button>
           </div>
 
-          <button
-            onClick={handleToggleExpandAll}
-            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer ml-auto"
-          >
-            {Object.values(expandedMembers).some(Boolean) ? 'Tutup Semua Rincian' : 'Buka Semua Rincian'}
-          </button>
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+              Menampilkan {filteredList.length} mahasiswa
+            </span>
+            <button
+              onClick={handleToggleExpandAll}
+              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer px-2 py-1 rounded hover:bg-indigo-50/50"
+            >
+              {Object.values(expandedMembers).some(Boolean) ? 'Tutup Semua Rincian' : 'Buka Semua Rincian'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -655,7 +687,7 @@ export default function ClassMemberTasks({
           }}
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {filteredList.map(item => {
             const { member, total, completedCount, incompleteCount, overdueCount, urgentCount, percent, completedTasks, incompleteTasks } = item;
             const isExpanded = Boolean(expandedMembers[member.userId]);
@@ -664,22 +696,22 @@ export default function ClassMemberTasks({
             return (
               <div 
                 key={member.userId}
-                className={`bg-white rounded-2xl border transition-all duration-200 shadow-2xs overflow-hidden ${
+                className={`bg-white rounded-xl sm:rounded-2xl border transition-all duration-200 shadow-2xs overflow-hidden ${
                   overdueCount > 0 
-                    ? 'border-rose-200/80 hover:border-rose-300' 
+                    ? 'border-l-4 border-l-rose-500 border-rose-200/80 hover:border-rose-300' 
                     : incompleteCount > 0 
-                      ? 'border-amber-200/70 hover:border-amber-300' 
-                      : 'border-slate-200 hover:border-slate-300'
+                      ? 'border-l-4 border-l-amber-500 border-amber-200/70 hover:border-amber-300' 
+                      : 'border-l-4 border-l-emerald-500 border-slate-200 hover:border-slate-300'
                 }`}
               >
                 {/* Member Header Card Bar */}
                 <div 
                   onClick={() => toggleExpand(member.userId)}
-                  className="p-3.5 sm:p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-50/70 transition-colors"
+                  className="p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3 cursor-pointer select-none hover:bg-slate-50/70 transition-colors"
                 >
                   {/* Left: Avatar, Name, NIM, Role */}
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border ${
+                    <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-bold text-xs sm:text-sm shrink-0 border ${
                       overdueCount > 0
                         ? 'bg-rose-100 text-rose-800 border-rose-200'
                         : incompleteCount > 0
@@ -689,7 +721,7 @@ export default function ClassMemberTasks({
                       {member.name.charAt(0).toUpperCase()}
                     </div>
                     
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-extrabold text-sm sm:text-base text-slate-900 truncate">
                           {member.name}
@@ -712,16 +744,16 @@ export default function ClassMemberTasks({
                   </div>
 
                   {/* Right: Status Pills, Progress Bar & Actions */}
-                  <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+                  <div className="flex items-center justify-between md:justify-end gap-2.5 sm:gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
                     {/* Progress Percentage & Bar */}
-                    <div className="flex flex-col items-end min-w-[110px]">
+                    <div className="flex flex-col items-start md:items-end min-w-[90px] sm:min-w-[110px]">
                       <div className="flex items-center gap-1.5 text-xs font-bold">
                         <span className={incompleteCount > 0 ? 'text-slate-800' : 'text-emerald-700'}>
-                          {completedCount} / {total} Selesai
+                          {completedCount}/{total} Selesai
                         </span>
                         <span className="text-[10px] text-slate-400">({percent}%)</span>
                       </div>
-                      <div className="w-28 h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1 border border-slate-200/50">
+                      <div className="w-24 sm:w-28 h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1 border border-slate-200/50">
                         <div 
                           className={`h-full transition-all duration-300 ${
                             percent === 100 
@@ -743,34 +775,56 @@ export default function ClassMemberTasks({
                         </span>
                       ) : (
                         <div className="flex items-center gap-1">
-                          <span className="px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 font-bold text-[11px] flex items-center gap-1 shadow-2xs">
+                          <span className="px-2 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 font-bold text-[11px] flex items-center gap-1 shadow-2xs">
                             <AlertCircle size={12} /> {incompleteCount} Belum
                           </span>
                           {overdueCount > 0 && (
-                            <span className="px-2 py-1 rounded-lg bg-rose-600 text-white font-bold text-[10px] shadow-2xs" title={`${overdueCount} tugas melewati deadline`}>
-                              ⚠️ {overdueCount} Lewat
+                            <span className="px-2 py-1 rounded-lg bg-rose-600 text-white font-bold text-[10px] shadow-2xs flex items-center gap-1" title={`${overdueCount} tugas melewati deadline`}>
+                              <span>⚠️ {overdueCount} Lewat</span>
                             </span>
                           )}
                         </div>
                       )}
                     </div>
 
+                    {/* Quick Action Button for Incomplete: Salin or WA without even expanding */}
+                    {incompleteCount > 0 && (
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyMemberIncompleteList(item)}
+                          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer hidden sm:flex items-center justify-center shadow-2xs"
+                          title="Salin tugas tertunggak mahasiswa ini"
+                        >
+                          <Copy size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenWhatsApp(member)}
+                          className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors cursor-pointer flex items-center justify-center shadow-2xs"
+                          title="Ingatkan lewat WhatsApp"
+                        >
+                          <Send size={13} />
+                        </button>
+                      </div>
+                    )}
+
                     {/* Expand Chevron */}
                     <button
                       type="button"
-                      className={`p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors ${
+                      className={`p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer ${
                         isExpanded ? 'rotate-180 bg-slate-100 text-slate-800' : ''
                       }`}
                       aria-label="Rincian tugas"
                     >
-                      <ChevronDown size={16} />
+                      <ChevronDown size={15} />
                     </button>
                   </div>
                 </div>
 
                 {/* Expanded Details Section */}
                 {isExpanded && (
-                  <div className="border-t border-slate-100 bg-slate-50/50 p-4 space-y-3 animate-in fade-in duration-150">
+                  <div className="border-t border-slate-100 bg-slate-50/60 p-3 sm:p-4 space-y-3 animate-in fade-in duration-150">
                     
                     {/* Top Row: Sub-Tabs & Action Shortcuts */}
                     <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -778,7 +832,7 @@ export default function ClassMemberTasks({
                         <button
                           type="button"
                           onClick={() => setMemberTaskSubTab(prev => ({ ...prev, [member.userId]: 'incomplete' }))}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             activeSubTab === 'incomplete'
                               ? 'bg-rose-500 text-white shadow-2xs'
                               : 'text-slate-600 hover:text-slate-900'
@@ -789,7 +843,7 @@ export default function ClassMemberTasks({
                         <button
                           type="button"
                           onClick={() => setMemberTaskSubTab(prev => ({ ...prev, [member.userId]: 'completed' }))}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             activeSubTab === 'completed'
                               ? 'bg-emerald-600 text-white shadow-2xs'
                               : 'text-slate-600 hover:text-slate-900'
@@ -827,34 +881,34 @@ export default function ClassMemberTasks({
                     {activeSubTab === 'incomplete' && (
                       <div className="space-y-2">
                         {incompleteTasks.length === 0 ? (
-                          <div className="p-4 rounded-xl bg-white border border-dashed border-slate-200 text-center text-xs text-slate-500">
+                          <div className="p-4 rounded-xl bg-white border border-dashed border-emerald-200 text-center text-xs text-emerald-700 font-medium">
                             🎉 Mahasiswa ini telah mengumpulkan seluruh tugas!
                           </div>
                         ) : (
                           incompleteTasks.map((t, idx) => (
                             <div 
                               key={t.id || idx}
-                              className={`p-3 rounded-xl bg-white border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all ${
+                              className={`p-2.5 sm:p-3 rounded-xl bg-white border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-all ${
                                 t.isOverdue 
-                                  ? 'border-rose-200 bg-rose-50/20' 
+                                  ? 'border-l-4 border-l-rose-500 border-rose-200 bg-rose-50/15' 
                                   : t.isUrgent 
-                                    ? 'border-amber-200 bg-amber-50/20' 
-                                    : 'border-slate-200'
+                                    ? 'border-l-4 border-l-amber-500 border-amber-200 bg-amber-50/15' 
+                                    : 'border-l-4 border-l-slate-300 border-slate-200'
                               }`}
                             >
                               <div className="min-w-0 flex-1 space-y-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-bold text-xs sm:text-sm text-slate-900">
-                                    {t.title}
-                                  </span>
-                                  <span className="text-[10px] font-semibold px-2 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
                                     {t.subject || t.course || 'Tugas'}
                                   </span>
                                   {t.isGroup && (
-                                    <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-violet-100 text-violet-800 border border-violet-200 shrink-0">
                                       Kelompok
                                     </span>
                                   )}
+                                  <span className="font-bold text-xs sm:text-sm text-slate-900">
+                                    {t.title}
+                                  </span>
                                 </div>
 
                                 {/* Deadline status */}
@@ -876,11 +930,11 @@ export default function ClassMemberTasks({
                               </div>
 
                               {/* Action buttons */}
-                              <div className="flex items-center gap-1.5 shrink-0">
+                              <div className="flex items-center gap-1.5 shrink-0 pt-1.5 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                                 <button
                                   type="button"
                                   onClick={() => handleCopyTaskReminder(member, t)}
-                                  className="px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer flex items-center gap-1"
+                                  className="px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
                                   title="Salin template pengingat tugas ini"
                                 >
                                   {copiedTaskId === `${member.userId}_${t.id}` ? (
@@ -899,7 +953,7 @@ export default function ClassMemberTasks({
                                 <button
                                   type="button"
                                   onClick={() => handleOpenWhatsApp(member, t)}
-                                  className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                                  className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
                                   title="Ingatkan via WhatsApp langsung"
                                 >
                                   <MessageSquare size={11} />
@@ -923,16 +977,16 @@ export default function ClassMemberTasks({
                           completedTasks.map((t, idx) => (
                             <div 
                               key={t.id || idx}
-                              className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between gap-2 text-xs"
+                              className="p-2 sm:p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between gap-2 text-xs"
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                                <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
                                 <span className="font-semibold text-slate-800 truncate">{t.title}</span>
                                 <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded shrink-0">
                                   {t.subject || t.course}
                                 </span>
                               </div>
-                              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">
+                              <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0 border border-emerald-200/80">
                                 Sudah Dikumpulkan ✓
                               </span>
                             </div>
