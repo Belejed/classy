@@ -1207,6 +1207,37 @@ export const dbService = {
       } catch {}
     },
 
+    syncMemberNim: async (userId, userEmail, nim) => {
+      if ((!userId && !userEmail) || !nim) return;
+      const cleanNim = String(nim).trim();
+      if (!cleanNim) return;
+      const cleanEmail = userEmail ? String(userEmail).trim().toLowerCase() : '';
+      try {
+        const { data: workspaces, error } = await supabase.from('workspaces').select('id, members');
+        if (error || !workspaces) return;
+        for (const ws of workspaces) {
+          const members = ws.members || [];
+          let changed = false;
+          const updated = members.map(m => {
+            const isMatch = (userId && (m.userId === userId || m.uid === userId || m.id === userId)) ||
+                            (cleanEmail && m.email && m.email.toLowerCase() === cleanEmail);
+            if (isMatch) {
+              if (m.studentId !== cleanNim || m.nim !== cleanNim) {
+                changed = true;
+                return { ...m, studentId: cleanNim, nim: cleanNim };
+              }
+            }
+            return m;
+          });
+          if (changed) {
+            await supabase.from('workspaces').update({ members: updated }).eq('id', ws.id);
+          }
+        }
+      } catch (err) {
+        console.warn('syncMemberNim error:', err);
+      }
+    },
+
     syncMemberEmail: async (userId, newEmail) => {
       if (!userId || !newEmail) return;
       const cleanEmail = String(newEmail).trim().toLowerCase();

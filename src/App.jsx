@@ -25,6 +25,7 @@ import { setupGlobalUpdateListeners } from './utils/appUpdater';
 import { canDeleteAnything, canAccessMemberTasks } from './utils/permissions';
 import { shouldShowChangelogAuto, markChangelogSeen } from './utils/changelogHelper';
 import ChangeTemporaryPasswordModal from './components/ChangeTemporaryPasswordModal';
+import InputNimModal from './components/InputNimModal';
 import { setupIdleSessionWatcher, resetActivityEpoch, clearActivityEpoch } from './utils/sessionTimeout';
 
 // Heavy modals and non-critical sub-tabs: Lazy loaded for optimal mobile performance and small bundle
@@ -101,6 +102,50 @@ export default function App() {
       setMustChangePassword(false);
     }
   }, [user]);
+
+  // Mandatory NIM input state: prompt user once if they have no NIM registered
+  const [mustInputNim, setMustInputNim] = useState(false);
+
+  useEffect(() => {
+    if (!user || mustChangePassword) {
+      setMustInputNim(false);
+      return;
+    }
+
+    // 1. Check local cache first
+    const cachedNim = localStorage.getItem(`classy_user_nim_${user.uid}`) || 
+                      (user.email ? localStorage.getItem(`classy_user_nim_${user.email.toLowerCase()}`) : '');
+    if (cachedNim && cachedNim.trim().length >= 3) {
+      setMustInputNim(false);
+      return;
+    }
+
+    // 2. Check if any class membership already has user's NIM
+    if (Array.isArray(classes) && classes.length > 0) {
+      let foundNim = '';
+      for (const cls of classes) {
+        const members = cls.members || [];
+        const m = members.find(mem => 
+          mem && (mem.userId === user.uid || mem.uid === user.uid || (user.email && mem.email?.toLowerCase() === user.email.toLowerCase()))
+        );
+        const memberNim = m?.studentId || m?.nim || '';
+        if (memberNim && memberNim.trim().length >= 3) {
+          foundNim = memberNim.trim();
+          break;
+        }
+      }
+
+      if (foundNim) {
+        try {
+          localStorage.setItem(`classy_user_nim_${user.uid}`, foundNim);
+          if (user.email) localStorage.setItem(`classy_user_nim_${user.email.toLowerCase()}`, foundNim);
+        } catch {}
+        setMustInputNim(false);
+      } else {
+        setMustInputNim(true);
+      }
+    }
+  }, [user, classes, mustChangePassword]);
 
   const handleQuickDisableMaintenance = async () => {
     const toastId = toast.loading('Mematikan mode pemeliharaan...');
@@ -1219,6 +1264,18 @@ export default function App() {
           user={user}
           onSuccess={() => setMustChangePassword(false)}
           onLogout={handleLogout}
+        />
+      )}
+
+      {/* Mandatory Input NIM Modal (Prompted once when user has no NIM registered) */}
+      {user && !mustChangePassword && mustInputNim && (
+        <InputNimModal
+          user={user}
+          classes={classes}
+          onSuccess={(savedNim) => {
+            setMustInputNim(false);
+            loadUserClasses();
+          }}
         />
       )}
 
