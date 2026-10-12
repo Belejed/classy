@@ -994,24 +994,24 @@ export default function ClassSubmissionsManager({
     <div className="space-y-6">
       
       {/* Top Header Card */}
-      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-5 sm:p-7 text-white shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5 max-w-xl">
+      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-white shadow-md relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+          <div className="space-y-1 max-w-xl">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full bg-white/15 text-white text-[11px] font-bold backdrop-blur-xs flex items-center gap-1.5">
-                <Sparkles size={12} className="text-amber-300" />
+              <span className="px-2.5 py-0.5 rounded-full bg-white/15 text-white text-[10px] sm:text-[11px] font-bold backdrop-blur-xs flex items-center gap-1.5">
+                <Sparkles size={11} className="text-amber-300" />
                 <span>Studio Rapikan Tugas</span>
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-bold flex items-center gap-1">
-                <ShieldCheck size={12} />
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] sm:text-[11px] font-bold flex items-center gap-1">
+                <ShieldCheck size={11} />
                 <span>PIN Terverifikasi</span>
               </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+            <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white">
               Kelola & Rapikan Pengumpulan Tugas
             </h1>
             <p className="text-xs text-indigo-100/80 leading-relaxed">
-              Bantu teman kelas yang lupa mencantumkan anggota kelompok, rapikan nama berkas, atau pindahkan tugas yang salah kumpul ke tugas yang sesuai.
+              Bantu teman kelas mencantumkan anggota kelompok, rapikan nama berkas, atau tandai pengumpulan manual secara fleksibel.
             </p>
           </div>
 
@@ -1019,27 +1019,27 @@ export default function ClassSubmissionsManager({
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
             <button
               onClick={() => handleOpenManualModal()}
-              className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
               title="Tandai mahasiswa yang sudah mengumpulkan tugas secara manual/offline tanpa upload berkas"
             >
               <UserCheck size={14} className="text-indigo-600" />
-              <span>+ Catat Pengumpulan Manual</span>
+              <span>+ Catat Manual</span>
             </button>
             <button
               onClick={() => setShowPinModal(true)}
-              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/10 backdrop-blur-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/10 backdrop-blur-xs transition-all flex items-center gap-1.5 cursor-pointer"
               title="Ubah PIN Keamanan Komti"
             >
-              <Key size={14} />
+              <Key size={13} />
               <span>Ganti PIN</span>
             </button>
             <button
               onClick={handleLock}
-              className="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-400/30 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-400/30 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
               title="Kunci kembali tab ini"
             >
-              <Lock size={14} />
-              <span>Kunci Tab</span>
+              <Lock size={13} />
+              <span>Kunci</span>
             </button>
           </div>
         </div>
@@ -1049,53 +1049,53 @@ export default function ClassSubmissionsManager({
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         <div 
           onClick={() => setStatusFilter('all')}
-          className={`bg-white border p-3.5 rounded-2xl shadow-2xs cursor-pointer transition-all ${statusFilter === 'all' ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-slate-200 hover:border-slate-300'}`}
+          className={`bg-white border p-3 rounded-xl sm:rounded-2xl shadow-2xs cursor-pointer transition-all ${statusFilter === 'all' ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-slate-200 hover:border-slate-300'}`}
         >
           <div className="flex items-center justify-between text-[#64748B] text-xs">
             <span className="font-semibold">Semua Berkas</span>
-            <FolderKanban size={15} className="text-slate-400" />
+            <FolderKanban size={14} className="text-slate-400" />
           </div>
-          <p className="text-xl font-bold text-slate-900 mt-1">{stats.total}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Total pengumpulan</p>
+          <p className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">{stats.total}</p>
+          <p className="text-[10px] text-slate-400">Total pengumpulan</p>
         </div>
 
         <div 
           onClick={() => setStatusFilter('needs_fixing')}
-          className={`bg-white border p-3.5 rounded-2xl shadow-2xs cursor-pointer transition-all ${statusFilter === 'needs_fixing' ? 'border-amber-500 ring-2 ring-amber-500/10 bg-amber-50/20' : 'border-slate-200 hover:border-slate-300'}`}
+          className={`bg-white border p-3 rounded-xl sm:rounded-2xl shadow-2xs cursor-pointer transition-all ${statusFilter === 'needs_fixing' ? 'border-amber-500 ring-2 ring-amber-500/15 bg-amber-50/25' : 'border-slate-200 hover:border-slate-300'}`}
         >
           <div className="flex items-center justify-between text-amber-700 text-xs">
             <span className="font-bold">⚠️ Perlu Dirapikan</span>
-            <AlertTriangle size={15} className="text-amber-600" />
+            <AlertTriangle size={14} className="text-amber-600" />
           </div>
-          <p className="text-xl font-bold text-amber-900 mt-1">{stats.needsFixing}</p>
-          <p className="text-[10px] text-amber-700 mt-0.5">Kelompok belum ada anggota</p>
+          <p className="text-lg sm:text-xl font-bold text-amber-900 mt-0.5">{stats.needsFixing}</p>
+          <p className="text-[10px] text-amber-700">Belum ada anggota</p>
         </div>
 
         <div 
           onClick={() => setStatusFilter('group')}
-          className={`bg-white border p-3.5 rounded-2xl shadow-2xs cursor-pointer transition-all ${statusFilter === 'group' ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-slate-200 hover:border-slate-300'}`}
+          className={`bg-white border p-3 rounded-xl sm:rounded-2xl shadow-2xs cursor-pointer transition-all ${statusFilter === 'group' ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-slate-200 hover:border-slate-300'}`}
         >
           <div className="flex items-center justify-between text-[#64748B] text-xs">
             <span className="font-semibold">Tugas Kelompok</span>
-            <Users size={15} className="text-indigo-600" />
+            <Users size={14} className="text-indigo-600" />
           </div>
-          <p className="text-xl font-bold text-slate-900 mt-1">{stats.groupCount}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Submission kelompok</p>
+          <p className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">{stats.groupCount}</p>
+          <p className="text-[10px] text-slate-400">Submission tim</p>
         </div>
 
         <div 
           onClick={() => setStatusFilter('individual')}
-          className={`bg-white border p-3.5 rounded-2xl shadow-2xs cursor-pointer transition-all ${statusFilter === 'individual' ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-slate-200 hover:border-slate-300'}`}
+          className={`bg-white border p-3 rounded-xl sm:rounded-2xl shadow-2xs cursor-pointer transition-all ${statusFilter === 'individual' ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-slate-200 hover:border-slate-300'}`}
         >
           <div className="flex items-center justify-between text-[#64748B] text-xs">
             <span className="font-semibold">Tugas Individu</span>
-            <User size={15} className="text-slate-400" />
+            <User size={14} className="text-slate-400" />
           </div>
-          <p className="text-xl font-bold text-slate-900 mt-1">{stats.individualCount}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Submission perorangan</p>
+          <p className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">{stats.individualCount}</p>
+          <p className="text-[10px] text-slate-400">Submission perorangan</p>
         </div>
       </div>
 
@@ -1205,7 +1205,7 @@ export default function ClassSubmissionsManager({
       </div>
 
       {/* Submissions List */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <div className="flex items-center justify-between px-1 flex-wrap gap-2">
           <div>
             <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700">
@@ -1221,7 +1221,7 @@ export default function ClassSubmissionsManager({
             className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
           >
             <UserCheck size={13} />
-            <span>+ Catat Pengumpulan Manual (Tugas Mandiri / Offline)</span>
+            <span>+ Catat Pengumpulan Manual</span>
           </button>
         </div>
 
@@ -1241,7 +1241,7 @@ export default function ClassSubmissionsManager({
             />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3">
+          <div className="flex flex-col gap-2">
             {filteredSubmissions.map((sub) => {
               const isGroup = sub.isGroup;
               const members = Array.isArray(sub.groupMembers) ? sub.groupMembers : [];
@@ -1250,27 +1250,29 @@ export default function ClassSubmissionsManager({
               return (
                 <div
                   key={sub.id || `${sub.taskId}_${sub.userId}`}
-                  className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-2xs transition-all hover:shadow-md space-y-3.5 ${
+                  className={`bg-white border rounded-xl sm:rounded-2xl p-3.5 sm:p-4 shadow-2xs transition-all hover:shadow-md space-y-2.5 ${
                     needsFixing 
-                      ? 'border-amber-300 bg-amber-50/15 ring-1 ring-amber-300/60' 
-                      : 'border-slate-200/90'
+                      ? 'border-l-4 border-l-amber-500 border-amber-300 bg-amber-50/15 ring-1 ring-amber-300/40' 
+                      : isGroup
+                        ? 'border-l-4 border-l-indigo-500 border-slate-200/90'
+                        : 'border-l-4 border-l-slate-400 border-slate-200/90'
                   }`}
                 >
                   {/* Row 1: Header (Task Info & Action Buttons) */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                         isGroup ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-slate-100 text-slate-600'
                       }`}>
-                        {isGroup ? <Users size={17} /> : <User size={17} />}
+                        {isGroup ? <Users size={15} /> : <User size={15} />}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate">
                             {sub.taskTitle}
                           </h4>
                           {sub.taskCourse && (
-                            <span className="px-2 py-0.2 rounded-md bg-slate-100 text-slate-700 text-[10px] font-semibold">
+                            <span className="px-2 py-0.2 rounded-full bg-slate-100 text-slate-700 text-[10px] font-semibold border border-slate-200/70">
                               {sub.taskCourse}
                             </span>
                           )}
@@ -1278,8 +1280,8 @@ export default function ClassSubmissionsManager({
                         <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
                           <span>Pengunggah: <strong className="text-slate-800">{sub.userName || 'Mahasiswa'}</strong></span>
                           <span>·</span>
-                          <span className="flex items-center gap-1">
-                            <Clock size={11} className="text-slate-400" />
+                          <span className="flex items-center gap-1 text-slate-400">
+                            <Clock size={11} />
                             {sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
                           </span>
                         </p>
@@ -1305,34 +1307,34 @@ export default function ClassSubmissionsManager({
                           className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                           title="Hapus pengumpulan ini"
                         >
-                          <Trash2 size={15} />
+                          <Trash2 size={14} />
                         </button>
                       )}
                     </div>
                   </div>
 
                   {/* Row 2: Group & Members Info */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           isGroup ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-100 text-slate-700'
                         }`}>
                           {isGroup 
-                            ? '👥 Tugas Kelompok' 
+                            ? '👥 Kelompok' 
                             : members.length > 0 
-                              ? `👤 Tugas Individu (${members.length + 1} Mahasiswa)` 
-                              : '👤 Tugas Individu'}
+                              ? `👤 Individu (${members.length + 1} Mahasiswa)` 
+                              : '👤 Individu'}
                         </span>
 
                         {sub.groupName && (
-                          <span className="font-bold text-xs text-slate-900 bg-slate-100/80 px-2 py-0.5 rounded-md">
+                          <span className="font-bold text-[11px] text-slate-900 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200/60">
                             🏷️ {sub.groupName}
                           </span>
                         )}
 
                         {needsFixing && (
-                          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold flex items-center gap-1">
                             <AlertTriangle size={11} className="text-amber-700" />
                             <span>Teman kelompok belum dicantumkan!</span>
                           </span>
@@ -1343,16 +1345,16 @@ export default function ClassSubmissionsManager({
                         onClick={() => handleOpenEdit(sub, isGroup)}
                         className="text-[11px] font-semibold text-indigo-600 hover:underline cursor-pointer flex items-center gap-1"
                       >
-                        <UserPlus size={12} />
-                        <span>{isGroup ? '+ Kelola Anggota' : '+ Kelola Mahasiswa Selesai'}</span>
+                        <UserPlus size={11} />
+                        <span>{isGroup ? '+ Kelola Anggota' : '+ Kelola Mahasiswa'}</span>
                       </button>
                     </div>
 
                     {/* Member Badges List */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {/* Submitter Badge */}
-                      <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-800 text-xs font-semibold flex items-center gap-1.5 border border-slate-200">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-800 text-xs font-semibold flex items-center gap-1.5 border border-slate-200/90">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         <span>{sub.userName} (Pengunggah)</span>
                       </span>
 
@@ -1363,16 +1365,16 @@ export default function ClassSubmissionsManager({
                         return (
                           <span
                             key={m.userId || idx}
-                            className={`px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 border ${
+                            className={`px-2 py-0.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border ${
                               isGroup
                                 ? 'bg-indigo-50 text-indigo-900 border-indigo-200'
                                 : 'bg-teal-50 text-teal-950 border-teal-200'
                             }`}
                           >
-                            <UserCheck size={12} className={isGroup ? 'text-indigo-600' : 'text-teal-600'} />
+                            <UserCheck size={11} className={isGroup ? 'text-indigo-600' : 'text-teal-600'} />
                             <span>{name}</span>
                             {!isGroup && (
-                              <span className="text-[10px] font-bold text-teal-700">(Ditandai Selesai)</span>
+                              <span className="text-[10px] font-bold text-teal-700">(Selesai)</span>
                             )}
                             {nim && <span className={`text-[10px] font-mono ${isGroup ? 'text-indigo-500' : 'text-teal-600'}`}>({nim})</span>}
                           </span>
@@ -1382,9 +1384,9 @@ export default function ClassSubmissionsManager({
                       {members.length === 0 && isGroup && (
                         <button
                           onClick={() => handleOpenEdit(sub, true)}
-                          className="px-2.5 py-1 rounded-xl border border-dashed border-amber-400 bg-amber-50/50 hover:bg-amber-100 text-amber-800 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                          className="px-2 py-0.5 rounded-lg border border-dashed border-amber-400 bg-amber-50/50 hover:bg-amber-100 text-amber-800 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
                         >
-                          <Plus size={12} />
+                          <Plus size={11} />
                           <span>Tambahkan Teman Kelompok</span>
                         </button>
                       )}
@@ -1392,12 +1394,12 @@ export default function ClassSubmissionsManager({
                   </div>
 
                   {/* Row 3: File details */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500 flex-wrap gap-2">
-                    <div className="flex items-center gap-2 truncate">
+                  <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-xs text-slate-500 flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5 truncate">
                       {sub.isLink || sub.files?.[0]?.isLink || (typeof sub.fileSize === 'string' && sub.fileSize.includes('Tautan')) ? (
-                        <Link2 size={14} className="text-indigo-500 shrink-0" />
+                        <Link2 size={13} className="text-indigo-500 shrink-0" />
                       ) : (
-                        <FileText size={14} className="text-slate-400 shrink-0" />
+                        <FileText size={13} className="text-slate-400 shrink-0" />
                       )}
                       <span className="truncate font-medium text-slate-700" title={sub.fileName}>
                         {sub.fileName || (sub.isLink ? 'Tautan Pengumpulan' : 'Berkas Pengumpulan')}
@@ -1414,10 +1416,10 @@ export default function ClassSubmissionsManager({
                         href={sub.fileUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline"
+                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline"
                       >
                         <span>{sub.isLink || sub.files?.[0]?.isLink ? 'Buka Tautan' : 'Lihat Berkas'}</span>
-                        <ExternalLink size={11} />
+                        <ExternalLink size={10} />
                       </a>
                     )}
                   </div>
