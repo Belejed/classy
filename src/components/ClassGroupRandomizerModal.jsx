@@ -25,8 +25,6 @@ export default function ClassGroupRandomizerModal({
   className = '',
   onSaveGroupsToForum
 }) {
-  if (!isOpen) return null;
-
   // 1. Selection State
   const [selectedEmails, setSelectedEmails] = useState(() => {
     return new Set(
@@ -194,6 +192,8 @@ export default function ClassGroupRandomizerModal({
       setIsSaving(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <ModalPortal onClose={onClose} maxWidth="max-w-2xl sm:max-w-3xl">

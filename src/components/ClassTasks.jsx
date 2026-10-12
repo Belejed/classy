@@ -872,6 +872,60 @@ export default function ClassTasks({
     return matchesSearch && matchesStatus && matchesCourse;
   });
 
+  // Helper to determine if user has completed this task
+  const isTaskCompletedByUser = useCallback((t) => {
+    const userSub = t.submissions?.find(s => isUserMatchingSubmission(s, currentUser));
+    const isFileMissing = userSub && isSubmissionFileMissing(userSub);
+    return !!userSub && !isFileMissing;
+  }, [currentUser, driveStatusMap]);
+
+  // Collapsible toggle for Completed Tasks section
+  const [isCompletedTasksOpen, setIsCompletedTasksOpen] = useState(true);
+
+  // Group tasks by course helper
+  const groupTasksByCourse = useCallback((taskList) => {
+    const groups = new Map();
+    taskList.forEach(task => {
+      const courseName = (task.course || currentClass?.name || 'Mata Kuliah Lainnya').trim();
+      if (!groups.has(courseName)) {
+        groups.set(courseName, []);
+      }
+      groups.get(courseName).push(task);
+    });
+    return Array.from(groups.entries()).map(([course, items]) => ({
+      course,
+      tasks: items
+    }));
+  }, [currentClass?.name]);
+
+  // Active (Pending) Tasks: sorted by overdue first, then nearest due date
+  const activeTasks = useMemo(() => {
+    return filteredTasks
+      .filter(t => !isTaskCompletedByUser(t))
+      .sort((a, b) => {
+        const aOverdue = isTaskOverdue(a.dueDate, a.dueTime);
+        const bOverdue = isTaskOverdue(b.dueDate, b.dueTime);
+        if (aOverdue && !bOverdue) return -1;
+        if (!aOverdue && bOverdue) return 1;
+        const dueA = `${a.dueDate || '9999-99-99'} ${a.dueTime || '23:59'}`;
+        const dueB = `${b.dueDate || '9999-99-99'} ${b.dueTime || '23:59'}`;
+        return dueA.localeCompare(dueB);
+      });
+  }, [filteredTasks, isTaskCompletedByUser]);
+
+  // Completed Tasks: sorted by submission time or due date descending
+  const completedTasks = useMemo(() => {
+    return filteredTasks
+      .filter(t => isTaskCompletedByUser(t))
+      .sort((a, b) => {
+        const subA = a.submissions?.find(s => isUserMatchingSubmission(s, currentUser));
+        const subB = b.submissions?.find(s => isUserMatchingSubmission(s, currentUser));
+        const timeA = subA?.submittedAt || a.dueDate || '';
+        const timeB = subB?.submittedAt || b.dueDate || '';
+        return timeB.localeCompare(timeA);
+      });
+  }, [filteredTasks, isTaskCompletedByUser, currentUser]);
+
   const handleAttachmentUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -2041,178 +2095,324 @@ export default function ClassTasks({
           />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredTasks.map((task) => {
-            const userSub = task.submissions?.find(s => isUserMatchingSubmission(s, currentUser));
-            const isFileMissing = userSub && isSubmissionFileMissing(userSub);
-            const isSubmitted = !!userSub && !isFileMissing;
-            const isOverdue = isTaskOverdue(task.dueDate, task.dueTime);
-            const isLate = userSub ? isSubmissionLate(task.dueDate, task.dueTime, userSub.submittedAt) : false;
+        <div className="space-y-8">
+          {/* Helper function to render an individual task card */}
+          {(() => {
+            const renderTaskCard = (task) => {
+              const userSub = task.submissions?.find(s => isUserMatchingSubmission(s, currentUser));
+              const isFileMissing = userSub && isSubmissionFileMissing(userSub);
+              const isSubmitted = !!userSub && !isFileMissing;
+              const isOverdue = isTaskOverdue(task.dueDate, task.dueTime);
+              const isLate = userSub ? isSubmissionLate(task.dueDate, task.dueTime, userSub.submittedAt) : false;
 
-            return (
-              <div
-                key={task.id}
-                onClick={() => setSelectedTask(task)}
-                className={`bg-white border p-4 sm:p-5 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
-                  isFileMissing 
-                    ? 'border-l-4 border-l-rose-600 border-rose-300 bg-rose-50/20' 
-                    : isOverdue && !isSubmitted
-                      ? 'border-l-4 border-l-rose-500 border-rose-200 bg-rose-50/15 ring-1 ring-rose-200/40'
-                      : isSubmitted
-                        ? 'border-l-4 border-l-emerald-500 border-emerald-200 bg-emerald-50/20 hover:border-emerald-400 hover:bg-emerald-50/35 shadow-xs'
-                        : 'border-l-4 border-l-indigo-400 border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200/80 flex items-center gap-1 truncate max-w-[180px]">
-                        <BookOpen size={11} className="text-slate-500 shrink-0" />
-                        <span className="truncate">{task.course || currentClass?.name}</span>
-                      </span>
-                      {task.submissionType === 'group' && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200 flex items-center gap-1 shrink-0">
-                          <Users size={10} />
-                          <span>Kelompok</span>
+              return (
+                <div
+                  key={task.id}
+                  onClick={() => setSelectedTask(task)}
+                  className={`bg-white border p-4 sm:p-5 rounded-2xl shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                    isFileMissing 
+                      ? 'border-l-4 border-l-rose-600 border-rose-300 bg-rose-50/20' 
+                      : isOverdue && !isSubmitted
+                        ? 'border-l-4 border-l-rose-500 border-rose-200 bg-rose-50/15 ring-1 ring-rose-200/40'
+                        : isSubmitted
+                          ? 'border-l-4 border-l-emerald-500 border-emerald-200 bg-emerald-50/20 hover:border-emerald-400 hover:bg-emerald-50/35 shadow-xs'
+                          : 'border-l-4 border-l-indigo-400 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200/80 flex items-center gap-1 truncate max-w-[180px]">
+                          <BookOpen size={11} className="text-slate-500 shrink-0" />
+                          <span className="truncate">{task.course || currentClass?.name}</span>
                         </span>
-                      )}
-                      {task.submissionRequired === false && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1 shrink-0" title="Tugas dikerjakan fisik di kelas (kertas/paper), tidak perlu upload berkas Drive">
-                          <span>📝 Paper / Kertas</span>
-                        </span>
-                      )}
-                    </div>
-
-                    {isFileMissing ? (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 animate-pulse shrink-0">
-                        <AlertTriangle size={11} />
-                        <span>File Hilang di Drive</span>
-                      </span>
-                    ) : isSubmitted ? (
-                      isLate ? (
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-amber-300 flex items-center gap-1 shrink-0" title="Dikumpulkan setelah melewati batas tenggat waktu">
-                          <Clock size={10} className="text-amber-600" />
-                          <span>✓ Sudah Upload (Terlambat)</span>
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shrink-0" title={userSub.isGroup && userSub.userId !== currentUser?.uid ? `Dikumpulkan oleh ${userSub.userName}` : 'Tugas Sudah Diunggah'}>
-                          <Check size={11} strokeWidth={2.5} className="text-emerald-700" />
-                          <span>{userSub.isGroup && userSub.userId !== currentUser?.uid ? `✓ Upload: ${userSub.userName.split(' ')[0]}` : '✓ Sudah Upload'}</span>
-                        </span>
-                      )
-                    ) : isOverdue ? (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 shrink-0 animate-pulse">
-                        <AlertCircle size={10} />
-                        <span>Terlewat</span>
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0">
-                        Not submitted
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="font-bold text-base text-[#0F172A] leading-snug">
-                    {task.title}
-                  </h3>
-
-                  {getCleanDescription(task.description) && (
-                    <p className="text-xs text-[#64748B] line-clamp-2">
-                      {getCleanDescription(task.description)}
-                    </p>
-                  )}
-                </div>
-
-                <div className="pt-2 border-t border-[#F1F5F9] flex flex-wrap items-center justify-between gap-2 text-xs text-[#64748B]">
-                  <span className={`flex items-center gap-1 font-medium ${isOverdue && !isSubmitted ? 'text-rose-600 font-bold' : isSubmitted ? 'text-emerald-700 font-semibold' : ''}`}>
-                    <Clock size={12} className={isOverdue && !isSubmitted ? 'text-rose-600' : isSubmitted ? 'text-emerald-600' : ''} />
-                    <span>Due {task.dueDate} · {task.dueTime}</span>
-                    {isOverdue && !isSubmitted && (
-                      <span className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-bold uppercase tracking-wider border border-rose-200">
-                        Lewat
-                      </span>
-                    )}
-                    {isSubmitted && (
-                      <span className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold uppercase tracking-wider border border-emerald-300">
-                        ✓ Terkumpul
-                      </span>
-                    )}
-                  </span>
-
-                  {task.attachments?.length > 0 && (
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
-                      <Paperclip size={11} />
-                      <span>{task.attachments.length} Lampiran</span>
-                    </span>
-                  )}
-                </div>
-
-                {/* Student Quick Drive Link if submitted */}
-                {isSubmitted && userSub && isDriveOrDocsUrl(userSub.fileUrl || userSub.files?.[0]?.url) && (
-                  <div 
-                    className="pt-2 border-t border-emerald-100/90 flex flex-wrap items-center justify-between gap-2 text-xs" 
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span className="text-[11px] text-emerald-900 font-medium truncate flex-1 min-w-[120px]" title={userSub.fileName || 'Berkas Tugas'}>
-                      📁 {userSub.fileName || `${userSub.files?.length || 1} Berkas Dikirim`}
-                    </span>
-                    <a
-                      href={userSub.fileUrl || userSub.files?.[0]?.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[11px] flex items-center gap-1 transition-colors shrink-0 shadow-2xs cursor-pointer ml-auto"
-                      title="Buka berkas tugas di Google Drive"
-                    >
-                      <ExternalLink size={11} />
-                      <span>Buka Drive ↗</span>
-                    </a>
-                  </div>
-                )}
-
-                {/* Manager Quick Submission Count */}
-                {isManager && (() => {
-                  const status = getTaskSubmissionStatus(task);
-                  const unsubmittedCount = status.unsubmittedList.length;
-
-                  return (
-                    <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[11px]">
-                      <span className="font-semibold text-[#475569] flex items-center gap-1">
-                        <Users size={12} className="text-slate-500" />
-                        <span>{status.submittedCount}/{status.totalCount} Terkumpul</span>
-                      </span>
-
-                      <div className="flex items-center gap-1.5">
-                        {unsubmittedCount > 0 ? (
-                          <span className={`font-bold px-2 py-0.5 rounded-full border ${
-                            isOverdue 
-                              ? 'text-rose-700 bg-rose-100/90 border-rose-300' 
-                              : 'text-rose-700 bg-rose-50 border-rose-200/80'
-                          }`}>
-                            {unsubmittedCount} belum kirim {isOverdue && '(Terlewat)'}
-                          </span>
-                        ) : (
-                          <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                            Semua sudah kirim ✨
+                        {task.submissionType === 'group' && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200 flex items-center gap-1 shrink-0">
+                            <Users size={10} />
+                            <span>Kelompok</span>
                           </span>
                         )}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStartEdit(task);
-                          }}
-                          className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
-                          title="Edit Tugas"
-                        >
-                          <Edit2 size={13} />
-                        </button>
+                        {task.submissionRequired === false && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1 shrink-0" title="Tugas dikerjakan fisik di kelas (kertas/paper), tidak perlu upload berkas Drive">
+                            <span>📝 Paper / Kertas</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {isFileMissing ? (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 animate-pulse shrink-0">
+                          <AlertTriangle size={11} />
+                          <span>File Hilang di Drive</span>
+                        </span>
+                      ) : isSubmitted ? (
+                        isLate ? (
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-amber-300 flex items-center gap-1 shrink-0" title="Dikumpulkan setelah melewati batas tenggat waktu">
+                            <Clock size={10} className="text-amber-600" />
+                            <span>✓ Sudah Upload (Terlambat)</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shrink-0" title={userSub.isGroup && userSub.userId !== currentUser?.uid ? `Dikumpulkan oleh ${userSub.userName}` : 'Tugas Sudah Diunggah'}>
+                            <Check size={11} strokeWidth={2.5} className="text-emerald-700" />
+                            <span>{userSub.isGroup && userSub.userId !== currentUser?.uid ? `✓ Upload: ${userSub.userName.split(' ')[0]}` : '✓ Sudah Upload'}</span>
+                          </span>
+                        )
+                      ) : isOverdue ? (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 shrink-0 animate-pulse">
+                          <AlertCircle size={10} />
+                          <span>Terlewat</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0">
+                          Not submitted
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="font-bold text-base text-[#0F172A] leading-snug">
+                      {task.title}
+                    </h3>
+
+                    {getCleanDescription(task.description) && (
+                      <p className="text-xs text-[#64748B] line-clamp-2">
+                        {getCleanDescription(task.description)}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-[#F1F5F9] flex flex-wrap items-center justify-between gap-2 text-xs text-[#64748B]">
+                    <span className={`flex items-center gap-1 font-medium ${isOverdue && !isSubmitted ? 'text-rose-600 font-bold' : isSubmitted ? 'text-emerald-700 font-semibold' : ''}`}>
+                      <Clock size={12} className={isOverdue && !isSubmitted ? 'text-rose-600' : isSubmitted ? 'text-emerald-600' : ''} />
+                      <span>Due {task.dueDate} · {task.dueTime}</span>
+                      {isOverdue && !isSubmitted && (
+                        <span className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-bold uppercase tracking-wider border border-rose-200">
+                          Lewat
+                        </span>
+                      )}
+                      {isSubmitted && (
+                        <span className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold uppercase tracking-wider border border-emerald-300">
+                          ✓ Terkumpul
+                        </span>
+                      )}
+                    </span>
+
+                    {task.attachments?.length > 0 && (
+                      <span className="flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                        <Paperclip size={11} />
+                        <span>{task.attachments.length} Lampiran</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Student Quick Drive Link if submitted */}
+                  {isSubmitted && userSub && isDriveOrDocsUrl(userSub.fileUrl || userSub.files?.[0]?.url) && (
+                    <div 
+                      className="pt-2 border-t border-emerald-100/90 flex flex-wrap items-center justify-between gap-2 text-xs" 
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span className="text-[11px] text-emerald-900 font-medium truncate flex-1 min-w-[120px]" title={userSub.fileName || 'Berkas Tugas'}>
+                        📁 {userSub.fileName || `${userSub.files?.length || 1} Berkas Dikirim`}
+                      </span>
+                      <a
+                        href={userSub.fileUrl || userSub.files?.[0]?.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-[11px] flex items-center gap-1 transition-colors shrink-0 shadow-2xs cursor-pointer ml-auto"
+                        title="Buka berkas tugas di Google Drive"
+                      >
+                        <ExternalLink size={11} />
+                        <span>Buka Drive ↗</span>
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Manager Quick Submission Count */}
+                  {isManager && (() => {
+                    const status = getTaskSubmissionStatus(task);
+                    const unsubmittedCount = status.unsubmittedList.length;
+
+                    return (
+                      <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-[#475569] flex items-center gap-1">
+                          <Users size={12} className="text-slate-500" />
+                          <span>{status.submittedCount}/{status.totalCount} Terkumpul</span>
+                        </span>
+
+                        <div className="flex items-center gap-1.5">
+                          {unsubmittedCount > 0 ? (
+                            <span className={`font-bold px-2 py-0.5 rounded-full border ${
+                              isOverdue 
+                                ? 'text-rose-700 bg-rose-100/90 border-rose-300' 
+                                : 'text-rose-700 bg-rose-50 border-rose-200/80'
+                            }`}>
+                              {unsubmittedCount} belum kirim {isOverdue && '(Terlewat)'}
+                            </span>
+                          ) : (
+                            <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              Semua sudah kirim ✨
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartEdit(task);
+                            }}
+                            className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                            title="Edit Tugas"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              );
+            };
+
+            const showActiveSection = statusFilter === 'all' || statusFilter === 'not_submitted' || statusFilter === 'overdue' || statusFilter === 'missing';
+            const showCompletedSection = statusFilter === 'all' || statusFilter === 'submitted';
+
+            const activeCourseGroups = groupTasksByCourse(activeTasks);
+            const completedCourseGroups = groupTasksByCourse(completedTasks);
+
+            return (
+              <>
+                {/* SECTION 1: TUGAS BARU / AKTIF (ATAS) */}
+                {showActiveSection && (
+                  <section className="space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold">
+                          <Clock size={15} />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-base text-[#0F172A] tracking-tight flex items-center gap-2">
+                            <span>Tugas Baru & Aktif</span>
+                            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                              activeTasks.length > 0 
+                                ? 'bg-amber-100 text-amber-900 border border-amber-200' 
+                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            }`}>
+                              {activeTasks.length} Pending
+                            </span>
+                          </h3>
+                        </div>
                       </div>
                     </div>
-                  );
-                })()}
-              </div>
+
+                    {activeTasks.length === 0 ? (
+                      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-50/70 via-white to-emerald-50/30 border border-emerald-200 flex items-center justify-between gap-3 shadow-2xs">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
+                            <CheckCircle2 size={20} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-bold text-emerald-950">
+                              {statusFilter === 'overdue' 
+                                ? 'Tidak Ada Tugas Terlewat 🎉' 
+                                : 'Semua Tugas Aktif Selesai ✨'}
+                            </p>
+                            <p className="text-xs text-emerald-700 mt-0.5">
+                              {statusFilter === 'overdue'
+                                ? 'Seluruh tugas telah dikerjakan tepat waktu.'
+                                : 'Kerja bagus! Seluruh tugas kuliah saat ini sudah Anda kumpulkan.'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {activeCourseGroups.map(({ course, tasks: courseTasks }) => (
+                          <div key={course} className="space-y-3">
+                            <div className="flex items-center justify-between px-1">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0 border border-indigo-100">
+                                  <BookOpen size={12} />
+                                </div>
+                                <h4 className="text-xs sm:text-sm font-bold text-[#0F172A] truncate">
+                                  {course}
+                                </h4>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                                  {courseTasks.length} tugas
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {courseTasks.map(renderTaskCard)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {/* SECTION 2: TUGAS SELESAI (BAWAH) */}
+                {showCompletedSection && (
+                  <section className="space-y-4 pt-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                          <CheckCircle2 size={15} />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-base text-[#0F172A] tracking-tight flex items-center gap-2">
+                            <span>Tugas Selesai</span>
+                            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              {completedTasks.length} Selesai
+                            </span>
+                          </h3>
+                        </div>
+                      </div>
+
+                      {completedTasks.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsCompletedTasksOpen(prev => !prev)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-[#64748B] hover:text-[#0F172A] hover:bg-slate-100 transition-colors cursor-pointer"
+                        >
+                          <span>{isCompletedTasksOpen ? 'Sembunyikan' : 'Tampilkan'}</span>
+                          {isCompletedTasksOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                      )}
+                    </div>
+
+                    {completedTasks.length === 0 ? (
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-center text-xs text-slate-500">
+                        Belum ada riwayat tugas yang selesai dikumpulkan.
+                      </div>
+                    ) : isCompletedTasksOpen ? (
+                      <div className="space-y-6">
+                        {completedCourseGroups.map(({ course, tasks: courseTasks }) => (
+                          <div key={course} className="space-y-3">
+                            <div className="flex items-center justify-between px-1">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
+                                  <BookOpen size={12} />
+                                </div>
+                                <h4 className="text-xs sm:text-sm font-bold text-slate-800 truncate">
+                                  {course}
+                                </h4>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                                  {courseTasks.length} selesai
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {courseTasks.map(renderTaskCard)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </section>
+                )}
+              </>
             );
-          })}
+          })()}
         </div>
       )}
 
