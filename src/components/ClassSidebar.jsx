@@ -24,7 +24,8 @@ import {
   Dices,
   Network,
   ListTodo,
-  Flame from 'lucide-react';
+  Flame
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { isClassManager, canAccessSubmissionsManager, canAccessMemberTasks, normalizeRole } from '../utils/permissions';
 
