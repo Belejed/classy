@@ -23,8 +23,8 @@ import {
   Sparkles,
   Dices,
   Network,
-  ListTodo
-} from 'lucide-react';
+  ListTodo,
+  Flame from 'lucide-react';
 import toast from 'react-hot-toast';
 import { isClassManager, canAccessSubmissionsManager, canAccessMemberTasks, normalizeRole } from '../utils/permissions';
 
