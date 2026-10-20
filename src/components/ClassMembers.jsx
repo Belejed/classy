@@ -603,7 +603,15 @@ export default function ClassMembers({
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-[#0F172A]">Anggota & Pengurus Kelas</h2>
-            {isManager && (<button onClick={handleToggleUTS} className="px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold">?? {currentClass?.uts?.enabled ? 'Matikan UTS' : 'Aktifkan UTS'}</button>)}`r`n`r`n           {isManager && (
+            {isManager && (
+              <button
+                onClick={handleToggleUTS}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors ${currentClass?.uts?.enabled ? 'bg-red-700 text-white' : 'bg-red-600 text-white hover:bg-red-700'}`}
+              >
+                🔥 {currentClass?.uts?.enabled ? 'Matikan UTS' : 'Aktifkan UTS'}
+              </button>
+            )}
+            {isManager && (
               <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
                 Mode Pengelola
               </span>
