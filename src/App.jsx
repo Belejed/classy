@@ -11,6 +11,7 @@ import Auth from './components/Auth';
 import ClassLobby from './components/ClassLobby';
 import ClassSidebar from './components/ClassSidebar';
 import ClassMembers from './components/ClassMembers';
+import ClassUTS from './components/ClassUTS';
 import ClassDashboard from './components/ClassDashboard';
 import ClassSchedule from './components/ClassSchedule';
 import ClassTasks from './components/ClassTasks';
@@ -1511,7 +1512,7 @@ function ClassWorkspace({
     }
   };
 
-  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'structure', 'contacts', 'members', 'logs', 'submissions', 'member-tasks'];
+  const validTabs = ['dashboard', 'schedule', 'tasks', 'files', 'announcements', 'forum', 'structure', 'contacts', 'members', 'logs', 'submissions', 'member-tasks', 'uts'];
   const activeTab = validTabs.includes(tab) ? tab : 'dashboard';
 
   // Ensure currentClass matches the URL classId
@@ -1735,6 +1736,10 @@ function ClassWorkspace({
                     onOpenAnnouncementDetail={() => navigate(`/class/${currentClass.id}/announcements`)}
                   />
                 )}
+
+            {activeTab === 'uts' && currentClass?.uts?.enabled && (
+              <ClassUTS currentClass={currentClass} />
+            )}
 
             {activeTab === 'schedule' && (
               <ClassSchedule

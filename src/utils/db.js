@@ -801,6 +801,7 @@ export const dbService = {
           waGroupLink: meta.waGroupLink || '',
           joinCode: c.invite_code,
           komtiPin: meta.komtiPin || '',
+         uts: meta.uts || { enabled: false, banner: 'Semangat menghadapi UTS!' },
           ownerId: c.owner_id,
           userRole, // 'superadmin' | 'komti' | 'lecturer' | 'student'
           membershipStatus, // 'approved' | 'pending' | 'rejected'
@@ -1263,7 +1264,7 @@ export const dbService = {
       }
     },
 
-    update: async (classId, { name, classIdentifier, lecturer, academicPeriod, waGroupLink, komtiPin }) => {
+    update: async (classId, { name, classIdentifier, lecturer, academicPeriod, waGroupLink, komtiPin, uts }) => {
       const { data, error } = await supabase.from('workspaces').select('*').eq('id', classId).maybeSingle();
       if (error || !data) throw new Error('Kelas tidak ditemukan.');
 
