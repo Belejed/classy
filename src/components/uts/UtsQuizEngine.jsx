@@ -16,7 +16,9 @@ import toast from 'react-hot-toast';
 export default function UtsQuizEngine({ 
   quizzes = [], 
   selectedCourse,
-  onSelectCourse 
+  onSelectCourse,
+  isManager = false,
+  onOpenManage
 }) {
   const [activeCourseId, setActiveCourseId] = useState(selectedCourse || null);
 
@@ -63,9 +65,20 @@ export default function UtsQuizEngine({
               Klik mata kuliah di bawah untuk mulai menguji pemahaman dengan soal latihan & pembahasan instan.
             </p>
           </div>
-          <span className="text-xs font-bold px-3 py-1 rounded-xl bg-red-50 text-red-700 border border-red-200 self-start sm:self-auto">
-            {courses.length} Set Latihan Tersedia
-          </span>
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            {isManager && onOpenManage && (
+              <button
+                type="button"
+                onClick={() => onOpenManage('quiz')}
+                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>+ Kelola / Tambah Soal (Komti)</span>
+              </button>
+            )}
+            <span className="text-xs font-bold px-3 py-1 rounded-xl bg-red-50 text-red-700 border border-red-200">
+              {courses.length} Set Latihan Tersedia
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

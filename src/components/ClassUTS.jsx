@@ -24,10 +24,12 @@ import UtsMaterialsHub from './uts/UtsMaterialsHub';
 import UtsFlashcardsPro from './uts/UtsFlashcardsPro';
 import UtsQuizEngine from './uts/UtsQuizEngine';
 import UtsCheatsheet from './uts/UtsCheatsheet';
+import UtsManageModal from './uts/UtsManageModal';
 import { 
   initialUtsMaterials, 
   initialUtsFlashcards, 
-  initialUtsQuizzes 
+  initialUtsQuizzes,
+  initialUtsExamSchedule
 } from '../data/utsData';
 
 export default function ClassUTS({ 
@@ -39,6 +41,8 @@ export default function ClassUTS({
 }) {
   const [activeSection, setActiveSection] = useState('schedule'); // 'schedule' | 'materials' | 'flashcards' | 'quiz' | 'cheatsheet'
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('all');
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [manageInitialTab, setManageInitialTab] = useState('quiz');
 
   const uts = currentClass?.uts || {};
   const role = currentClass?.userRole || 'student';
@@ -71,42 +75,23 @@ export default function ClassUTS({
   const materialsList = uts.materials && uts.materials.length > 0 ? uts.materials : initialUtsMaterials;
   const flashcardsList = uts.flashcards && uts.flashcards.length > 0 ? uts.flashcards : initialUtsFlashcards;
   const quizzesList = uts.quizzes && uts.quizzes.length > 0 ? uts.quizzes : initialUtsQuizzes;
+  const examScheduleList = uts.examSchedule && uts.examSchedule.length > 0 ? uts.examSchedule : initialUtsExamSchedule;
 
   // Progress summary
   const totalTopics = materialsList.reduce((acc, m) => acc + (m.topics?.length || 0), 0);
   const completedTopics = Object.values(checkedTopics).filter(Boolean).length;
   const studyProgress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
 
-  // Komti Settings Modal
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editTitle, setEditTitle] = useState(uts.title || 'Pusat Persiapan & Latihan UTS');
-  const [editBanner, setEditBanner] = useState(uts.banner || '🔥 MINGGU UTS TELAH TIBA! Tetap semangat, jaga kesehatan, dan maksimalkan persiapan ujian! 🔥');
-  const [editNotes, setEditNotes] = useState(uts.notes || 'Fokus belajar, kuasai kisi-kisi pertemuan 1–7, dan uji kesiapan dengan simulasi CBT!');
-  const [savingSettings, setSavingSettings] = useState(false);
+  const handleOpenManage = (tab = 'quiz') => {
+    setManageInitialTab(tab);
+    setShowManageModal(true);
+  };
 
-  const handleSaveUtsSettings = async (e) => {
-    e.preventDefault();
+  const handleSaveAllUtsData = async (updatedUts) => {
     if (!onUpdateClassSettings || !currentClass?.id) return;
-    setSavingSettings(true);
-    const toastId = toast.loading('Menyimpan perubahan informasi UTS...');
-    try {
-      await onUpdateClassSettings(currentClass.id, {
-        uts: {
-          ...uts,
-          enabled: true,
-          title: editTitle.trim(),
-          banner: editBanner.trim(),
-          notes: editNotes.trim(),
-          updatedAt: new Date().toISOString()
-        }
-      });
-      toast.success('Informasi UTS berhasil diperbarui!', { id: toastId });
-      setShowEditModal(false);
-    } catch (err) {
-      toast.error('Gagal menyimpan: ' + err.message, { id: toastId });
-    } finally {
-      setSavingSettings(false);
-    }
+    await onUpdateClassSettings(currentClass.id, {
+      uts: updatedUts
+    });
   };
 
   return (
@@ -137,11 +122,11 @@ export default function ClassUTS({
             {isManager && (
               <button
                 type="button"
-                onClick={() => setShowEditModal(true)}
-                className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-bold transition-all flex items-center gap-1.5 backdrop-blur-md cursor-pointer self-start sm:self-auto"
+                onClick={() => handleOpenManage('quiz')}
+                className="px-4 py-2 rounded-xl bg-white text-red-700 hover:bg-yellow-300 hover:text-red-950 text-xs font-black transition-all flex items-center gap-1.5 shadow-md cursor-pointer self-start sm:self-auto active:scale-95"
               >
-                <Edit3 size={13} />
-                <span>Kelola Info UTS</span>
+                <Edit3 size={14} />
+                <span>Kelola Soal & Konten UTS</span>
               </button>
             )}
 
@@ -222,6 +207,8 @@ export default function ClassUTS({
           onToggleTopic={handleToggleTopic}
           selectedCourse={selectedCourseFilter === 'all' ? null : selectedCourseFilter}
           onSelectCourse={setSelectedCourseFilter}
+          isManager={isManager}
+          onOpenManage={handleOpenManage}
         />
       )}
 
@@ -231,6 +218,8 @@ export default function ClassUTS({
           selectedCourse={selectedCourseFilter === 'all' ? null : selectedCourseFilter}
           onSelectCourse={setSelectedCourseFilter}
           storagePrefix={storagePrefix}
+          isManager={isManager}
+          onOpenManage={handleOpenManage}
         />
       )}
 
@@ -239,6 +228,8 @@ export default function ClassUTS({
           quizzes={quizzesList}
           selectedCourse={selectedCourseFilter === 'all' ? null : selectedCourseFilter}
           onSelectCourse={setSelectedCourseFilter}
+          isManager={isManager}
+          onOpenManage={handleOpenManage}
         />
       )}
 
@@ -250,78 +241,19 @@ export default function ClassUTS({
         />
       )}
 
-      {/* 4. Komti Settings Modal */}
-      {showEditModal && isManager && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden text-slate-800">
-            <div className="bg-gradient-to-r from-red-600 to-rose-600 p-5 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Flame size={20} className="text-yellow-300" />
-                <h3 className="font-black text-sm">Pengaturan Zona Minggu UTS</h3>
-              </div>
-              <button 
-                onClick={() => setShowEditModal(false)}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer"
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveUtsSettings} className="p-5 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 block">Judul Halaman UTS</label>
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder="Contoh: Pusat Persiapan & Latihan UTS"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 block">Teks Sepanduk Berjalan (Marquee Banner)</label>
-                <textarea
-                  rows={2}
-                  value={editBanner}
-                  onChange={(e) => setEditBanner(e.target.value)}
-                  placeholder="Teks yang akan berjalan di atas ruang kelas..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-red-500 leading-relaxed"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 block">Catatan Penting / Pesan Motivasi Komti</label>
-                <textarea
-                  rows={2}
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  placeholder="Pesan motivasi atau instruksi teknis untuk teman sekelas..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-red-500 leading-relaxed"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingSettings}
-                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <Save size={13} />
-                  <span>{savingSettings ? 'Menyimpan...' : 'Simpan Pengaturan'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* 4. Full UTS Content & Quiz Manager Modal for Komti */}
+      <UtsManageModal
+        isOpen={showManageModal && isManager}
+        onClose={() => setShowManageModal(false)}
+        initialTab={manageInitialTab}
+        uts={uts}
+        currentClass={currentClass}
+        materials={materialsList}
+        flashcards={flashcardsList}
+        quizzes={quizzesList}
+        examSchedule={examScheduleList}
+        onSave={handleSaveAllUtsData}
+      />
 
     </div>
   );

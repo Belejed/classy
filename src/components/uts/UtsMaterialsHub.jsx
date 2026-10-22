@@ -19,7 +19,9 @@ export default function UtsMaterialsHub({
   checkedTopics = {}, 
   onToggleTopic,
   selectedCourse,
-  onSelectCourse
+  onSelectCourse,
+  isManager = false,
+  onOpenManage
 }) {
   const [activeCourseId, setActiveCourseId] = useState(selectedCourse || null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,9 +46,20 @@ export default function UtsMaterialsHub({
               Klik salah satu mata kuliah di bawah untuk membuka rangkuman & kisi-kisi lengkapnya.
             </p>
           </div>
-          <span className="text-xs font-bold px-3 py-1 rounded-xl bg-red-50 text-red-700 border border-red-200 self-start sm:self-auto">
-            {materials.length} Mata Kuliah Tersedia
-          </span>
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            {isManager && onOpenManage && (
+              <button
+                type="button"
+                onClick={() => onOpenManage('material')}
+                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>+ Kelola Mata Kuliah (Komti)</span>
+              </button>
+            )}
+            <span className="text-xs font-bold px-3 py-1 rounded-xl bg-red-50 text-red-700 border border-red-200">
+              {materials.length} Mata Kuliah Tersedia
+            </span>
+          </div>
         </div>
 
         {/* Course Grid Buttons */}
