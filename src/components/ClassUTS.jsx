@@ -275,9 +275,9 @@ export default function ClassUTS({
       <div className="flex items-center gap-1.5 p-1.5 bg-white border border-rose-200/80 rounded-2xl shadow-xs overflow-x-auto no-scrollbar">
         {[
           { id: 'schedule', label: 'Jadwal & Countdown', icon: Calendar, badge: 'Live' },
-          { id: 'materials', label: 'Rangkuman & Kisi-Kisi', icon: BookOpen, badge: `${completedTopics}/${totalTopics}` },
-          { id: 'flashcards', label: 'Flashcard Pro', icon: Brain, badge: `${flashcardsList.length}` },
-          { id: 'quiz', label: 'Simulasi CBT Quiz', icon: HelpCircle, badge: 'CBT' },
+          { id: 'materials', label: 'Materi & Kisi-Kisi', icon: BookOpen, badge: `${completedTopics}/${totalTopics}` },
+          { id: 'flashcards', label: 'Flashcard Belajar', icon: Brain, badge: `${flashcardsList.length}` },
+          { id: 'quiz', label: 'Latihan Quiz', icon: HelpCircle, badge: 'Quiz' },
           { id: 'cheatsheet', label: 'Cheatsheet 1 Lembar', icon: FileSpreadsheet, badge: 'Quick' }
         ].map((tab) => {
           const Icon = tab.icon;
@@ -323,16 +323,16 @@ export default function ClassUTS({
           materials={materialsList}
           checkedTopics={checkedTopics}
           onToggleTopic={handleToggleTopic}
-          selectedCourseFilter={selectedCourseFilter}
-          onSelectCourseFilter={setSelectedCourseFilter}
+          selectedCourse={selectedCourseFilter === 'all' ? null : selectedCourseFilter}
+          onSelectCourse={setSelectedCourseFilter}
         />
       )}
 
       {activeSection === 'flashcards' && (
         <UtsFlashcardsPro
           flashcards={flashcardsList}
-          selectedCourseFilter={selectedCourseFilter}
-          onSelectCourseFilter={setSelectedCourseFilter}
+          selectedCourse={selectedCourseFilter === 'all' ? null : selectedCourseFilter}
+          onSelectCourse={setSelectedCourseFilter}
           storagePrefix={storagePrefix}
         />
       )}
@@ -340,8 +340,8 @@ export default function ClassUTS({
       {activeSection === 'quiz' && (
         <UtsQuizEngine
           quizzes={quizzesList}
-          selectedCourseFilter={selectedCourseFilter}
-          onSelectCourseFilter={setSelectedCourseFilter}
+          selectedCourse={selectedCourseFilter === 'all' ? null : selectedCourseFilter}
+          onSelectCourse={setSelectedCourseFilter}
         />
       )}
 
