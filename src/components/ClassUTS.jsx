@@ -42,7 +42,7 @@ export default function ClassUTS({
   const [activeSection, setActiveSection] = useState('schedule'); // 'schedule' | 'materials' | 'flashcards' | 'quiz' | 'cheatsheet'
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('all');
   const [showManageModal, setShowManageModal] = useState(false);
-  const [manageInitialTab, setManageInitialTab] = useState('quiz');
+  const [manageInitialTab, setManageInitialTab] = useState('control');
 
   const uts = currentClass?.uts || {};
   const role = currentClass?.userRole || 'student';
@@ -153,14 +153,24 @@ export default function ClassUTS({
 
           <div className="flex flex-col sm:items-end gap-3 shrink-0">
             {isManager && (
-              <button
-                type="button"
-                onClick={() => handleOpenManage('quiz')}
-                className="px-4 py-2 rounded-xl bg-white text-red-700 hover:bg-yellow-300 hover:text-red-950 text-xs font-black transition-all flex items-center gap-1.5 shadow-md cursor-pointer self-start sm:self-auto active:scale-95"
-              >
-                <Edit3 size={14} />
-                <span>Kelola Soal & Konten UTS</span>
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => handleOpenManage('control')}
+                  className="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-950 text-white text-xs font-black transition-all flex items-center gap-1.5 shadow-md cursor-pointer self-start sm:self-auto active:scale-95 border border-white/20"
+                >
+                  <ShieldCheck size={14} className="text-yellow-300" />
+                  <span>Control Panel UTS</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenManage('quiz')}
+                  className="px-3.5 py-2 rounded-xl bg-white text-red-700 hover:bg-yellow-300 hover:text-red-950 text-xs font-black transition-all flex items-center gap-1.5 shadow-md cursor-pointer self-start sm:self-auto active:scale-95"
+                >
+                  <Edit3 size={14} />
+                  <span>Kelola Soal & Konten</span>
+                </button>
+              </div>
             )}
 
             {/* Quick Study Progress Gauge */}

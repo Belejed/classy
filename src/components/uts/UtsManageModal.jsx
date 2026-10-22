@@ -20,7 +20,19 @@ import {
   Download,
   Upload,
   ClipboardPaste,
-  Layers
+  Layers,
+  SlidersHorizontal,
+  ShieldCheck,
+  RefreshCw,
+  CheckCircle2,
+  AlertTriangle,
+  Search,
+  Database,
+  RotateCcw,
+  CopyCheck,
+  FileDown,
+  FileUp,
+  Filter
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from '../ModalPortal';
@@ -35,11 +47,17 @@ import {
   parseMaterialFile,
   parseMaterialTsv
 } from '../../utils/utsExcelHelper';
+import {
+  initialUtsMaterials,
+  initialUtsFlashcards,
+  initialUtsQuizzes,
+  initialUtsExamSchedule
+} from '../../data/utsData';
 
 export default function UtsManageModal({
   isOpen,
   onClose,
-  initialTab = 'quiz',
+  initialTab = 'control',
   uts = {},
   currentClass,
   materials = [],
@@ -97,6 +115,62 @@ export default function UtsManageModal({
   const fileInputMatRef = useRef(null);
   const [showPasteMat, setShowPasteMat] = useState(false);
   const [pasteMatText, setPasteMatText] = useState('');
+
+  // --- CONTROL PANEL & DATA CLEANING STATE ---
+  const [searchAudit, setSearchAudit] = useState('');
+  const [renameTargetCourse, setRenameTargetCourse] = useState('');
+  const [renameNewCourseName, setRenameNewCourseName] = useState('');
+  const fileInputBackupRef = useRef(null);
+
+  // Health Metrics & Duplicates
+  const totalModulesCount = localMaterials.reduce((acc, m) => acc + (m.modules?.length || 0), 0);
+  const totalTopicsCount = localMaterials.reduce((acc, m) => acc + (m.topics?.length || 0), 0);
+
+  const seenQuizKeys = new Set();
+  let duplicateQuizCount = 0;
+  for (const q of localQuizzes) {
+    const key = `${(q.course || '').trim().toLowerCase()}|${(q.question || '').trim().toLowerCase()}`;
+    if (seenQuizKeys.has(key)) duplicateQuizCount++;
+    else seenQuizKeys.add(key);
+  }
+
+  const seenFcKeys = new Set();
+  let duplicateFcCount = 0;
+  for (const fc of localFlashcards) {
+    const key = `${(fc.course || '').trim().toLowerCase()}|${(fc.question || '').trim().toLowerCase()}`;
+    if (seenFcKeys.has(key)) duplicateFcCount++;
+    else seenFcKeys.add(key);
+  }
+
+  const totalDuplicates = duplicateQuizCount + duplicateFcCount;
+
+  // Course audit rows
+  const courseAuditList = existingCourses.map(cName => {
+    const mat = localMaterials.find(m => m.course.toLowerCase() === cName.toLowerCase());
+    const qzList = localQuizzes.filter(q => q.course.toLowerCase() === cName.toLowerCase());
+    const fcList = localFlashcards.filter(fc => fc.course.toLowerCase() === cName.toLowerCase());
+    const sch = localSchedule.find(s => s.course.toLowerCase() === cName.toLowerCase());
+    const modCount = mat?.modules?.length || 0;
+    const topCount = mat?.topics?.length || 0;
+
+    const isComplete = Boolean(mat && modCount > 0 && qzList.length > 0 && fcList.length > 0 && sch);
+    return {
+      course: cName,
+      code: mat?.code || '-',
+      topicsCount: topCount,
+      modulesCount: modCount,
+      quizzesCount: qzList.length,
+      flashcardsCount: fcList.length,
+      hasSchedule: Boolean(sch),
+      scheduleTime: sch ? `${sch.dayName || ''} (${sch.time || ''})` : null,
+      isComplete
+    };
+  });
+
+  const filteredAuditList = courseAuditList.filter(row => 
+    row.course.toLowerCase().includes(searchAudit.toLowerCase()) ||
+    row.code.toLowerCase().includes(searchAudit.toLowerCase())
+  );
 
   // --- FLASHCARD FORM STATE ---
   const [editingFcId, setEditingFcId] = useState(null);
@@ -597,6 +671,209 @@ export default function UtsManageModal({
   };
 
   // -------------------------------------------------------------
+  // HANDLERS FOR CONTROL PANEL & DATA CLEANING
+  // -------------------------------------------------------------
+  const handleCleanDuplicates = () => {
+    let removedQz = 0;
+    const seenQz = new Set();
+    const cleanQz = [];
+    for (const q of localQuizzes) {
+      const key = `${(q.course || '').trim().toLowerCase()}|${(q.question || '').trim().toLowerCase()}`;
+      if (seenQz.has(key)) {
+        removedQz++;
+      } else {
+        seenQz.add(key);
+        cleanQz.push(q);
+      }
+    }
+
+    let removedFc = 0;
+    const seenFc = new Set();
+    const cleanFc = [];
+    for (const fc of localFlashcards) {
+      const key = `${(fc.course || '').trim().toLowerCase()}|${(fc.question || '').trim().toLowerCase()}`;
+      if (seenFc.has(key)) {
+        removedFc++;
+      } else {
+        seenFc.add(key);
+        cleanFc.push(fc);
+      }
+    }
+
+    if (removedQz === 0 && removedFc === 0) {
+      toast.success('Semua data sudah bersih! Tidak ada soal quiz atau flashcard duplikat.');
+      return;
+    }
+
+    setLocalQuizzes(cleanQz);
+    setLocalFlashcards(cleanFc);
+    toast.success(`Berhasil membersihkan ${removedQz} soal quiz dan ${removedFc} flashcard duplikat!`);
+  };
+
+  const handleTrimAndNormalize = () => {
+    setLocalMaterials(prev => prev.map(m => ({
+      ...m,
+      course: m.course.trim(),
+      code: (m.code || '').trim(),
+      description: (m.description || '').trim(),
+      topics: (m.topics || []).map(t => t.trim()).filter(Boolean),
+      modules: (m.modules || []).map(mod => ({
+        ...mod,
+        title: mod.title.trim(),
+        keyPoints: (mod.keyPoints || []).map(k => k.trim()).filter(Boolean),
+        cheatsheet: (mod.cheatsheet || '').trim(),
+        examTip: (mod.examTip || '').trim(),
+        sampleQuestion: (mod.sampleQuestion || '').trim()
+      }))
+    })));
+
+    setLocalQuizzes(prev => prev.map(q => ({
+      ...q,
+      course: q.course.trim(),
+      question: q.question.trim(),
+      options: (q.options || []).map(o => o.trim()),
+      explanation: (q.explanation || '').trim()
+    })));
+
+    setLocalFlashcards(prev => prev.map(fc => ({
+      ...fc,
+      course: fc.course.trim(),
+      question: fc.question.trim(),
+      answer: fc.answer.trim()
+    })));
+
+    setLocalSchedule(prev => prev.map(s => ({
+      ...s,
+      course: s.course.trim(),
+      date: (s.date || '').trim(),
+      dayName: (s.dayName || '').trim(),
+      time: (s.time || '').trim(),
+      room: (s.room || '').trim(),
+      nature: (s.nature || '').trim(),
+      lecturer: (s.lecturer || '').trim(),
+      topics: (s.topics || '').trim()
+    })));
+
+    toast.success('Semua teks mata kuliah, kuis, flashcard, dan modul berhasil dirapikan!');
+  };
+
+  const handleRemoveIncomplete = () => {
+    const initialQz = localQuizzes.length;
+    const initialFc = localFlashcards.length;
+
+    const filteredQz = localQuizzes.filter(q => q.question?.trim() && q.options?.filter(o => o.trim()).length >= 2);
+    const filteredFc = localFlashcards.filter(fc => fc.question?.trim() && fc.answer?.trim());
+    
+    const diffQz = initialQz - filteredQz.length;
+    const diffFc = initialFc - filteredFc.length;
+
+    if (diffQz === 0 && diffFc === 0) {
+      toast.success('Tidak ditemukan data kosong atau tidak lengkap!');
+      return;
+    }
+
+    setLocalQuizzes(filteredQz);
+    setLocalFlashcards(filteredFc);
+    toast.success(`Dibersihkan: ${diffQz} kuis tidak lengkap & ${diffFc} flashcard kosong.`);
+  };
+
+  const handleResetToDefault = () => {
+    if (!confirm('PERINGATAN: Seluruh materi, modul, kuis, flashcard, dan jadwal UTS saat ini akan dikembalikan ke data resmi 8 mata kuliah M.Log B. Lanjutkan?')) {
+      return;
+    }
+    setLocalMaterials(initialUtsMaterials);
+    setLocalFlashcards(initialUtsFlashcards);
+    setLocalQuizzes(initialUtsQuizzes);
+    setLocalSchedule(initialUtsExamSchedule);
+    toast.success('Data UTS berhasil di-reset ke kurikulum baku M.Log B!');
+  };
+
+  const handleExportBackupJson = () => {
+    const backupData = {
+      version: '2.0',
+      exportedAt: new Date().toISOString(),
+      className: currentClass?.name || 'Classy',
+      title: localTitle,
+      banner: localBanner,
+      notes: localNotes,
+      materials: localMaterials,
+      flashcards: localFlashcards,
+      quizzes: localQuizzes,
+      schedule: localSchedule
+    };
+
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Backup_UTS_${(currentClass?.name || 'Classy').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('File backup .json berhasil diunduh!');
+  };
+
+  const handleRestoreBackupJson = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.materials && !data.quizzes && !data.flashcards) {
+        return toast.error('Format file backup .json tidak sesuai.');
+      }
+      if (data.title) setLocalTitle(data.title);
+      if (data.banner) setLocalBanner(data.banner);
+      if (data.notes) setLocalNotes(data.notes);
+      if (Array.isArray(data.materials)) setLocalMaterials(data.materials);
+      if (Array.isArray(data.flashcards)) setLocalFlashcards(data.flashcards);
+      if (Array.isArray(data.quizzes)) setLocalQuizzes(data.quizzes);
+      if (Array.isArray(data.schedule)) setLocalSchedule(data.schedule);
+
+      toast.success('Data UTS berhasil dipulihkan dari file backup!');
+    } catch (err) {
+      toast.error('Gagal membaca file JSON: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleApplyGlobalRename = (e) => {
+    e?.preventDefault();
+    if (!renameTargetCourse) return toast.error('Pilih mata kuliah yang ingin diubah!');
+    if (!renameNewCourseName.trim()) return toast.error('Ketikkan nama mata kuliah baru!');
+    if (renameTargetCourse.trim().toLowerCase() === renameNewCourseName.trim().toLowerCase()) {
+      return toast.error('Nama baru tidak boleh persis sama dengan nama lama!');
+    }
+
+    const oldName = renameTargetCourse.trim();
+    const newName = renameNewCourseName.trim();
+
+    setLocalMaterials(prev => prev.map(m => m.course.toLowerCase() === oldName.toLowerCase() ? { ...m, course: newName } : m));
+    setLocalQuizzes(prev => prev.map(q => q.course.toLowerCase() === oldName.toLowerCase() ? { ...q, course: newName } : q));
+    setLocalFlashcards(prev => prev.map(fc => fc.course.toLowerCase() === oldName.toLowerCase() ? { ...fc, course: newName } : fc));
+    setLocalSchedule(prev => prev.map(s => s.course.toLowerCase() === oldName.toLowerCase() ? { ...s, course: newName } : s));
+
+    toast.success(`Berhasil mengubah nama "${oldName}" menjadi "${newName}" di seluruh data!`);
+    setRenameTargetCourse('');
+    setRenameNewCourseName('');
+  };
+
+  const handlePurgeCourseAllData = (courseName) => {
+    if (!confirm(`HAPUS TOTAL: Yakin ingin menghapus mata kuliah "${courseName}" beserta SEMUA soal quiz, flashcard, modul rangkuman, dan jadwalnya?`)) {
+      return;
+    }
+
+    setLocalMaterials(prev => prev.filter(m => m.course.toLowerCase() !== courseName.toLowerCase()));
+    setLocalQuizzes(prev => prev.filter(q => q.course.toLowerCase() !== courseName.toLowerCase()));
+    setLocalFlashcards(prev => prev.filter(fc => fc.course.toLowerCase() !== courseName.toLowerCase()));
+    setLocalSchedule(prev => prev.filter(s => s.course.toLowerCase() !== courseName.toLowerCase()));
+
+    toast.success(`Semua data untuk mata kuliah "${courseName}" telah dihapus.`);
+  };
+
+  // -------------------------------------------------------------
   // SAVE ALL CHANGES TO SUPABASE
   // -------------------------------------------------------------
   const handleSaveAll = async () => {
@@ -656,6 +933,7 @@ export default function UtsManageModal({
         {/* Modal Tab Switcher */}
         <div className="flex items-center gap-1 p-2 bg-slate-100 border-b border-slate-200 overflow-x-auto no-scrollbar shrink-0">
           {[
+            { id: 'control', label: 'Control Panel & Rapi Data', icon: SlidersHorizontal },
             { id: 'quiz', label: 'Soal Quiz', icon: HelpCircle, count: localQuizzes.length },
             { id: 'flashcard', label: 'Flashcard', icon: Brain, count: localFlashcards.length },
             { id: 'material', label: 'Mata Kuliah & Kisi-Kisi', icon: BookOpen, count: localMaterials.length },
@@ -691,6 +969,417 @@ export default function UtsManageModal({
 
         {/* Modal Body Content (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+
+          {/* ========================================================= */}
+          {/* TAB 0: CONTROL PANEL & RAPI DATA */}
+          {/* ========================================================= */}
+          {activeTab === 'control' && (
+            <div className="space-y-6">
+
+              {/* 1. Header Overview & Health Stats */}
+              <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-5 rounded-3xl text-white space-y-4 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-wider border border-indigo-400/30">
+                      <ShieldCheck size={12} />
+                      <span>Classy UTS Data Center</span>
+                    </div>
+                    <h3 className="text-base font-black tracking-tight">
+                      Control Panel & Audit Kesehatan Data UTS
+                    </h3>
+                    <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
+                      Pusat kontrol bagi Komti untuk memantau kelengkapan materi, membersihkan duplikat soal, merapikan format teks, dan menyinkronkan nama mata kuliah secara global.
+                    </p>
+                  </div>
+
+                  {/* Health status badge */}
+                  <div className="shrink-0">
+                    {totalDuplicates > 0 ? (
+                      <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs font-bold">
+                        <AlertTriangle size={16} className="text-amber-400 animate-pulse shrink-0" />
+                        <div>
+                          <p className="font-black text-amber-300">{totalDuplicates} Duplikat Terdeteksi</p>
+                          <p className="text-[10px] text-amber-200/80">Klik tombol di bawah untuk bersihkan otomatis</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-bold">
+                        <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                        <div>
+                          <p className="font-black text-emerald-300">Data Sehat & Rapi</p>
+                          <p className="text-[10px] text-emerald-200/80">Tidak ada soal atau flashcard ganda</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4 Stat Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-white/10">
+                  <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3 border border-white/10">
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Mata Kuliah</span>
+                    <span className="text-xl font-black text-white font-mono">{localMaterials.length}</span>
+                    <span className="text-[10px] text-indigo-300 block mt-0.5">{totalModulesCount} modul terpasang</span>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3 border border-white/10">
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Soal Quiz</span>
+                    <span className="text-xl font-black text-rose-300 font-mono">{localQuizzes.length}</span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      {duplicateQuizCount > 0 ? `${duplicateQuizCount} duplikat` : '0 duplikat'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3 border border-white/10">
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Kartu Flashcard</span>
+                    <span className="text-xl font-black text-amber-300 font-mono">{localFlashcards.length}</span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      {duplicateFcCount > 0 ? `${duplicateFcCount} duplikat` : '0 duplikat'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3 border border-white/10">
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Jadwal Ujian</span>
+                    <span className="text-xl font-black text-emerald-300 font-mono">{localSchedule.length}</span>
+                    <span className="text-[10px] text-emerald-300/80 block mt-0.5">Mata kuliah terjadwal</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Toolbox Pembersih Data Massal (1-Click Actions) */}
+              <div className="bg-white rounded-3xl border border-slate-200/90 p-5 space-y-4 shadow-xs">
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                    <Wrench size={14} className="text-red-600" />
+                    <span>Toolbox Pembersih Data Massal (1-Klik)</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Gunakan alat bantu ini untuk merapikan inkonsistensi spasi, menghapus entri ganda, atau mereset kurikulum.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Clean Duplicates */}
+                  <button
+                    type="button"
+                    onClick={handleCleanDuplicates}
+                    className="p-3.5 rounded-2xl border border-slate-200 hover:border-amber-400 bg-amber-50/40 hover:bg-amber-50 transition-all text-left flex flex-col justify-between space-y-2 cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+                        <CopyCheck size={16} />
+                      </div>
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md">
+                        {totalDuplicates} Duplikat
+                      </span>
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-slate-900 group-hover:text-amber-800">
+                        Bersihkan Duplikat
+                      </h5>
+                      <p className="text-[10px] text-slate-500 leading-snug mt-0.5">
+                        Hapus otomatis kuis dan flashcard yang memiliki pertanyaan kembar.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Trim Whitespaces */}
+                  <button
+                    type="button"
+                    onClick={handleTrimAndNormalize}
+                    className="p-3.5 rounded-2xl border border-slate-200 hover:border-sky-400 bg-sky-50/40 hover:bg-sky-50 transition-all text-left flex flex-col justify-between space-y-2 cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+                        <RefreshCw size={16} />
+                      </div>
+                      <span className="text-[10px] font-bold text-sky-700 bg-sky-100/80 px-2 py-0.5 rounded-md">
+                        Normalisasi
+                      </span>
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-800">
+                        Pangkas Spasi Ekstra
+                      </h5>
+                      <p className="text-[10px] text-slate-500 leading-snug mt-0.5">
+                        Hapus spasi ganda dan baris kosong di semua judul, soal & jawaban.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Remove Incomplete */}
+                  <button
+                    type="button"
+                    onClick={handleRemoveIncomplete}
+                    className="p-3.5 rounded-2xl border border-slate-200 hover:border-purple-400 bg-purple-50/40 hover:bg-purple-50 transition-all text-left flex flex-col justify-between space-y-2 cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+                        <AlertCircle size={16} />
+                      </div>
+                      <span className="text-[10px] font-bold text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded-md">
+                        Validasi
+                      </span>
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-slate-900 group-hover:text-purple-800">
+                        Hapus Data Kosong
+                      </h5>
+                      <p className="text-[10px] text-slate-500 leading-snug mt-0.5">
+                        Singkirkan kuis tanpa pilihan jawaban dan flashcard tanpa teks.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Reset to Baku Curriculum */}
+                  <button
+                    type="button"
+                    onClick={handleResetToDefault}
+                    className="p-3.5 rounded-2xl border border-slate-200 hover:border-rose-400 bg-rose-50/40 hover:bg-rose-50 transition-all text-left flex flex-col justify-between space-y-2 cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+                        <RotateCcw size={16} />
+                      </div>
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-100/80 px-2 py-0.5 rounded-md">
+                        8 MK Baku
+                      </span>
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-slate-900 group-hover:text-rose-800">
+                        Reset Kurikulum Resmi
+                      </h5>
+                      <p className="text-[10px] text-slate-500 leading-snug mt-0.5">
+                        Kembalikan seluruh materi dan kuis ke kurikulum 8 MK M.Log B asli.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Backup & Restore Action Bar */}
+                <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Database size={15} className="text-slate-400" />
+                    <span className="text-xs font-bold text-slate-700">Backup & Restore Cadangan UTS (.json):</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      ref={fileInputBackupRef}
+                      onChange={handleRestoreBackupJson}
+                      accept=".json"
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleExportBackupJson}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                      title="Download seluruh snapshot data UTS saat ini ke file JSON"
+                    >
+                      <FileDown size={14} />
+                      <span>Export Backup (.json)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputBackupRef.current?.click()}
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-black text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      title="Pulihkan data UTS dari file backup JSON sebelumnya"
+                    >
+                      <FileUp size={14} />
+                      <span>Restore Backup (.json)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Sinkronisasi & Ubah Nama Mata Kuliah Global */}
+              <form onSubmit={handleApplyGlobalRename} className="bg-white rounded-3xl border border-slate-200/90 p-5 space-y-3.5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                      <Edit3 size={14} className="text-red-600" />
+                      <span>Sinkronisasi & Ubah Nama Mata Kuliah Massal</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Ganti typo atau seragamkan penamaan mata kuliah. Perubahan otomatis diterapkan ke <strong>Quiz, Flashcard, Materi, dan Jadwal</strong> sekaligus!
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Pilih Mata Kuliah Sumber (Yang Ingin Diubah)</label>
+                    <select
+                      value={renameTargetCourse}
+                      onChange={(e) => {
+                        setRenameTargetCourse(e.target.value);
+                        setRenameNewCourseName(e.target.value);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-red-500 bg-white"
+                    >
+                      <option value="">-- Pilih Mata Kuliah --</option>
+                      {existingCourses.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Nama Mata Kuliah Baru (Tujuan)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={renameNewCourseName}
+                        onChange={(e) => setRenameNewCourseName(e.target.value)}
+                        placeholder="Ketikkan nama resmi baru..."
+                        className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-red-500 bg-white"
+                      />
+                      <button
+                        type="submit"
+                        className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer whitespace-nowrap"
+                      >
+                        Ganti Nama Global
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+
+              {/* 4. Tabel Matriks Audit Kelengkapan per Mata Kuliah */}
+              <div className="bg-white rounded-3xl border border-slate-200/90 p-5 space-y-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                      <Layers size={14} className="text-red-600" />
+                      <span>Matriks Audit Kelengkapan per Mata Kuliah ({courseAuditList.length})</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Periksa apakah semua mata kuliah sudah memiliki kisi-kisi, modul rangkuman, kuis, dan jadwal ujian.
+                    </p>
+                  </div>
+
+                  {/* Search Audit */}
+                  <div className="relative min-w-[220px]">
+                    <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={searchAudit}
+                      onChange={(e) => setSearchAudit(e.target.value)}
+                      placeholder="Cari mata kuliah..."
+                      className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-red-500 bg-slate-50"
+                    />
+                  </div>
+                </div>
+
+                {/* Audit Table */}
+                <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="py-2.5 px-3">Mata Kuliah & Kode</th>
+                        <th className="py-2.5 px-3 text-center">Kisi-Kisi</th>
+                        <th className="py-2.5 px-3 text-center">Modul Rangkuman</th>
+                        <th className="py-2.5 px-3 text-center">Flashcard</th>
+                        <th className="py-2.5 px-3 text-center">Soal Quiz</th>
+                        <th className="py-2.5 px-3 text-center">Jadwal Ujian</th>
+                        <th className="py-2.5 px-3 text-center">Status</th>
+                        <th className="py-2.5 px-3 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {filteredAuditList.map((row, idx) => (
+                        <tr key={row.course || idx} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3 px-3">
+                            <span className="font-bold text-slate-900 block">{row.course}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{row.code}</span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold ${
+                              row.topicsCount > 0 ? 'bg-slate-100 text-slate-700' : 'bg-rose-50 text-rose-600'
+                            }`}>
+                              {row.topicsCount} Topik
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold ${
+                              row.modulesCount > 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-rose-50 text-rose-600'
+                            }`}>
+                              {row.modulesCount} Modul
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold ${
+                              row.flashcardsCount > 0 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-600'
+                            }`}>
+                              {row.flashcardsCount} Kartu
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold ${
+                              row.quizzesCount > 0 ? 'bg-rose-50 text-rose-700' : 'bg-rose-100/60 text-rose-700 font-black'
+                            }`}>
+                              {row.quizzesCount} Soal
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            {row.hasSchedule ? (
+                              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                                {row.scheduleTime || 'Terjadwal ✓'}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                                Belum ada
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            {row.isComplete ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                                <Check size={11} />
+                                <span>Lengkap</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-md">
+                                <span>Perlu Isi</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveTab('material');
+                                  const targetMat = localMaterials.find(m => m.course.toLowerCase() === row.course.toLowerCase());
+                                  if (targetMat) handleEditMat(targetMat);
+                                }}
+                                className="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+                                title="Edit Materi & Modul MK Ini"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handlePurgeCourseAllData(row.course)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                                title="Hapus Total Seluruh Data MK Ini"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
 
           {/* ========================================================= */}
           {/* TAB 1: KELOLA SOAL QUIZ */}
