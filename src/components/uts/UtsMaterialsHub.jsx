@@ -11,7 +11,9 @@ import {
   HelpCircle, 
   Sparkles,
   Layers,
-  Search
+  Search,
+  Copy,
+  Check
 } from 'lucide-react';
 
 export default function UtsMaterialsHub({ 
@@ -26,6 +28,17 @@ export default function UtsMaterialsHub({
   const [activeCourseId, setActiveCourseId] = useState(selectedCourse || null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedModules, setExpandedModules] = useState({});
+  const [copiedFormulaId, setCopiedFormulaId] = useState(null);
+  const [formulaFontSize, setFormulaFontSize] = useState('large'); // 'normal' | 'large' | 'xl'
+
+  const handleCopyFormula = (text, id) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(text);
+    setCopiedFormulaId(id);
+    setTimeout(() => {
+      setCopiedFormulaId(null);
+    }, 2000);
+  };
 
   const toggleExpand = (id) => {
     setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
@@ -278,16 +291,86 @@ export default function UtsMaterialsHub({
                     </ul>
                   </div>
 
-                  {/* Cheatsheet Snippet */}
+                  {/* Cheatsheet Snippet (Ukuran Lebih Besar & Terbaca) */}
                   {mod.cheatsheet && (
-                    <div className="p-4 rounded-2xl bg-slate-900 text-slate-100 font-mono text-[11px] space-y-1 shadow-inner">
-                      <div className="flex items-center gap-1.5 text-yellow-400 font-bold text-[10px] uppercase tracking-wider mb-1">
-                        <Code2 size={12} />
-                        <span>Catatan Formula / Rumus Kunci:</span>
+                    <div className="rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100 border border-amber-500/30 p-4 sm:p-5 space-y-2.5 shadow-md relative overflow-hidden">
+                      <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2.5 flex-wrap">
+                        <div className="flex items-center gap-2 text-amber-400 font-black text-xs uppercase tracking-wider">
+                          <div className="w-5 h-5 rounded-md bg-amber-400/20 text-amber-300 flex items-center justify-center">
+                            <Code2 size={13} />
+                          </div>
+                          <span>Catatan Formula / Rumus Kunci:</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {/* Ukuran Font Selector */}
+                          <div className="flex items-center bg-white/10 rounded-lg p-0.5 text-[10px] font-bold text-white/70">
+                            <button
+                              type="button"
+                              onClick={() => setFormulaFontSize('normal')}
+                              className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                                formulaFontSize === 'normal' ? 'bg-amber-400 text-slate-950 font-black shadow-xs' : 'hover:text-white'
+                              }`}
+                              title="Ukuran Normal"
+                            >
+                              A
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormulaFontSize('large')}
+                              className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                                formulaFontSize === 'large' ? 'bg-amber-400 text-slate-950 font-black shadow-xs' : 'hover:text-white'
+                              }`}
+                              title="Ukuran Besar (Default)"
+                            >
+                              A+
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormulaFontSize('xl')}
+                              className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                                formulaFontSize === 'xl' ? 'bg-amber-400 text-slate-950 font-black shadow-xs' : 'hover:text-white'
+                              }`}
+                              title="Ukuran Ekstra Besar"
+                            >
+                              A++
+                            </button>
+                          </div>
+
+                          {/* Tombol Salin Rumus */}
+                          <button
+                            type="button"
+                            onClick={() => handleCopyFormula(mod.cheatsheet, mod.id || modIdx)}
+                            className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white/90 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                            title="Salin rumus ke clipboard"
+                          >
+                            {copiedFormulaId === (mod.id || modIdx) ? (
+                              <>
+                                <Check size={12} className="text-emerald-400" />
+                                <span className="text-emerald-300 font-black">Tersalin!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={12} />
+                                <span>Salin</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                      <pre className="whitespace-pre-wrap font-mono leading-relaxed text-slate-200">
-                        {mod.cheatsheet}
-                      </pre>
+
+                      {/* Teks Formula Besar */}
+                      <div className="p-3.5 sm:p-4 rounded-xl bg-black/40 border border-white/5 overflow-x-auto">
+                        <pre className={`whitespace-pre-wrap font-mono font-bold leading-relaxed text-amber-200 tracking-wide select-all ${
+                          formulaFontSize === 'normal' 
+                            ? 'text-xs sm:text-sm' 
+                            : formulaFontSize === 'xl' 
+                              ? 'text-base sm:text-xl md:text-2xl' 
+                              : 'text-sm sm:text-base md:text-lg'
+                        }`}>
+                          {mod.cheatsheet}
+                        </pre>
+                      </div>
                     </div>
                   )}
 
