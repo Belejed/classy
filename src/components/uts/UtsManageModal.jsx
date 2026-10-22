@@ -141,6 +141,10 @@ export default function UtsManageModal({
     else seenFcKeys.add(key);
   }
 
+  const corruptQuizCount = localQuizzes.filter(q => 
+    q.options?.[0]?.trim().toLowerCase() === q.course?.trim().toLowerCase()
+  ).length;
+
   const totalDuplicates = duplicateQuizCount + duplicateFcCount;
 
   // Course audit rows
@@ -711,6 +715,27 @@ export default function UtsManageModal({
     toast.success(`Berhasil membersihkan ${removedQz} soal quiz dan ${removedFc} flashcard duplikat!`);
   };
 
+  const handlePurgeCorruptQuizzes = () => {
+    const corruptCount = localQuizzes.filter(q => 
+      q.options?.[0]?.trim().toLowerCase() === q.course?.trim().toLowerCase()
+    ).length;
+
+    if (corruptCount === 0) {
+      toast.success('Semua soal normal! Tidak ada soal dengan Pilihan A yang tertukar nama mata kuliah.');
+      return;
+    }
+
+    if (!confirm(`Ditemukan ${corruptCount} soal dengan Pilihan A tertukar nama mata kuliah (akibat bug parser sebelumnya). Hapus soal-soal rusak ini agar Anda bisa upload ulang file Excel dengan bersih?`)) {
+      return;
+    }
+
+    setLocalQuizzes(prev => prev.filter(q => 
+      q.options?.[0]?.trim().toLowerCase() !== q.course?.trim().toLowerCase()
+    ));
+
+    toast.success(`Berhasil menghapus ${corruptCount} soal rusak! Sekarang silakan upload ulang file Excel Anda.`);
+  };
+
   const handleTrimAndNormalize = () => {
     setLocalMaterials(prev => prev.map(m => ({
       ...m,
@@ -994,7 +1019,23 @@ export default function UtsManageModal({
                   </div>
 
                   {/* Health status badge */}
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex flex-col sm:items-end gap-2">
+                    {corruptQuizCount > 0 && (
+                      <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-rose-500/20 border border-rose-400/40 text-rose-200 text-xs font-bold">
+                        <AlertTriangle size={16} className="text-rose-400 animate-pulse shrink-0" />
+                        <div>
+                          <p className="font-black text-rose-300">{corruptQuizCount} Soal Pilihan A Tertukar</p>
+                          <button
+                            type="button"
+                            onClick={handlePurgeCorruptQuizzes}
+                            className="text-[10px] text-white underline hover:text-rose-200 cursor-pointer font-bold"
+                          >
+                            Klik untuk hapus soal rusak & upload ulang
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {totalDuplicates > 0 ? (
                       <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs font-bold">
                         <AlertTriangle size={16} className="text-amber-400 animate-pulse shrink-0" />
@@ -1004,13 +1045,15 @@ export default function UtsManageModal({
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-bold">
-                        <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
-                        <div>
-                          <p className="font-black text-emerald-300">Data Sehat & Rapi</p>
-                          <p className="text-[10px] text-emerald-200/80">Tidak ada soal atau flashcard ganda</p>
+                      corruptQuizCount === 0 && (
+                        <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-bold">
+                          <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                          <div>
+                            <p className="font-black text-emerald-300">Data Sehat & Rapi</p>
+                            <p className="text-[10px] text-emerald-200/80">Tidak ada soal atau flashcard ganda</p>
+                          </div>
                         </div>
-                      </div>
+                      )
                     )}
                   </div>
                 </div>
@@ -1060,6 +1103,32 @@ export default function UtsManageModal({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Purge Corrupt Quizzes (if any) */}
+                  {corruptQuizCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handlePurgeCorruptQuizzes}
+                      className="p-3.5 rounded-2xl border-2 border-rose-400 bg-rose-50/80 hover:bg-rose-100 transition-all text-left flex flex-col justify-between space-y-2 cursor-pointer group sm:col-span-2 lg:col-span-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+                          <Trash2 size={16} />
+                        </div>
+                        <span className="text-[10px] font-black text-rose-700 bg-white border border-rose-200 px-2.5 py-0.5 rounded-md">
+                          {corruptQuizCount} Soal Perlu Dihapus
+                        </span>
+                      </div>
+                      <div>
+                        <h5 className="text-xs font-black text-rose-900">
+                          Hapus Soal dengan Pilihan A Tertukar Nama Matkul
+                        </h5>
+                        <p className="text-[11px] text-rose-700 leading-snug mt-0.5">
+                          Klik untuk menghapus {corruptQuizCount} soal yang sebelumnya rusak saat import. Setelah dihapus, silakan upload kembali file Excel Anda.
+                        </p>
+                      </div>
+                    </button>
+                  )}
+
                   {/* Clean Duplicates */}
                   <button
                     type="button"

@@ -103,23 +103,32 @@ function normalizeQuizRows(rawRows) {
   const parsedQuizzes = [];
 
   for (const row of rawRows) {
-    const course = findValue(row, ['mata kuliah', 'matkul', 'course', 'subject']) || 'Pengantar Logistik';
-    const question = findValue(row, ['pertanyaan soal', 'pertanyaan', 'soal', 'question']);
-    const optA = findValue(row, ['pilihan a', 'opsi a', 'a', 'option a']);
-    const optB = findValue(row, ['pilihan b', 'opsi b', 'b', 'option b']);
-    const optC = findValue(row, ['pilihan c', 'opsi c', 'c', 'option c']);
-    const optD = findValue(row, ['pilihan d', 'opsi d', 'd', 'option d']);
-    const keyRaw = String(findValue(row, ['kunci jawaban (a/b/c/d)', 'kunci jawaban', 'kunci', 'jawaban benar', 'answer', 'key']) || 'A').trim().toUpperCase();
-    const explanation = findValue(row, ['pembahasan / penjelasan', 'pembahasan', 'penjelasan', 'explanation']) || '';
+    const course = findValue(row, ['mata kuliah', 'matkul', 'nama mata kuliah', 'course', 'subject']) || 'Pengantar Logistik';
+    const question = findValue(row, ['pertanyaan soal', 'pertanyaan', 'soal quiz', 'soal', 'question', 'text']);
+    const optA = findValue(row, ['pilihan a', 'opsi a', 'jawaban a', 'option a', 'a']);
+    const optB = findValue(row, ['pilihan b', 'opsi b', 'jawaban b', 'option b', 'b']);
+    const optC = findValue(row, ['pilihan c', 'opsi c', 'jawaban c', 'option c', 'c']);
+    const optD = findValue(row, ['pilihan d', 'opsi d', 'jawaban d', 'option d', 'd']);
+    const keyRaw = String(findValue(row, ['kunci jawaban (a/b/c/d)', 'kunci jawaban', 'kunci', 'jawaban benar', 'correct answer', 'answer', 'key']) || 'A').trim();
+    const explanation = findValue(row, ['pembahasan / penjelasan', 'pembahasan', 'penjelasan', 'alasan', 'explanation']) || '';
 
     if (!question || !optA || !optB) {
       continue;
     }
 
     let answerIdx = 0;
-    if (keyRaw === 'B' || keyRaw === '1') answerIdx = 1;
-    else if (keyRaw === 'C' || keyRaw === '2') answerIdx = 2;
-    else if (keyRaw === 'D' || keyRaw === '3') answerIdx = 3;
+    const cleanKeyRaw = keyRaw.toUpperCase();
+    if (cleanKeyRaw.startsWith('B') || cleanKeyRaw === '1') answerIdx = 1;
+    else if (cleanKeyRaw.startsWith('C') || cleanKeyRaw === '2') answerIdx = 2;
+    else if (cleanKeyRaw.startsWith('D') || cleanKeyRaw === '3') answerIdx = 3;
+    else if (cleanKeyRaw.startsWith('A') || cleanKeyRaw === '0') answerIdx = 0;
+    else {
+      // Check if key matches option text directly
+      const matchIdx = [optA, optB, optC, optD].findIndex(
+        opt => opt && opt.trim().toLowerCase() === keyRaw.trim().toLowerCase()
+      );
+      if (matchIdx >= 0) answerIdx = matchIdx;
+    }
 
     parsedQuizzes.push({
       id: `qz-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -387,15 +396,38 @@ function normalizeMaterialRows(rawRows) {
 
 // -------------------------------------------------------------
 // HELPER FOR FLEXIBLE COLUMN MATCHING
+// Prioritas: Exact match dulu, baru substring match untuk kata >= 3 karakter
 // -------------------------------------------------------------
 function findValue(rowObj, candidateKeys) {
-  for (const key of Object.keys(rowObj)) {
-    const cleanKey = key.trim().toLowerCase();
-    for (const cand of candidateKeys) {
-      if (cleanKey === cand.toLowerCase() || cleanKey.includes(cand.toLowerCase())) {
-        return rowObj[key];
+  if (!rowObj || typeof rowObj !== 'object') return '';
+  const rowKeys = Object.keys(rowObj);
+
+  // Pass 1: Exact match (case-insensitive & trimmed)
+  for (const cand of candidateKeys) {
+    const cleanCand = cand.trim().toLowerCase();
+    for (const key of rowKeys) {
+      const cleanKey = key.trim().toLowerCase();
+      if (cleanKey === cleanCand) {
+        const val = rowObj[key];
+        return val !== undefined && val !== null ? String(val) : '';
       }
     }
   }
+
+  // Pass 2: Substring match HANYA untuk kata kunci panjang (>= 3 karakter)
+  // Mencegah 'a', 'b', 'c', 'd' mencocokkan huruf di dalam 'mata kuliah'
+  for (const cand of candidateKeys) {
+    const cleanCand = cand.trim().toLowerCase();
+    if (cleanCand.length < 3) continue;
+
+    for (const key of rowKeys) {
+      const cleanKey = key.trim().toLowerCase();
+      if (cleanKey.includes(cleanCand)) {
+        const val = rowObj[key];
+        return val !== undefined && val !== null ? String(val) : '';
+      }
+    }
+  }
+
   return '';
 }
