@@ -22,6 +22,7 @@ import {
   ClipboardPaste,
   Layers,
   SlidersHorizontal,
+  Wrench,
   ShieldCheck,
   RefreshCw,
   CheckCircle2,
@@ -67,9 +68,7 @@ export default function UtsManageModal({
   availableCourses = [],
   onSave
 }) {
-  if (!isOpen) return null;
-
-  const [activeTab, setActiveTab] = useState(initialTab); // 'quiz' | 'flashcard' | 'material' | 'schedule' | 'general'
+  const [activeTab, setActiveTab] = useState(initialTab); // 'control' | 'quiz' | 'flashcard' | 'material' | 'schedule' | 'general'
   const [saving, setSaving] = useState(false);
 
   // Local state for all collections to allow preview & batch save
@@ -217,6 +216,8 @@ export default function UtsManageModal({
   const [schLecturer, setSchLecturer] = useState('');
   const [schSks, setSchSks] = useState(3);
   const [schTopics, setSchTopics] = useState('');
+
+  if (!isOpen) return null;
 
   // -------------------------------------------------------------
   // HANDLERS FOR FLASHCARDS
