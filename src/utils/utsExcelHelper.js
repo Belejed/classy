@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 
 /**
- * UTILITY EXCEL HELPER FOR UTS QUIZZES & FLASHCARDS
+ * UTILITY EXCEL HELPER FOR UTS QUIZZES, FLASHCARDS & MATERIALS
  * Mendukung Download Template (.xlsx), Upload File (.xlsx/.xls/.csv), 
  * dan Bulk Paste langsung dari spreadsheet.
  */
@@ -103,7 +103,6 @@ function normalizeQuizRows(rawRows) {
   const parsedQuizzes = [];
 
   for (const row of rawRows) {
-    // Find keys flexibly
     const course = findValue(row, ['mata kuliah', 'matkul', 'course', 'subject']) || 'Pengantar Logistik';
     const question = findValue(row, ['pertanyaan soal', 'pertanyaan', 'soal', 'question']);
     const optA = findValue(row, ['pilihan a', 'opsi a', 'a', 'option a']);
@@ -114,7 +113,7 @@ function normalizeQuizRows(rawRows) {
     const explanation = findValue(row, ['pembahasan / penjelasan', 'pembahasan', 'penjelasan', 'explanation']) || '';
 
     if (!question || !optA || !optB) {
-      continue; // Skip invalid row
+      continue;
     }
 
     let answerIdx = 0;
@@ -226,6 +225,164 @@ function normalizeFlashcardRows(rawRows) {
   }
 
   return parsedFlashcards;
+}
+
+// -------------------------------------------------------------
+// 3. MATERIAL & SUMMARY MODULE TEMPLATE & PARSER
+// -------------------------------------------------------------
+
+export function downloadMaterialExcelTemplate() {
+  const sampleData = [
+    {
+      'Mata Kuliah': 'Pengantar Logistik',
+      'Kode MK': 'LOG-101',
+      'Deskripsi MK': 'Konsep logistik, supply chain, pergudangan, inventory, dan bullwhip effect.',
+      'Kisi-Kisi Topik (Pisahkan dengan tanda koma)': 'Konsep Dasar Logistik, Prinsip 7R, Pergudangan & Inventory, Bullwhip Effect',
+      'Judul Modul Rangkuman': 'Fundamental Logistik & Prinsip 7R (Pertemuan 1 - 3)',
+      'Poin Konsep Inti (Pisahkan dengan tanda ;)': 'Logistik mengatur aliran fisik barang dan informasi; Prinsip 7R mencakup Right Product hingga Right Cost; SCM mengoordinasikan seluruh rantai mitra hulu ke hilir',
+      'Catatan Formula / Cheatsheet': '7R: Product, Quantity, Condition, Place, Time, Customer, Cost',
+      'Tips Ujian Dosen': 'Pahami perbedaan esensial antara Logistik vs Supply Chain Management',
+      'Contoh Soal Ujian': 'Jelaskan perbedaan aktivitas logistik vs manajemen rantai pasok (SCM)!'
+    },
+    {
+      'Mata Kuliah': 'Pengantar Logistik',
+      'Kode MK': 'LOG-101',
+      'Deskripsi MK': 'Konsep logistik, supply chain, pergudangan, inventory, dan bullwhip effect.',
+      'Kisi-Kisi Topik (Pisahkan dengan tanda koma)': 'Konsep Dasar Logistik, Prinsip 7R, Pergudangan & Inventory, Bullwhip Effect',
+      'Judul Modul Rangkuman': 'Pergudangan & Bullwhip Effect (Pertemuan 4 - 7)',
+      'Poin Konsep Inti (Pisahkan dengan tanda ;)': 'Aktivitas gudang: Receiving, Storage, Picking, Shipping; Bullwhip effect membesar dari hilir ke hulu; Solusi dengan Information Sharing (POS data)',
+      'Catatan Formula / Cheatsheet': 'Solusi Bullwhip: POS data sharing, Lead time reduction, VMI',
+      'Tips Ujian Dosen': 'Dosen sering memberikan skenario rantai pasok dan meminta cara meredam Bullwhip Effect',
+      'Contoh Soal Ujian': 'Sebutkan 4 penyebab utama Bullwhip Effect dan solusinya!'
+    },
+    {
+      'Mata Kuliah': 'Ekonomi Mikro',
+      'Kode MK': 'EKO-101',
+      'Deskripsi MK': 'Hukum permintaan-penawaran, elastisitas, teori konsumen, dan kurva biaya.',
+      'Kisi-Kisi Topik (Pisahkan dengan tanda koma)': 'Kelangkaan & Opportunity Cost, Titik Keseimbangan (Qd=Qs), Elastisitas, Kurva Biaya MC/AC',
+      'Judul Modul Rangkuman': 'Permintaan, Penawaran & Equilibrium (Pertemuan 1 - 3)',
+      'Poin Konsep Inti (Pisahkan dengan tanda ;)': 'Hukum Permintaan: P naik maka Q turun (ceteris paribus); Equilibrium terjadi saat Qd = Qs; Pergeseran kurva vs pergerakan sepanjang kurva',
+      'Catatan Formula / Cheatsheet': 'Equilibrium: Qd = Qs. Slope permintaan selalu negatif.',
+      'Tips Ujian Dosen': 'Hati-hati menghitung substitusi nilai Pe ke fungsi Qd atau Qs',
+      'Contoh Soal Ujian': 'Jika Qd = 100 - 2P dan Qs = 20 + 2P, tentukan harga dan kuantitas keseimbangan!'
+    }
+  ];
+
+  const ws = XLSX.utils.json_to_sheet(sampleData);
+  ws['!cols'] = [
+    { wch: 22 }, // Mata Kuliah
+    { wch: 12 }, // Kode MK
+    { wch: 35 }, // Deskripsi
+    { wch: 40 }, // Kisi-Kisi
+    { wch: 35 }, // Judul Modul
+    { wch: 55 }, // Poin Konsep
+    { wch: 30 }, // Formula
+    { wch: 35 }, // Tips
+    { wch: 40 }  // Contoh Soal
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Template_Modul_Materi');
+  XLSX.writeFile(wb, 'Template_Modul_Materi_UTS.xlsx');
+}
+
+export async function parseMaterialFile(file) {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+  return normalizeMaterialRows(rawRows);
+}
+
+export function parseMaterialTsv(text) {
+  const lines = text.trim().split(/\r?\n/).filter(Boolean);
+  if (lines.length === 0) return [];
+
+  const firstCols = lines[0].split('\t').map(c => c.trim().toLowerCase());
+  const hasHeader = firstCols.some(c => c.includes('mata kuliah') || c.includes('modul') || c.includes('kisi'));
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+
+  const rawRows = dataLines.map(line => {
+    const cols = line.split('\t').map(c => c.trim());
+    return {
+      'Mata Kuliah': cols[0] || '',
+      'Kode MK': cols[1] || '',
+      'Deskripsi MK': cols[2] || '',
+      'Kisi-Kisi Topik (Pisahkan dengan tanda koma)': cols[3] || '',
+      'Judul Modul Rangkuman': cols[4] || '',
+      'Poin Konsep Inti (Pisahkan dengan tanda ;)': cols[5] || '',
+      'Catatan Formula / Cheatsheet': cols[6] || '',
+      'Tips Ujian Dosen': cols[7] || '',
+      'Contoh Soal Ujian': cols[8] || ''
+    };
+  });
+
+  return normalizeMaterialRows(rawRows);
+}
+
+function normalizeMaterialRows(rawRows) {
+  const courseMap = new Map();
+
+  for (const row of rawRows) {
+    const course = findValue(row, ['mata kuliah', 'matkul', 'course', 'subject']) || 'Mata Kuliah';
+    const code = findValue(row, ['kode mk', 'kode', 'code']) || 'MK';
+    const description = findValue(row, ['deskripsi mk', 'deskripsi', 'description']) || 'Rangkuman materi UTS.';
+    const topicsRaw = findValue(row, ['kisi-kisi topik (pisahkan dengan tanda koma)', 'kisi-kisi', 'topik', 'topics']) || '';
+    
+    const modTitle = findValue(row, ['judul modul rangkuman', 'judul modul', 'modul', 'module title']) || '';
+    const keyPointsRaw = findValue(row, ['poin konsep inti (pisahkan dengan tanda ;)', 'poin konsep', 'poin', 'key points']) || '';
+    const cheatsheet = findValue(row, ['catatan formula / cheatsheet', 'formula', 'rumus', 'cheatsheet']) || '';
+    const examTip = findValue(row, ['tips ujian dosen', 'tips dosen', 'tips', 'exam tip']) || '';
+    const sampleQuestion = findValue(row, ['contoh soal ujian', 'contoh soal', 'soal', 'sample question']) || '';
+
+    const cleanCourseKey = course.trim().toLowerCase();
+    if (!cleanCourseKey) continue;
+
+    let courseObj = courseMap.get(cleanCourseKey);
+    if (!courseObj) {
+      const initialTopics = topicsRaw
+        ? topicsRaw.split(/[,;\n]/).map(t => t.trim()).filter(Boolean)
+        : [];
+
+      courseObj = {
+        id: `mat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        course: course.trim(),
+        code: code.trim(),
+        description: description.trim(),
+        topics: initialTopics,
+        modules: []
+      };
+      courseMap.set(cleanCourseKey, courseObj);
+    } else {
+      if (topicsRaw) {
+        const extraTopics = topicsRaw.split(/[,;\n]/).map(t => t.trim()).filter(Boolean);
+        for (const top of extraTopics) {
+          if (!courseObj.topics.includes(top)) {
+            courseObj.topics.push(top);
+          }
+        }
+      }
+    }
+
+    if (modTitle || keyPointsRaw) {
+      const keyPointsArray = keyPointsRaw
+        ? keyPointsRaw.split(/[;\n]/).map(k => k.trim()).filter(Boolean)
+        : ['Poin materi'];
+
+      courseObj.modules.push({
+        id: `mod-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        title: modTitle.trim() || `Modul Pertemuan ${courseObj.modules.length + 1}`,
+        keyPoints: keyPointsArray,
+        cheatsheet: cheatsheet.trim(),
+        examTip: examTip.trim(),
+        sampleQuestion: sampleQuestion.trim()
+      });
+    }
+  }
+
+  return Array.from(courseMap.values());
 }
 
 // -------------------------------------------------------------

@@ -30,7 +30,10 @@ import {
   parseQuizTsv,
   downloadFlashcardExcelTemplate,
   parseFlashcardFile,
-  parseFlashcardTsv
+  parseFlashcardTsv,
+  downloadMaterialExcelTemplate,
+  parseMaterialFile,
+  parseMaterialTsv
 } from '../../utils/utsExcelHelper';
 
 export default function UtsManageModal({
@@ -90,6 +93,10 @@ export default function UtsManageModal({
   const fileInputFcRef = useRef(null);
   const [showPasteFc, setShowPasteFc] = useState(false);
   const [pasteFcText, setPasteFcText] = useState('');
+
+  const fileInputMatRef = useRef(null);
+  const [showPasteMat, setShowPasteMat] = useState(false);
+  const [pasteMatText, setPasteMatText] = useState('');
 
   // --- FLASHCARD FORM STATE ---
   const [editingFcId, setEditingFcId] = useState(null);
@@ -445,6 +452,79 @@ export default function UtsManageModal({
         setMatModules([]);
         setShowModForm(false);
       }
+    }
+  };
+
+  const handleUploadMatFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const toastId = toast.loading('Membaca file Excel / CSV materi & modul...');
+      const parsed = await parseMaterialFile(file);
+      if (!parsed || parsed.length === 0) {
+        return toast.error('Format file tidak sesuai atau tidak ada baris materi yang valid.', { id: toastId });
+      }
+
+      setLocalMaterials(prev => {
+        const next = [...prev];
+        for (const p of parsed) {
+          const existingIdx = next.findIndex(m => m.course.toLowerCase() === p.course.toLowerCase());
+          if (existingIdx >= 0) {
+            const existing = next[existingIdx];
+            const mergedTopics = Array.from(new Set([...(existing.topics || []), ...(p.topics || [])]));
+            const mergedModules = [...(existing.modules || []), ...(p.modules || [])];
+            next[existingIdx] = {
+              ...existing,
+              topics: mergedTopics,
+              modules: mergedModules
+            };
+          } else {
+            next.push(p);
+          }
+        }
+        return next;
+      });
+
+      toast.success(`Berhasil mengimpor ${parsed.length} mata kuliah & modul dari ${file.name}!`, { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal membaca file: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleApplyPasteMat = () => {
+    if (!pasteMatText.trim()) return toast.error('Silakan paste baris tabel terlebih dahulu!');
+    try {
+      const parsed = parseMaterialTsv(pasteMatText);
+      if (!parsed || parsed.length === 0) {
+        return toast.error('Format data tidak sesuai.');
+      }
+      setLocalMaterials(prev => {
+        const next = [...prev];
+        for (const p of parsed) {
+          const existingIdx = next.findIndex(m => m.course.toLowerCase() === p.course.toLowerCase());
+          if (existingIdx >= 0) {
+            const existing = next[existingIdx];
+            const mergedTopics = Array.from(new Set([...(existing.topics || []), ...(p.topics || [])]));
+            const mergedModules = [...(existing.modules || []), ...(p.modules || [])];
+            next[existingIdx] = {
+              ...existing,
+              topics: mergedTopics,
+              modules: mergedModules
+            };
+          } else {
+            next.push(p);
+          }
+        }
+        return next;
+      });
+      toast.success(`Berhasil menambahkan ${parsed.length} mata kuliah beserta modul rangkumannya!`);
+      setPasteMatText('');
+      setShowPasteMat(false);
+    } catch (err) {
+      toast.error('Gagal memproses data: ' + err.message);
     }
   };
 
@@ -1122,6 +1202,99 @@ export default function UtsManageModal({
           {/* ========================================================= */}
           {activeTab === 'material' && (
             <div className="space-y-6">
+
+              {/* Excel Template & Bulk Import Action Bar for Materials */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 p-4 rounded-2xl border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <FileSpreadsheet size={18} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-emerald-950">
+                      Import Massal Modul Materi via Excel / Spreadsheet
+                    </h4>
+                    <p className="text-[11px] text-emerald-700">
+                      Unduh template, isi rangkuman modul, rumus, dan tips dosen di Excel, lalu upload atau paste ke sini.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={downloadMaterialExcelTemplate}
+                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Download size={13} />
+                    <span>Download Template (.xlsx)</span>
+                  </button>
+
+                  <input
+                    type="file"
+                    ref={fileInputMatRef}
+                    onChange={handleUploadMatFile}
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputMatRef.current?.click()}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Upload size={13} />
+                    <span>Upload File Excel</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPasteMat(!showPasteMat)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ClipboardPaste size={13} />
+                    <span>{showPasteMat ? 'Tutup Paste' : 'Paste dari Excel'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Paste from Excel drawer for Materials */}
+              {showPasteMat && (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-300 space-y-2.5 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <ClipboardPaste size={14} className="text-emerald-600" />
+                      <span>Paste Baris Tabel Modul Materi dari Excel / Google Sheets:</span>
+                    </label>
+                    <span className="text-[10px] text-slate-500">
+                      Kolom: Mata Kuliah | Kode | Deskripsi | Kisi-Kisi | Judul Modul | Poin Inti | Rumus | Tips | Soal
+                    </span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={pasteMatText}
+                    onChange={(e) => setPasteMatText(e.target.value)}
+                    placeholder="Copy baris materi dari Excel lalu paste di sini (Ctrl+V)..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono bg-white focus:outline-none focus:border-emerald-500"
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowPasteMat(false)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyPasteMat}
+                      className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer"
+                    >
+                      Impor Materi Sekarang
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Form Tambah/Edit Mata Kuliah */}
               <form onSubmit={handleSaveMaterial} className="p-4 sm:p-5 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-3.5">
                 <div className="flex items-center justify-between">
