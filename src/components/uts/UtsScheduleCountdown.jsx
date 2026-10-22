@@ -12,49 +12,12 @@ import {
   CheckCircle2,
   FileText
 } from 'lucide-react';
+import { initialUtsExamSchedule } from '../../data/utsData';
 
 export default function UtsScheduleCountdown({ uts, schedules = [], onSelectCourse }) {
-  const examList = uts?.examSchedule && uts.examSchedule.length > 0 ? uts.examSchedule : [
-    {
-      id: 'ex-1',
-      course: 'Pemrograman Web / Mobile',
-      date: '2026-11-02',
-      dayName: 'Senin',
-      time: '08:00 - 09:40 WIB',
-      room: 'Lab Komputer 3',
-      type: 'Praktikum & Teori',
-      nature: 'Open Book / Laptop',
-      lecturer: 'Dosen Pengampu',
-      sks: 3,
-      topics: 'Pertemuan 1 - 7: Fundamental Web, React State & API'
-    },
-    {
-      id: 'ex-2',
-      course: 'Basis Data & SQL',
-      date: '2026-11-04',
-      dayName: 'Rabu',
-      time: '10:00 - 11:40 WIB',
-      room: 'Ruang Teori 204',
-      type: 'Ujian Tertulis',
-      nature: 'Closed Book',
-      lecturer: 'Dosen Pengampu',
-      sks: 3,
-      topics: 'ERD, Normalisasi 1NF-3NF, Query DDL, DML & Subquery'
-    },
-    {
-      id: 'ex-3',
-      course: 'Rekayasa Perangkat Lunak',
-      date: '2026-11-06',
-      dayName: 'Jumat',
-      time: '13:30 - 15:10 WIB',
-      room: 'Ruang Teori 301',
-      type: 'Analisis Studi Kasus',
-      nature: 'Open Sheet (1 Lembar Catatan)',
-      lecturer: 'Dosen Pengampu',
-      sks: 2,
-      topics: 'Metodologi Agile/Scrum, Requirement Gathering, UML Diagram'
-    }
-  ];
+  const examList = uts?.examSchedule && uts.examSchedule.length > 0 
+    ? uts.examSchedule 
+    : initialUtsExamSchedule;
 
   // Calculate Nearest Exam & Countdown
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });

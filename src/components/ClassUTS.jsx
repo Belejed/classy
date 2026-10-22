@@ -24,6 +24,11 @@ import UtsMaterialsHub from './uts/UtsMaterialsHub';
 import UtsFlashcardsPro from './uts/UtsFlashcardsPro';
 import UtsQuizEngine from './uts/UtsQuizEngine';
 import UtsCheatsheet from './uts/UtsCheatsheet';
+import { 
+  initialUtsMaterials, 
+  initialUtsFlashcards, 
+  initialUtsQuizzes 
+} from '../data/utsData';
 
 export default function ClassUTS({ 
   currentClass, 
@@ -63,117 +68,9 @@ export default function ClassUTS({
     });
   };
 
-  // Default Materials, Flashcards & Quizzes if none in DB
-  const defaultMaterials = [
-    {
-      id: 'mat-1',
-      course: 'Pemrograman Web / Mobile',
-      topics: [
-        'Fundamental React: State, Props & Component Lifecycle',
-        'React Hooks: useState, useEffect, useMemo, useRef',
-        'Routing & SPA Navigation (React Router DOM)',
-        'Komunikasi API, REST API & asynchronous state'
-      ]
-    },
-    {
-      id: 'mat-2',
-      course: 'Basis Data & SQL',
-      topics: [
-        'Konsep RDBMS, Primary Key, Foreign Key & Relasi',
-        'Normalisasi Database (1NF, 2NF, 3NF)',
-        'Query Lanjutan: JOIN (Inner, Left, Right) & Aggregations',
-        'Indexing & Integritas Data'
-      ]
-    },
-    {
-      id: 'mat-3',
-      course: 'Rekayasa Perangkat Lunak',
-      topics: [
-        'Metodologi Pengembangan: Agile, Scrum, Waterfall',
-        'Analisis Kebutuhan: Functional & Non-Functional Requirements',
-        'UML Diagrams: Use Case, Activity & Class Diagram',
-        'Testing & Quality Assurance'
-      ]
-    }
-  ];
-
-  const defaultFlashcards = [
-    {
-      id: 'fc-1',
-      course: 'Pemrograman Web / Mobile',
-      question: 'Kapan useEffect dijalankan jika dependency array-nya kosong ([])?',
-      answer: 'Hanya sekali setelah render pertama (mirip componentDidMount), cocok untuk fetch data awal.'
-    },
-    {
-      id: 'fc-2',
-      course: 'Pemrograman Web / Mobile',
-      question: 'Apa perbedaan mendasar antara state dan props di React?',
-      answer: 'Props bersifat immutable dan dikirim dari parent ke child. State bersifat mutable dan dikelola internal oleh komponen itu sendiri.'
-    },
-    {
-      id: 'fc-3',
-      course: 'Basis Data & SQL',
-      question: 'Apa tujuan utama dari normalisasi database (1NF sampai 3NF)?',
-      answer: 'Mengurangi redundansi data, mencegah anomali (insert, update, delete), dan menjaga integritas data.'
-    },
-    {
-      id: 'fc-4',
-      course: 'Basis Data & SQL',
-      question: 'Apa perbedaan antara INNER JOIN dan LEFT JOIN?',
-      answer: 'INNER JOIN hanya mengembalikan baris yang cocok di kedua tabel. LEFT JOIN mengembalikan seluruh baris tabel kiri ditambah baris yang cocok dari tabel kanan.'
-    },
-    {
-      id: 'fc-5',
-      course: 'Rekayasa Perangkat Lunak',
-      question: 'Apa itu Sprint dalam metodologi Scrum?',
-      answer: 'Siklus waktu tetap (biasanya 1–4 minggu) di mana tim berkomitmen menyelesaikan sejumlah backlog fitur hingga siap rilis.'
-    },
-    {
-      id: 'fc-6',
-      course: 'Rekayasa Perangkat Lunak',
-      question: 'Apa perbedaan antara Functional dan Non-Functional Requirement?',
-      answer: 'Functional Requirement menjelaskan apa yang dilakukan sistem (fitur/fungsi). Non-Functional Requirement menjelaskan karakteristik sistem (performa, keamanan, skalabilitas).'
-    }
-  ];
-
-  const defaultQuizzes = [
-    {
-      id: 'qz-1',
-      course: 'Pemrograman Web / Mobile',
-      question: 'Hook apa di React yang digunakan untuk mengakses nilai mutable yang tidak memicu re-render ketika diubah?',
-      options: ['useState', 'useRef', 'useEffect', 'useReducer'],
-      answer: 1,
-      explanation: 'useRef menyimpan referensi mutable (.current) yang perubahannya tidak memicu render ulang komponen.'
-    },
-    {
-      id: 'qz-2',
-      course: 'Basis Data & SQL',
-      question: 'Klausa SQL mana yang digunakan untuk memfilter hasil setelah operasi GROUP BY dijalankan?',
-      options: ['WHERE', 'ORDER BY', 'HAVING', 'LIMIT'],
-      answer: 2,
-      explanation: 'HAVING digunakan khusus untuk memfilter kelompok baris yang sudah dihitung oleh fungsi agregat (GROUP BY).'
-    },
-    {
-      id: 'qz-3',
-      course: 'Rekayasa Perangkat Lunak',
-      question: 'Diagram UML yang paling tepat untuk memodelkan urutan interaksi antar objek berdasarkan waktu adalah...',
-      options: ['Class Diagram', 'Sequence Diagram', 'Use Case Diagram', 'Deployment Diagram'],
-      answer: 1,
-      explanation: 'Sequence Diagram berfokus pada alur pesan dan urutan waktu interaksi antar objek atau partisipan.'
-    },
-    {
-      id: 'qz-4',
-      course: 'Rekayasa Perangkat Lunak',
-      question: 'Tahapan dalam Scrum di mana tim merefleksikan proses kerja dan mencari perbaikan untuk sprint berikutnya disebut...',
-      options: ['Sprint Planning', 'Daily Standup', 'Sprint Review', 'Sprint Retrospective'],
-      answer: 3,
-      explanation: 'Sprint Retrospective adalah sesi evaluasi internal tim untuk meningkatkan efisiensi dan alur kerja di masa mendatang.'
-    }
-  ];
-
-  const materialsList = uts.materials && uts.materials.length > 0 ? uts.materials : defaultMaterials;
-  const flashcardsList = uts.flashcards && uts.flashcards.length > 0 ? uts.flashcards : defaultFlashcards;
-  const quizzesList = uts.quizzes && uts.quizzes.length > 0 ? uts.quizzes : defaultQuizzes;
+  const materialsList = uts.materials && uts.materials.length > 0 ? uts.materials : initialUtsMaterials;
+  const flashcardsList = uts.flashcards && uts.flashcards.length > 0 ? uts.flashcards : initialUtsFlashcards;
+  const quizzesList = uts.quizzes && uts.quizzes.length > 0 ? uts.quizzes : initialUtsQuizzes;
 
   // Progress summary
   const totalTopics = materialsList.reduce((acc, m) => acc + (m.topics?.length || 0), 0);
