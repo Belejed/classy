@@ -16,6 +16,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ModalPortal from '../ModalPortal';
 
 export default function UtsManageModal({
   isOpen,
@@ -27,6 +28,7 @@ export default function UtsManageModal({
   flashcards = [],
   quizzes = [],
   examSchedule = [],
+  availableCourses = [],
   onSave
 }) {
   if (!isOpen) return null;
@@ -44,24 +46,37 @@ export default function UtsManageModal({
   const [localQuizzes, setLocalQuizzes] = useState(quizzes);
   const [localSchedule, setLocalSchedule] = useState(examSchedule);
 
+  const fallbackCourses = [
+    'Pengantar Logistik',
+    'Pengantar Transportasi',
+    'Ekonomi Mikro',
+    'Matematika Ekonomi',
+    'Pengantar Akuntansi',
+    'Pengantar Bisnis dan Inovasi',
+    'Prinsip - Prinsip Manajemen',
+    'Pendidikan Pancasila'
+  ];
+
   // Available course names for dropdowns
   const existingCourses = Array.from(new Set([
+    ...availableCourses,
     ...localMaterials.map(m => m.course),
     ...localFlashcards.map(f => f.course),
     ...localQuizzes.map(q => q.course),
-    ...localSchedule.map(s => s.course)
-  ].filter(Boolean)));
+    ...localSchedule.map(s => s.course),
+    ...fallbackCourses
+  ].filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id'));
 
   // --- FLASHCARD FORM STATE ---
   const [editingFcId, setEditingFcId] = useState(null);
-  const [fcCourse, setFcCourse] = useState(existingCourses[0] || 'Pemrograman Web');
+  const [fcCourse, setFcCourse] = useState(existingCourses[0] || 'Pengantar Logistik');
   const [fcNewCourse, setFcNewCourse] = useState('');
   const [fcQuestion, setFcQuestion] = useState('');
   const [fcAnswer, setFcAnswer] = useState('');
 
   // --- QUIZ FORM STATE ---
   const [editingQzId, setEditingQzId] = useState(null);
-  const [qzCourse, setQzCourse] = useState(existingCourses[0] || 'Pemrograman Web');
+  const [qzCourse, setQzCourse] = useState(existingCourses[0] || 'Pengantar Logistik');
   const [qzNewCourse, setQzNewCourse] = useState('');
   const [qzQuestion, setQzQuestion] = useState('');
   const [qzOptions, setQzOptions] = useState(['', '', '', '']);
@@ -70,14 +85,15 @@ export default function UtsManageModal({
 
   // --- MATERIAL FORM STATE ---
   const [editingMatId, setEditingMatId] = useState(null);
-  const [matCourse, setMatCourse] = useState('');
+  const [matCourse, setMatCourse] = useState(existingCourses[0] || 'Pengantar Logistik');
   const [matCode, setMatCode] = useState('');
   const [matDescription, setMatDescription] = useState('');
   const [matTopicsText, setMatTopicsText] = useState(''); // newline separated
 
   // --- SCHEDULE FORM STATE ---
   const [editingSchId, setEditingSchId] = useState(null);
-  const [schCourse, setSchCourse] = useState(existingCourses[0] || '');
+  const [schCourse, setSchCourse] = useState(existingCourses[0] || 'Pengantar Logistik');
+  const [schNewCourse, setSchNewCourse] = useState('');
   const [schDate, setSchDate] = useState('');
   const [schDayName, setSchDayName] = useState('Senin');
   const [schTime, setSchTime] = useState('08:00 - 09:40 WIB');
@@ -256,12 +272,13 @@ export default function UtsManageModal({
   // -------------------------------------------------------------
   const handleSaveSchedule = (e) => {
     e.preventDefault();
-    if (!schCourse.trim()) return toast.error('Nama mata kuliah wajib diisi!');
+    const finalCourse = (schCourse === '__new__' ? schNewCourse : schCourse).trim();
+    if (!finalCourse) return toast.error('Nama mata kuliah wajib diisi!');
 
     if (editingSchId) {
       setLocalSchedule(prev => prev.map(s => s.id === editingSchId ? {
         ...s,
-        course: schCourse.trim(),
+        course: finalCourse,
         date: schDate,
         dayName: schDayName,
         time: schTime.trim(),
@@ -275,7 +292,7 @@ export default function UtsManageModal({
     } else {
       const newSch = {
         id: `sch-${Date.now()}`,
-        course: schCourse.trim(),
+        course: finalCourse,
         date: schDate,
         dayName: schDayName,
         time: schTime.trim(),
@@ -294,6 +311,7 @@ export default function UtsManageModal({
     setSchRoom('');
     setSchTopics('');
     setSchLecturer('');
+    setSchNewCourse('');
   };
 
   const handleEditSch = (s) => {
@@ -347,8 +365,8 @@ export default function UtsManageModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs select-none animate-in fade-in duration-200">
-      <div className="w-full max-w-4xl max-h-[92vh] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden text-slate-800">
+    <ModalPortal onClose={onClose} maxWidth="max-w-4xl">
+      <div className="w-full bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col max-h-[88vh] overflow-hidden text-slate-800">
         
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 p-4 sm:p-5 text-white flex items-center justify-between shrink-0">
@@ -366,6 +384,7 @@ export default function UtsManageModal({
             </div>
           </div>
           <button 
+            type="button"
             onClick={onClose}
             className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition-colors"
           >
@@ -901,14 +920,30 @@ export default function UtsManageModal({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold text-slate-700">Mata Kuliah</label>
-                    <input
-                      type="text"
+                    <select
                       value={schCourse}
                       onChange={(e) => setSchCourse(e.target.value)}
-                      placeholder="Contoh: Basis Data"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-red-500 bg-white"
-                    />
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-red-500 bg-white"
+                    >
+                      {existingCourses.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="__new__">+ Tulis Mata Kuliah Baru...</option>
+                    </select>
                   </div>
+
+                  {schCourse === '__new__' && (
+                    <div className="sm:col-span-2 space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700">Nama Mata Kuliah Baru</label>
+                      <input
+                        type="text"
+                        value={schNewCourse}
+                        onChange={(e) => setSchNewCourse(e.target.value)}
+                        placeholder="Contoh: Pengantar Logistik"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-red-500 bg-white"
+                      />
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold text-slate-700">Tanggal Ujian (YYYY-MM-DD)</label>
@@ -1108,6 +1143,6 @@ export default function UtsManageModal({
         </div>
 
       </div>
-    </div>
+    </ModalPortal>
   );
 }

@@ -72,10 +72,43 @@ export default function ClassUTS({
     });
   };
 
-  const materialsList = uts.materials && uts.materials.length > 0 ? uts.materials : initialUtsMaterials;
-  const flashcardsList = uts.flashcards && uts.flashcards.length > 0 ? uts.flashcards : initialUtsFlashcards;
-  const quizzesList = uts.quizzes && uts.quizzes.length > 0 ? uts.quizzes : initialUtsQuizzes;
-  const examScheduleList = uts.examSchedule && uts.examSchedule.length > 0 ? uts.examSchedule : initialUtsExamSchedule;
+  // Default curriculum courses of the class (M.Log B)
+  const defaultClassCourses = [
+    'Pengantar Logistik',
+    'Pengantar Transportasi',
+    'Ekonomi Mikro',
+    'Matematika Ekonomi',
+    'Pengantar Akuntansi',
+    'Pengantar Bisnis dan Inovasi',
+    'Prinsip - Prinsip Manajemen',
+    'Pendidikan Pancasila'
+  ];
+
+  // If previous saved data has old mock courses (e.g. 'Pemrograman Web'), cleanly fallback to the real class courses
+  const hasOldMock = (arr) => arr?.some(item => item?.course?.includes('Pemrograman Web') || item?.course?.includes('Basis Data'));
+
+  const materialsList = (!uts.materials || uts.materials.length === 0 || hasOldMock(uts.materials))
+    ? initialUtsMaterials 
+    : uts.materials;
+
+  const flashcardsList = (!uts.flashcards || uts.flashcards.length === 0 || hasOldMock(uts.flashcards))
+    ? initialUtsFlashcards 
+    : uts.flashcards;
+
+  const quizzesList = (!uts.quizzes || uts.quizzes.length === 0 || hasOldMock(uts.quizzes))
+    ? initialUtsQuizzes 
+    : uts.quizzes;
+
+  const examScheduleList = (!uts.examSchedule || uts.examSchedule.length === 0 || hasOldMock(uts.examSchedule))
+    ? initialUtsExamSchedule 
+    : uts.examSchedule;
+
+  const availableCourses = Array.from(new Set([
+    ...(schedules || []).map(s => s.subject || s.title || s.course),
+    ...(tasks || []).map(t => t.course),
+    ...materialsList.map(m => m.course),
+    ...defaultClassCourses
+  ].filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id'));
 
   // Progress summary
   const totalTopics = materialsList.reduce((acc, m) => acc + (m.topics?.length || 0), 0);
@@ -252,6 +285,7 @@ export default function ClassUTS({
         flashcards={flashcardsList}
         quizzes={quizzesList}
         examSchedule={examScheduleList}
+        availableCourses={availableCourses}
         onSave={handleSaveAllUtsData}
       />
 
