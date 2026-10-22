@@ -84,30 +84,30 @@ export default function ClassUTS({
     'Pendidikan Pancasila'
   ];
 
-  // If previous saved data has old mock courses (e.g. 'Pemrograman Web'), cleanly fallback to the real class courses
-  const hasOldMock = (arr) => arr?.some(item => item?.course?.includes('Pemrograman Web') || item?.course?.includes('Basis Data'));
+  // Check if UTS data has ever been customized or saved by user
+  const isCustomized = Boolean(uts.customized || uts.updatedAt || uts.isCustomized);
 
-  const materialsList = (!uts.materials || uts.materials.length === 0 || hasOldMock(uts.materials))
+  const materialsList = !isCustomized
     ? initialUtsMaterials 
-    : uts.materials;
+    : (uts.materials || []);
 
-  const flashcardsList = (!uts.flashcards || uts.flashcards.length === 0 || hasOldMock(uts.flashcards))
+  const flashcardsList = !isCustomized
     ? initialUtsFlashcards 
-    : uts.flashcards;
+    : (uts.flashcards || []);
 
-  const quizzesList = (!uts.quizzes || uts.quizzes.length === 0 || hasOldMock(uts.quizzes))
+  const quizzesList = !isCustomized
     ? initialUtsQuizzes 
-    : uts.quizzes;
+    : (uts.quizzes || []);
 
-  const examScheduleList = (!uts.examSchedule || uts.examSchedule.length === 0 || hasOldMock(uts.examSchedule))
+  const examScheduleList = !isCustomized
     ? initialUtsExamSchedule 
-    : uts.examSchedule;
+    : (uts.examSchedule || []);
 
   const availableCourses = Array.from(new Set([
     ...(schedules || []).map(s => s.subject || s.title || s.course),
     ...(tasks || []).map(t => t.course),
     ...materialsList.map(m => m.course),
-    ...defaultClassCourses
+    ...(!isCustomized ? defaultClassCourses : [])
   ].filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id'));
 
   // Progress summary

@@ -92,14 +92,19 @@ export default function UtsManageModal({
     'Pendidikan Pancasila'
   ];
 
+  // Active courses currently present in UTS data (used for Audit Table)
+  const activeCourseNames = Array.from(new Set([
+    ...localMaterials.map(m => m.course?.trim()),
+    ...localFlashcards.map(f => f.course?.trim()),
+    ...localQuizzes.map(q => q.course?.trim()),
+    ...localSchedule.map(s => s.course?.trim())
+  ].filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id'));
+
   // Available course names for dropdowns
   const existingCourses = Array.from(new Set([
+    ...activeCourseNames,
     ...availableCourses,
-    ...localMaterials.map(m => m.course),
-    ...localFlashcards.map(f => f.course),
-    ...localQuizzes.map(q => q.course),
-    ...localSchedule.map(s => s.course),
-    ...fallbackCourses
+    ...(activeCourseNames.length === 0 ? fallbackCourses : [])
   ].filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id'));
 
   // --- EXCEL & IMPORT REFS & STATES ---
@@ -147,12 +152,12 @@ export default function UtsManageModal({
 
   const totalDuplicates = duplicateQuizCount + duplicateFcCount;
 
-  // Course audit rows
-  const courseAuditList = existingCourses.map(cName => {
-    const mat = localMaterials.find(m => m.course.toLowerCase() === cName.toLowerCase());
-    const qzList = localQuizzes.filter(q => q.course.toLowerCase() === cName.toLowerCase());
-    const fcList = localFlashcards.filter(fc => fc.course.toLowerCase() === cName.toLowerCase());
-    const sch = localSchedule.find(s => s.course.toLowerCase() === cName.toLowerCase());
+  // Course audit rows (Audit only actively existing courses!)
+  const courseAuditList = activeCourseNames.map(cName => {
+    const mat = localMaterials.find(m => m.course?.toLowerCase() === cName.toLowerCase());
+    const qzList = localQuizzes.filter(q => q.course?.toLowerCase() === cName.toLowerCase());
+    const fcList = localFlashcards.filter(fc => fc.course?.toLowerCase() === cName.toLowerCase());
+    const sch = localSchedule.find(s => s.course?.toLowerCase() === cName.toLowerCase());
     const modCount = mat?.modules?.length || 0;
     const topCount = mat?.topics?.length || 0;
 
@@ -814,6 +819,17 @@ export default function UtsManageModal({
     toast.success('Data UTS berhasil di-reset ke kurikulum baku M.Log B!');
   };
 
+  const handleWipeAllData = () => {
+    if (!confirm('KOSONGKAN TOTAL: Yakin ingin menghapus SELURUH data UTS saat ini (semua mata kuliah, modul, soal kuis, flashcard, dan jadwal)? Tindakan ini akan mengosongkan semuanya agar Anda bisa mulai mengisi dari nol.')) {
+      return;
+    }
+    setLocalMaterials([]);
+    setLocalFlashcards([]);
+    setLocalQuizzes([]);
+    setLocalSchedule([]);
+    toast.success('Seluruh data UTS telah dikosongkan. Klik "Simpan Perubahan UTS" di pojok kanan bawah untuk menyimpan secara permanen!');
+  };
+
   const handleExportBackupJson = () => {
     const backupData = {
       version: '2.0',
@@ -909,6 +925,7 @@ export default function UtsManageModal({
       await onSave({
         ...uts,
         enabled: true,
+        customized: true,
         title: localTitle.trim(),
         banner: localBanner.trim(),
         notes: localNotes.trim(),
@@ -1102,13 +1119,13 @@ export default function UtsManageModal({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
                   {/* Purge Corrupt Quizzes (if any) */}
                   {corruptQuizCount > 0 && (
                     <button
                       type="button"
                       onClick={handlePurgeCorruptQuizzes}
-                      className="p-3.5 rounded-2xl border-2 border-rose-400 bg-rose-50/80 hover:bg-rose-100 transition-all text-left flex flex-col justify-between space-y-2 cursor-pointer group sm:col-span-2 lg:col-span-4"
+                      className="p-3.5 rounded-2xl border-2 border-rose-400 bg-rose-50/80 hover:bg-rose-100 transition-all text-left flex flex-col justify-between space-y-2 cursor-pointer group sm:col-span-2 lg:col-span-3 xl:col-span-5"
                     >
                       <div className="flex items-center justify-between">
                         <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center font-black group-hover:scale-105 transition-transform">
@@ -1221,6 +1238,30 @@ export default function UtsManageModal({
                       </h5>
                       <p className="text-[10px] text-slate-500 leading-snug mt-0.5">
                         Kembalikan seluruh materi dan kuis ke kurikulum 8 MK M.Log B asli.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Wipe All Data (Start from Scratch) */}
+                  <button
+                    type="button"
+                    onClick={handleWipeAllData}
+                    className="p-3.5 rounded-2xl border border-slate-200 hover:border-red-500 bg-red-50/30 hover:bg-red-50 transition-all text-left flex flex-col justify-between space-y-2 cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+                        <Trash2 size={16} />
+                      </div>
+                      <span className="text-[10px] font-black text-red-600 bg-red-100 px-2 py-0.5 rounded-md">
+                        Kosongkan
+                      </span>
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-bold text-slate-900 group-hover:text-red-700">
+                        Kosongkan Seluruh Data
+                      </h5>
+                      <p className="text-[10px] text-slate-500 leading-snug mt-0.5">
+                        Hapus semua isi materi, kuis & flashcard untuk mulai dari nol.
                       </p>
                     </div>
                   </button>
