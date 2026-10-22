@@ -830,6 +830,14 @@ export default function UtsManageModal({
     toast.success('Seluruh data UTS telah dikosongkan. Klik "Simpan Perubahan UTS" di pojok kanan bawah untuk menyimpan secara permanen!');
   };
 
+  const handleApplyOfficialSchedule = () => {
+    if (!confirm('Terapkan jadwal UTS resmi kelas (26 Okt - 6 Nov 2026)? Materi modul dan soal kuis Anda TIDAK akan hilang, hanya tabel jadwal yang diperbarui sesuai jadwal resmi.')) {
+      return;
+    }
+    setLocalSchedule(initialUtsExamSchedule);
+    toast.success('Jadwal UTS resmi (26 Okt - 6 Nov) berhasil diterapkan! Klik "Simpan Perubahan UTS" di pojok kanan bawah untuk menyimpan.');
+  };
+
   const handleExportBackupJson = () => {
     const backupData = {
       version: '2.0',
@@ -1301,6 +1309,16 @@ export default function UtsManageModal({
                     >
                       <FileUp size={14} />
                       <span>Restore Backup (.json)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleApplyOfficialSchedule}
+                      className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      title="Terapkan jadwal UTS edaran resmi kelas (26 Okt - 6 Nov 2026)"
+                    >
+                      <Calendar size={14} className="text-red-600" />
+                      <span>Terapkan Jadwal Resmi Edaran</span>
                     </button>
                   </div>
                 </div>
@@ -2547,9 +2565,19 @@ export default function UtsManageModal({
 
               {/* List of Schedules */}
               <div className="space-y-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">
-                  Daftar Jadwal Ujian Terjadwal ({localSchedule.length})
-                </h4>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">
+                    Daftar Jadwal Ujian Terjadwal ({localSchedule.length})
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={handleApplyOfficialSchedule}
+                    className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+                  >
+                    <Calendar size={13} className="text-red-600" />
+                    <span>Terapkan Jadwal UTS Resmi (26 Okt - 6 Nov)</span>
+                  </button>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {localSchedule.map((s, idx) => (

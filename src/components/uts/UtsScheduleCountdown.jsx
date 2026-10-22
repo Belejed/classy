@@ -19,19 +19,49 @@ export default function UtsScheduleCountdown({ uts, schedules = [], onSelectCour
     ? uts.examSchedule 
     : initialUtsExamSchedule;
 
+  // Robustly parse exam start timestamp (handles 08.30, 08:30, 08.30-10.30 WIB)
+  const getExamTimestamp = (exam) => {
+    if (!exam?.date) return 0;
+    let timeStr = '08:00';
+    if (exam.time) {
+      const match = exam.time.match(/(\d{1,2})[.:](\d{2})/);
+      if (match) {
+        const hh = match[1].padStart(2, '0');
+        const mm = match[2];
+        timeStr = `${hh}:${mm}`;
+      }
+    }
+    const dateStr = `${exam.date.trim()}T${timeStr}:00`;
+    const t = new Date(dateStr).getTime();
+    return isNaN(t) ? new Date(exam.date).getTime() : t;
+  };
+
+  // Find nearest upcoming exam, or fallback to first
+  const findUpcomingExam = (list) => {
+    if (!list || list.length === 0) return null;
+    const now = Date.now();
+    const sorted = [...list].sort((a, b) => getExamTimestamp(a) - getExamTimestamp(b));
+    const upcoming = sorted.find(ex => getExamTimestamp(ex) > now);
+    return upcoming || sorted[0];
+  };
+
   // Calculate Nearest Exam & Countdown
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  const [targetExam, setTargetExam] = useState(examList[0] || null);
+  const [targetExam, setTargetExam] = useState(() => findUpcomingExam(examList));
+
+  useEffect(() => {
+    if (!targetExam) {
+      setTargetExam(findUpcomingExam(examList));
+    }
+  }, [examList]);
 
   useEffect(() => {
     if (!targetExam?.date) return;
     
     const updateCountdown = () => {
-      const now = new Date();
-      // Parse date with time if available, otherwise default to 08:00
-      const examDateStr = `${targetExam.date}T${targetExam.time ? targetExam.time.slice(0, 5) : '08:00'}:00`;
-      const targetTime = new Date(examDateStr).getTime();
-      const diff = targetTime - now.getTime();
+      const now = Date.now();
+      const targetTime = getExamTimestamp(targetExam);
+      const diff = targetTime - now;
 
       if (diff <= 0) {
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isPast: true });

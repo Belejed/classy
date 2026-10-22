@@ -617,110 +617,110 @@ export const initialUtsQuizzes = [
   }
 ];
 
-// 4. JADWAL RESMI PELAKSANAAN UTS KELAS
+// 4. JADWAL RESMI PELAKSANAAN UTS KELAS (M.Log B)
 export const initialUtsExamSchedule = [
   {
     id: 'ex-1',
-    course: 'Pengantar Logistik',
-    date: '2026-11-02',
-    dayName: 'Senin',
-    time: '08:00 - 09:40 WIB',
-    room: 'Ruang Teori 201',
-    type: 'Ujian Tertulis & Studi Kasus',
-    nature: 'Closed Book',
-    lecturer: 'Dosen Pengampu',
-    sks: 3,
-    topics: 'Konsep Logistik, 7R Prinsip, Warehousing, Bullwhip Effect (Pertemuan 1 - 7)'
-  },
-  {
-    id: 'ex-2',
     course: 'Ekonomi Mikro',
-    date: '2026-11-03',
-    dayName: 'Selasa',
-    time: '10:00 - 11:40 WIB',
+    date: '2026-10-26',
+    dayName: 'Senin',
+    time: '08.30 - 10.30 WIB',
     room: 'Ruang Teori 203',
-    type: 'Ujian Hitungan & Grafik',
+    type: 'Ujian Hitungan & Analisis Grafik',
     nature: 'Open Sheet (1 Lembar Rumus)',
     lecturer: 'Dosen Pengampu',
     sks: 3,
     topics: 'Permintaan, Penawaran, Titik Equilibrium, Elastisitas, Kurva Biaya MC/AC'
   },
   {
-    id: 'ex-3',
+    id: 'ex-2',
     course: 'Matematika Ekonomi',
-    date: '2026-11-04',
-    dayName: 'Rabu',
-    time: '08:00 - 09:40 WIB',
+    date: '2026-10-29',
+    dayName: 'Kamis',
+    time: '08.30 - 10.30 WIB',
     room: 'Ruang Teori 204',
-    type: 'Ujian Hitungan',
+    type: 'Ujian Hitungan & Aplikasi',
     nature: 'Closed Book + Kalkulator',
     lecturer: 'Dosen Pengampu',
     sks: 3,
-    topics: 'Fungsi Linier, Pajak & Subsidi Pasar, Titik Impas (BEP) dan Biaya'
+    topics: 'Fungsi Linier & Non-Linier, Pajak & Subsidi, Keseimbangan Pasar, Titik Impas (BEP)'
+  },
+  {
+    id: 'ex-3',
+    course: 'Pengantar Bisnis dan Inovasi',
+    date: '2026-10-30',
+    dayName: 'Jumat',
+    time: '08.00 - 09.30 WIB',
+    room: 'Ruang Teori 205',
+    type: 'Analisis BMC & Studi Kasus Bisnis',
+    nature: 'Open Book',
+    lecturer: 'Dosen Pengampu',
+    sks: 3,
+    topics: 'Bentuk Badan Usaha, Lingkungan Bisnis PESTEL/SWOT, 9 Blok Business Model Canvas (BMC)'
   },
   {
     id: 'ex-4',
     course: 'Pengantar Akuntansi',
-    date: '2026-11-05',
-    dayName: 'Kamis',
-    time: '10:00 - 12:00 WIB',
+    date: '2026-11-02',
+    dayName: 'Senin',
+    time: '08.30 - 10.30 WIB',
     room: 'Lab Komputer / Teori',
     type: 'Praktek Siklus Akuntansi',
     nature: 'Closed Book',
     lecturer: 'Dosen Pengampu',
     sks: 3,
-    topics: 'Jurnal Umum, Buku Besar, Neraca Saldo, Jurnal Penyesuaian Akrual/Penyusutan'
+    topics: 'Persamaan Dasar Akuntansi, Jurnal Umum, Buku Besar, Neraca Saldo & Penyesuaian'
   },
   {
     id: 'ex-5',
-    course: 'Pengantar Transportasi',
-    date: '2026-11-06',
-    dayName: 'Jumat',
-    time: '08:00 - 09:40 WIB',
-    room: 'Ruang Teori 202',
-    type: 'Ujian Teori',
+    course: 'Prinsip - Prinsip Manajemen',
+    date: '2026-11-03',
+    dayName: 'Selasa',
+    time: '08.30 - 10.30 WIB',
+    room: 'Ruang Teori 201',
+    type: 'Ujian Analisis & Studi Kasus',
     nature: 'Closed Book',
     lecturer: 'Dosen Pengampu',
-    sks: 2,
-    topics: 'Karakteristik Moda Transportasi, Biaya Fixed/Variable, Intermodalitas'
+    sks: 3,
+    topics: 'Fungsi POAC, Sasaran SMART, Struktur Organisasi, Teori Kepemimpinan & Motivasi'
   },
   {
     id: 'ex-6',
-    course: 'Pengantar Bisnis dan Inovasi',
-    date: '2026-11-09',
-    dayName: 'Senin',
-    time: '10:00 - 11:40 WIB',
-    room: 'Ruang Teori 205',
-    type: 'Analisis BMC & Presentasi',
-    nature: 'Open Book',
-    lecturer: 'Dosen Pengampu',
-    sks: 3,
-    topics: 'Bentuk Badan Usaha, SWOT, PESTEL, 9 Blok Business Model Canvas'
-  },
-  {
-    id: 'ex-7',
-    course: 'Prinsip - Prinsip Manajemen',
-    date: '2026-11-10',
-    dayName: 'Selasa',
-    time: '08:00 - 09:40 WIB',
+    course: 'Pengantar Logistik',
+    date: '2026-11-04',
+    dayName: 'Rabu',
+    time: '08.30 - 10.00 WIB',
     room: 'Ruang Teori 201',
-    type: 'Ujian Studi Kasus',
+    type: 'Ujian Tertulis & Pemahaman Konsep',
     nature: 'Closed Book',
     lecturer: 'Dosen Pengampu',
     sks: 3,
-    topics: 'Fungsi POAC, Sasaran SMART, Struktur Organisasi, Teori Motivasi'
+    topics: 'Konsep Logistik, Prinsip 7R, Warehousing, Inventory Management, Bullwhip Effect'
+  },
+  {
+    id: 'ex-7',
+    course: 'Pengantar Transportasi',
+    date: '2026-11-05',
+    dayName: 'Kamis',
+    time: '08.30 - 10.00 WIB',
+    room: 'Ruang Teori 202',
+    type: 'Ujian Teori & Kebijakan Transportasi',
+    nature: 'Closed Book',
+    lecturer: 'Dosen Pengampu',
+    sks: 2,
+    topics: 'Moda Transportasi (Darat, Laut, Udara, Rel), Biaya Transportasi, Intermodalitas'
   },
   {
     id: 'ex-8',
     course: 'Pendidikan Pancasila',
-    date: '2026-11-11',
-    dayName: 'Rabu',
-    time: '10:00 - 11:40 WIB',
+    date: '2026-11-06',
+    dayName: 'Jumat',
+    time: '08.00 - 09.30 WIB',
     room: 'Ruang Teori 204',
-    type: 'Ujian Esai',
+    type: 'Ujian Esai & Refleksi Kebangsaan',
     nature: 'Closed Book',
     lecturer: 'Dosen Pengampu',
     sks: 2,
-    topics: 'Sejarah Perumusan BPUPKI-PPKI, Nilai Sila 1-5, Sistem Etika Pancasila'
+    topics: 'Sejarah Perumusan BPUPKI-PPKI, Nilai Dasar-Instrumental-Praksis Sila 1-5, Etika Politik'
   }
 ];
