@@ -8,7 +8,6 @@ import {
   Clock, 
   Sparkles, 
   TrendingUp, 
-  FileSpreadsheet, 
   Edit3, 
   X, 
   Save, 
@@ -23,7 +22,6 @@ import UtsScheduleCountdown from './uts/UtsScheduleCountdown';
 import UtsMaterialsHub from './uts/UtsMaterialsHub';
 import UtsFlashcardsPro from './uts/UtsFlashcardsPro';
 import UtsQuizEngine from './uts/UtsQuizEngine';
-import UtsCheatsheet from './uts/UtsCheatsheet';
 import UtsManageModal from './uts/UtsManageModal';
 import { 
   initialUtsMaterials, 
@@ -39,7 +37,7 @@ export default function ClassUTS({
   tasks = [], 
   onUpdateClassSettings 
 }) {
-  const [activeSection, setActiveSection] = useState('schedule'); // 'schedule' | 'materials' | 'flashcards' | 'quiz' | 'cheatsheet'
+  const [activeSection, setActiveSection] = useState('schedule'); // 'schedule' | 'materials' | 'flashcards' | 'quiz'
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('all');
   const [showManageModal, setShowManageModal] = useState(false);
   const [manageInitialTab, setManageInitialTab] = useState('control');
@@ -202,8 +200,7 @@ export default function ClassUTS({
           { id: 'schedule', label: 'Jadwal & Countdown', icon: Calendar, badge: 'Live' },
           { id: 'materials', label: 'Materi & Kisi-Kisi', icon: BookOpen, badge: `${completedTopics}/${totalTopics}` },
           { id: 'flashcards', label: 'Flashcard Belajar', icon: Brain, badge: `${flashcardsList.length}` },
-          { id: 'quiz', label: 'Latihan Quiz', icon: HelpCircle, badge: 'Quiz' },
-          { id: 'cheatsheet', label: 'Cheatsheet 1 Lembar', icon: FileSpreadsheet, badge: 'Quick' }
+          { id: 'quiz', label: 'Latihan Quiz', icon: HelpCircle, badge: 'Quiz' }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSection === tab.id;
@@ -273,14 +270,6 @@ export default function ClassUTS({
           onSelectCourse={setSelectedCourseFilter}
           isManager={isManager}
           onOpenManage={handleOpenManage}
-        />
-      )}
-
-      {activeSection === 'cheatsheet' && (
-        <UtsCheatsheet
-          materials={materialsList}
-          selectedCourseFilter={selectedCourseFilter}
-          onSelectCourseFilter={setSelectedCourseFilter}
         />
       )}
 
