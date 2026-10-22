@@ -145,8 +145,12 @@ export default function ClassSidebar({
   const isManager = isClassManager(role, isOwner);
   const canAccessSubmissions = canAccessSubmissionsManager(role, isOwner);
   const canAccessMemberProgress = canAccessMemberTasks(role, isOwner, currentClass, currentUser);
+  const isUtsActive = Boolean(currentClass?.uts?.enabled);
 
   const navTabs = [
+    ...(isUtsActive ? [
+      { id: 'uts', label: 'UTS', icon: Flame, isSpecial: true, isUts: true }
+    ] : []),
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'schedule', label: 'Schedule', icon: Calendar },
     { id: 'tasks', label: 'Tasks', icon: CheckSquare },
@@ -334,6 +338,7 @@ export default function ClassSidebar({
           {navTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
+            const isUtsTab = tab.id === 'uts';
             return (
               <button
                 key={tab.id}
@@ -342,15 +347,26 @@ export default function ClassSidebar({
                   handleCloseMobileMenu();
                 }}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  isActive
-                    ? 'bg-[#0F172A] dark:bg-indigo-600 text-white shadow-2xs font-bold'
-                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#F1F5F9] dark:hover:bg-slate-800/60'
+                  isUtsTab
+                    ? isActive
+                      ? 'bg-gradient-to-r from-red-600 via-rose-600 to-orange-500 text-white shadow-md shadow-rose-500/30 font-bold border border-rose-500'
+                      : 'bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-bold border border-rose-200 dark:border-rose-800 uts-glow-tab'
+                    : isActive
+                      ? 'bg-[#0F172A] dark:bg-indigo-600 text-white shadow-2xs font-bold'
+                      : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#F1F5F9] dark:hover:bg-slate-800/60'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon size={16} className={isActive ? 'text-white' : 'text-[#64748B] dark:text-slate-400'} />
+                  <Icon size={16} className={isUtsTab ? (isActive ? 'text-white' : 'text-rose-600 dark:text-rose-400 animate-pulse') : (isActive ? 'text-white' : 'text-[#64748B] dark:text-slate-400')} />
                   <span>{tab.label}</span>
                 </div>
+                {isUtsTab && (
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full uppercase font-black tracking-wider ${
+                    isActive ? 'bg-white text-rose-600' : 'bg-rose-600 text-white animate-pulse'
+                  }`}>
+                    HOT 🔥
+                  </span>
+                )}
                 {tab.id === 'members' && isManager && (
                   <span className={`text-[9px] px-1.5 py-0.2 rounded-md uppercase font-bold tracking-wider ${
                     isActive ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
@@ -607,6 +623,37 @@ export default function ClassSidebar({
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
                   Fitur Lainnya
                 </span>
+
+                {/* UTS Mode Mobile Quick Access Card */}
+                {isUtsActive && (
+                  <button
+                    onClick={() => {
+                      onSelectTab('uts');
+                      handleCloseMobileMenu();
+                    }}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-2xl transition-all text-left cursor-pointer active:scale-[0.98] border shadow-sm mb-1 ${
+                      activeTab === 'uts'
+                        ? 'bg-gradient-to-r from-red-600 via-rose-600 to-orange-500 text-white border-red-500 shadow-rose-500/30'
+                        : 'bg-gradient-to-r from-rose-500 to-red-600 text-white border-rose-400 uts-glow-tab'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 text-white">
+                        <Flame size={22} className="animate-bounce" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-black text-xs tracking-tight text-white">🔥 ZONA MINGGU UTS</p>
+                          <span className="text-[9px] bg-white text-rose-700 font-black px-1.5 py-0.2 rounded-full uppercase">HOT</span>
+                        </div>
+                        <p className="text-[10px] text-white/90 truncate">
+                          Ringkasan, materi ujian, flashcard & quiz
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {/* 1. Anggota Kelas */}
                   <button

@@ -25,7 +25,8 @@ import {
   FileSpreadsheet,
   ExternalLink,
   Filter,
-  ChevronDown
+  ChevronDown,
+  Flame
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from './ModalPortal';
@@ -298,10 +299,24 @@ export default function ClassMembers({
 
   const handleToggleUTS = async () => {
     if (!onUpdateClassSettings || !currentClass?.id) return;
+    const isCurrentlyEnabled = Boolean(currentClass?.uts?.enabled);
+    const newEnabled = !isCurrentlyEnabled;
+    const toastId = toast.loading(newEnabled ? 'Mengaktifkan Mode Minggu UTS...' : 'Menonaktifkan Mode UTS...');
     try {
-      await onUpdateClassSettings(currentClass.id, { uts: { ...(currentClass.uts || {}), enabled: !currentClass?.uts?.enabled, banner: currentClass?.uts?.banner || 'Semangat menghadapi UTS!' } });
-      toast.success(currentClass?.uts?.enabled ? 'Mode UTS dinonaktifkan.' : 'Mode UTS diaktifkan!');
-    } catch (err) { toast.error(err.message || 'Gagal mengubah Mode UTS.'); }
+      await onUpdateClassSettings(currentClass.id, {
+        uts: {
+          ...(currentClass.uts || {}),
+          enabled: newEnabled,
+          title: currentClass?.uts?.title || 'Persiapan UTS Terpadu',
+          banner: currentClass?.uts?.banner || '🔥 MINGGU UTS TELAH TIBA! Tetap semangat, jaga kesehatan, dan maksimalkan persiapan ujian! 🔥',
+          updatedAt: new Date().toISOString()
+        }
+      });
+      toast.success(newEnabled ? 'Mode UTS berhasil diaktifkan! Tema merah, sepanduk & tab UTS telah aktif.' : 'Mode UTS dinonaktifkan. Ruang kelas kembali normal.', { id: toastId });
+    } catch (err) {
+      console.error('Error toggling UTS:', err);
+      toast.error(err.message || 'Gagal mengubah Mode UTS.', { id: toastId });
+    }
   };
 
   const handleCopyCode = () => {
@@ -605,10 +620,17 @@ export default function ClassMembers({
             <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-[#0F172A]">Anggota & Pengurus Kelas</h2>
             {isManager && (
               <button
+                type="button"
                 onClick={handleToggleUTS}
-                className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors ${currentClass?.uts?.enabled ? 'bg-red-700 text-white' : 'bg-red-600 text-white hover:bg-red-700'}`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                  currentClass?.uts?.enabled 
+                    ? 'bg-gradient-to-r from-red-600 via-rose-600 to-orange-500 text-white hover:from-red-700 hover:to-rose-700 ring-2 ring-red-400/50 shadow-red-500/20' 
+                    : 'bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 hover:border-rose-300'
+                }`}
+                title="Khusus Komti: Aktifkan mode minggu UTS untuk menyalakan tema merah cerah, sepanduk berjalan, dan tab UTS"
               >
-                🔥 {currentClass?.uts?.enabled ? 'Matikan UTS' : 'Aktifkan UTS'}
+                <Flame size={14} className={currentClass?.uts?.enabled ? 'text-yellow-300 animate-bounce' : 'text-rose-600'} />
+                <span>{currentClass?.uts?.enabled ? 'Mode UTS: Aktif (Matikan)' : 'Masuk Minggu UTS'}</span>
               </button>
             )}
             {isManager && (

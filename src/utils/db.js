@@ -841,6 +841,7 @@ export const dbService = {
         waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
         komtiPin: meta.komtiPin || '',
+        uts: meta.uts || { enabled: false, banner: 'Semangat menghadapi UTS!' },
         ownerId: data.owner_id,
         isBlocked,
         status: isBlocked ? 'blocked' : 'active',
@@ -1094,6 +1095,7 @@ export const dbService = {
         waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
         komtiPin: meta.komtiPin || '',
+        uts: meta.uts || { enabled: false, banner: 'Semangat menghadapi UTS!' },
         ownerId: data.owner_id,
         userRole,
         membershipStatus: userStatus,
@@ -1280,6 +1282,7 @@ export const dbService = {
       if (academicPeriod !== undefined) meta.academicPeriod = academicPeriod.trim();
       if (waGroupLink !== undefined) meta.waGroupLink = waGroupLink.trim();
       if (komtiPin !== undefined) meta.komtiPin = (komtiPin || '').trim();
+      if (uts !== undefined) meta.uts = uts;
 
       const updates = {
         description: JSON.stringify(meta)
@@ -1300,6 +1303,7 @@ export const dbService = {
         waGroupLink: meta.waGroupLink || '',
         joinCode: data.invite_code,
         komtiPin: meta.komtiPin || '',
+        uts: meta.uts || { enabled: false, banner: 'Semangat menghadapi UTS!' },
         ownerId: data.owner_id,
         members: data.members || [],
         memberCount: (data.members || []).filter(m => (m.status || 'approved') === 'approved').length || 1,

@@ -318,6 +318,42 @@
   will-change: transform, opacity;
 }
 
+/* Continuous Smooth Marquee Banner for UTS Mode */
+@keyframes classyContinuousMarquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-classy-marquee {
+  display: flex;
+  width: max-content;
+  animation: classyContinuousMarquee 26s linear infinite;
+}
+
+.animate-classy-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Pulsing Glowing UTS Tab */
+@keyframes utsGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.4), 0 0 2px rgba(249, 115, 22, 0.3);
+    border-color: rgba(248, 113, 113, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(239, 68, 68, 0.75), 0 0 6px rgba(249, 115, 22, 0.6);
+    border-color: rgba(239, 68, 68, 1);
+  }
+}
+
+.uts-glow-tab {
+  animation: utsGlowPulse 2.2s infinite ease-in-out;
+}
+
 /* Breathing Logo Animation for Clean Loading */
 @keyframes classyBreathing {
   0%, 100% {

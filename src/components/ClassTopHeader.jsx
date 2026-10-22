@@ -13,7 +13,8 @@ import {
   Check, 
   MessageCircle,
   Sparkles,
-  Network
+  Network,
+  Flame
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getRoleDisplayName } from '../utils/permissions';
@@ -37,6 +38,7 @@ export default function ClassTopHeader({
     structure: { label: 'Struktur Organisasi Kelas', icon: Network },
     contacts: { label: 'Kontak Dosen', icon: Phone },
     members: { label: 'Anggota Kelas', icon: Users },
+    uts: { label: 'Zona Minggu UTS', icon: Flame },
     submissions: { label: 'Rapikan Tugas & Kelompok', icon: Sparkles },
     logs: { label: 'Log Aktivitas', icon: History }
   };

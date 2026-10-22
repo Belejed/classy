@@ -4,7 +4,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { authService, dbService, isSuperAdmin, isClassBlocked } from './utils/db';
 import { moveFileToDriveTrash, moveFilesToDriveTrash, ensureDriveTaskFolder } from './utils/driveUpload';
 import { unlockBodyScroll } from './components/ModalPortal';
-import { Lock, ShieldCheck, Mail, ArrowLeft, ShieldAlert, Copy, Check, Wrench } from 'lucide-react';
+import { Lock, ShieldCheck, Mail, ArrowLeft, ArrowRight, ShieldAlert, Copy, Check, Wrench } from 'lucide-react';
 
 // Classy Core Components (Eagerly loaded for fast immediate navigation)
 import Auth from './components/Auth';
@@ -1080,6 +1080,7 @@ export default function App() {
       return {
         ...prev,
         ...updatedClass,
+        uts: updatedClass.uts || updates.uts || prev.uts,
         userRole: prev.userRole
       };
     });
@@ -1630,8 +1631,12 @@ function ClassWorkspace({
     );
   }
 
+  const isUtsActive = Boolean(currentClass?.uts?.enabled);
+
   return (
-    <div className="min-h-screen w-full bg-[#FDFBF7] text-[#1E293B] flex flex-col md:flex-row font-sans overflow-x-hidden">
+    <div className={`min-h-screen w-full text-[#1E293B] flex flex-col md:flex-row font-sans overflow-x-hidden transition-colors duration-300 ${
+      isUtsActive ? 'bg-[#FFF7F5] selection:bg-rose-500 selection:text-white' : 'bg-[#FDFBF7]'
+    }`}>
       {/* Left Navigation Sidebar */}
       <ClassSidebar
         currentClass={currentClass}
@@ -1652,7 +1657,9 @@ function ClassWorkspace({
       />
 
       {/* Main Workspace Content Column */}
-      <div className="flex-1 min-w-0 min-h-screen flex flex-col bg-[#FDFBF7]">
+      <div className={`flex-1 min-w-0 min-h-screen flex flex-col transition-colors duration-300 ${
+        isUtsActive ? 'bg-[#FFF7F5]' : 'bg-[#FDFBF7]'
+      }`}>
         {/* Sticky Superadmin Block/Unblock Control Banner */}
         {isSuperAdmin(user) && (
           <div className={`w-full px-4 sm:px-6 py-2.5 border-b flex items-center justify-between gap-3 flex-wrap text-xs font-semibold z-30 transition-colors ${
@@ -1716,6 +1723,37 @@ function ClassWorkspace({
           onOpenProfile={onOpenProfile}
         />
 
+        {/* Continuous Scrolling Banner for UTS Week */}
+        {isUtsActive && (
+          <div className="w-full bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white shadow-sm overflow-hidden relative z-20 border-b border-red-700/30 select-none py-2 px-3">
+            <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/25 text-white text-[10px] font-black uppercase tracking-wider shrink-0 shadow-inner">
+                <span className="w-2 h-2 rounded-full bg-yellow-300 animate-ping shrink-0" />
+                <span>INFO UTS</span>
+              </div>
+              <div className="overflow-hidden flex-1 relative mask-scroll-fade">
+                <div className="animate-classy-marquee whitespace-nowrap text-xs font-bold tracking-wide flex items-center gap-8 text-white">
+                  <span>{currentClass?.uts?.banner || '🔥 MINGGU UTS TELAH TIBA! Tetap semangat, jaga kesehatan, dan maksimalkan persiapan ujian! 🔥'}</span>
+                  <span className="text-yellow-300 font-black">•</span>
+                  <span>Kunjungi tab khusus <strong>UTS</strong> untuk melihat rangkuman materi, flashcard & quiz latihan!</span>
+                  <span className="text-yellow-300 font-black">•</span>
+                  <span>{currentClass?.uts?.banner || '🔥 MINGGU UTS TELAH TIBA! Tetap semangat, jaga kesehatan, dan maksimalkan persiapan ujian! 🔥'}</span>
+                  <span className="text-yellow-300 font-black">•</span>
+                  <span>Kunjungi tab khusus <strong>UTS</strong> untuk melihat rangkuman materi, flashcard & quiz latihan!</span>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => navigate(`/class/${currentClass.id}/uts`)}
+                className="shrink-0 px-3 py-1 rounded-lg bg-white text-red-700 hover:bg-yellow-300 hover:text-red-950 text-[11px] font-black transition-all shadow-xs cursor-pointer flex items-center gap-1 active:scale-95"
+              >
+                <span>Buka UTS</span>
+                <ArrowRight size={12} />
+              </button>
+            </div>
+          </div>
+        )}
+
         <ErrorBoundary>
           <main className={`flex-1 min-w-0 w-full pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8 px-3.5 sm:px-8 py-4 sm:py-6 mx-auto ${activeTab === 'schedule' ? 'max-w-[1500px]' : 'max-w-6xl'}`}>
             {!isDataReady ? (
@@ -1738,7 +1776,13 @@ function ClassWorkspace({
                 )}
 
             {activeTab === 'uts' && currentClass?.uts?.enabled && (
-              <ClassUTS currentClass={currentClass} />
+              <ClassUTS
+                currentClass={currentClass}
+                currentUser={user}
+                schedules={schedules || []}
+                tasks={tasks || []}
+                onUpdateClassSettings={handleUpdateClassSettings}
+              />
             )}
 
             {activeTab === 'schedule' && (
