@@ -154,6 +154,28 @@ export default function ClassUTS({
   const materialsList = uts.materials && uts.materials.length > 0 ? uts.materials : defaultMaterials;
   const flashcardsList = uts.flashcards && uts.flashcards.length > 0 ? uts.flashcards : defaultFlashcards;
   const quizzesList = uts.quizzes && uts.quizzes.length > 0 ? uts.quizzes : defaultQuizzes;
+  const utsSchedules = uts.schedules && uts.utsSchedules ? uts.utsSchedules : [];
+
+  // Filter per Mata Kuliah State
+  const [selectedMaterialCourse, setSelectedMaterialCourse] = useState('all');
+  const [selectedFlashcardCourse, setSelectedFlashcardCourse] = useState('all');
+  const [selectedQuizCourse, setSelectedQuizCourse] = useState('all');
+
+  const materialCourses = ['all', ...Array.from(new Set(materialsList.map(m => m.course).filter(Boolean)))];
+  const flashcardCourses = ['all', ...Array.from(new Set(flashcardsList.map(f => f.course).filter(Boolean)))];
+  const quizCourses = ['all', ...Array.from(new Set(quizzesList.map(q => q.course).filter(Boolean)))];
+
+  const filteredMaterials = selectedMaterialCourse === 'all'
+    ? materialsList
+    : materialsList.filter(m => m.course === selectedMaterialCourse);
+
+  const filteredFlashcards = selectedFlashcardCourse === 'all'
+    ? flashcardsList
+    : flashcardsList.filter(f => f.course === selectedFlashcardCourse);
+
+  const filteredQuizzes = selectedQuizCourse === 'all'
+    ? quizzesList
+    : quizzesList.filter(q => q.course === selectedQuizCourse);
 
   // Personal study checklist stored in localStorage
   const storagePrefix = `classy_uts_${currentClass?.id}_${currentUser?.uid || 'guest'}`;
@@ -189,7 +211,7 @@ export default function ClassUTS({
   });
 
   const handleMarkCard = (isKnown) => {
-    const cardId = flashcardsList[currentCardIndex]?.id;
+    const cardId = filteredFlashcards[currentCardIndex]?.id;
     if (!cardId) return;
     const next = { ...knownCards, [cardId]: isKnown };
     setKnownCards(next);
@@ -197,11 +219,11 @@ export default function ClassUTS({
       localStorage.setItem(`${storagePrefix}_flashcards_known`, JSON.stringify(next));
     } catch {}
 
-    if (currentCardIndex < flashcardsList.length - 1) {
+    if (currentCardIndex < filteredFlashcards.length - 1) {
       setIsFlipped(false);
       setCurrentCardIndex(prev => prev + 1);
     } else {
-      toast.success('Kamu sudah menyelesaikan seluruh flashcard!');
+      toast.success('Kamu sudah menyelesaikan flashcard untuk mata kuliah ini!');
     }
   };
 
@@ -216,10 +238,10 @@ export default function ClassUTS({
 
   const calculateQuizScore = () => {
     let correct = 0;
-    quizzesList.forEach(q => {
+    filteredQuizzes.forEach(q => {
       if (quizAnswers[q.id] === q.answer) correct++;
     });
-    return Math.round((correct / quizzesList.length) * 100);
+    return filteredQuizzes.length > 0 ? Math.round((correct / filteredQuizzes.length) * 100) : 0;
   };
 
   const handleResetQuiz = () => {
@@ -431,31 +453,52 @@ export default function ClassUTS({
             </div>
           </div>
 
-          {/* Quick Schedule Reference if any */}
-          {schedules.length > 0 && (
-            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Calendar size={16} className="text-red-600" />
-                  <span>Daftar Mata Kuliah Kelas</span>
-                </h3>
-                <span className="text-xs text-slate-400 font-medium">{schedules.length} Mata Kuliah Terjadwal</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                {schedules.map((sc, i) => (
-                  <div key={sc.id || i} className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between">
+          {/* Jadwal Pelaksanaan UTS Khusus */}
+          <div className="bg-white rounded-2xl p-5 border border-rose-200/80 shadow-xs space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Calendar size={16} className="text-red-600" />
+                <span>Jadwal Resmi Pelaksanaan UTS</span>
+              </h3>
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">
+                {(uts.examSchedule || []).length > 0 ? `${uts.examSchedule.length} Ujian Terjadwal` : 'Menunggu Rilis Jadwal'}
+              </span>
+            </div>
+
+            {(uts.examSchedule && uts.examSchedule.length > 0) ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-1">
+                {uts.examSchedule.map((exam, i) => (
+                  <div key={exam.id || i} className="p-3.5 rounded-xl bg-gradient-to-br from-rose-50/60 to-orange-50/40 border border-rose-100 flex flex-col justify-between space-y-2">
                     <div>
-                      <p className="text-xs font-bold text-slate-800 truncate">{sc.courseName || sc.subject || sc.name}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{sc.day || 'Jadwal Reguler'} • {sc.startTime || ''} - {sc.endTime || ''}</p>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 bg-white px-2 py-0.5 rounded border border-rose-200">
+                          {exam.date || exam.day || 'Hari Ujian'}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                          <Clock size={11} className="text-rose-500" />
+                          <span>{exam.time || 'Waktu Belum Ditentukan'}</span>
+                        </span>
+                      </div>
+                      <p className="text-xs font-black text-slate-900 leading-snug">{exam.course || exam.subject}</p>
+                      <p className="text-[11px] text-slate-600 mt-1">Ruang: <strong className="text-slate-800">{exam.room || 'Menunggu Info'}</strong></p>
                     </div>
-                    {sc.lecturer && (
-                      <p className="text-[10px] text-slate-400 mt-2 font-medium truncate">Dosen: {sc.lecturer}</p>
+                    {exam.lecturer && (
+                      <p className="text-[10px] text-slate-400 font-medium truncate pt-1 border-t border-rose-100/60">
+                        Dosen: {exam.lecturer}
+                      </p>
                     )}
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="p-5 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-1">
+                <p className="text-xs font-bold text-slate-700">Jadwal UTS Spesifik Belum Diunggah</p>
+                <p className="text-[11px] text-slate-500">
+                  Jadwal tanggal, waktu, dan ruangan ujian per mata kuliah akan otomatis muncul di sini setelah diumumkan oleh Komti.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -465,7 +508,7 @@ export default function ClassUTS({
           <div className="bg-rose-50/70 border border-rose-200/70 rounded-2xl p-4 text-xs text-rose-800 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <Info size={16} className="text-rose-600 shrink-0" />
-              <span>Centang materi yang sudah kamu pelajari untuk memantau persiapan ujianmu secara mandiri.</span>
+              <span>Centang materi yang sudah kamu pelajari untuk memantau persiapan ujianmu per mata kuliah.</span>
             </div>
             <button
               onClick={() => {
@@ -479,8 +522,26 @@ export default function ClassUTS({
             </button>
           </div>
 
+          {/* Filter per Mata Kuliah */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+            {materialCourses.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setSelectedMaterialCourse(c)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  selectedMaterialCourse === c
+                    ? 'bg-red-600 text-white shadow-xs'
+                    : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                }`}
+              >
+                {c === 'all' ? 'Semua Mata Kuliah' : c}
+              </button>
+            ))}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {materialsList.map((mat, matIdx) => (
+            {filteredMaterials.map((mat, matIdx) => (
               <div key={mat.id || matIdx} className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
                 <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                   <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -528,9 +589,33 @@ export default function ClassUTS({
       {/* SECTION C: FLASHCARD INTERAKTIF */}
       {activeSection === 'flashcards' && (
         <div className="space-y-5 animate-in fade-in duration-200 max-w-2xl mx-auto">
+          {/* Filter per Mata Kuliah */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+            {flashcardCourses.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => {
+                  setSelectedFlashcardCourse(c);
+                  setCurrentCardIndex(0);
+                  setIsFlipped(false);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  selectedFlashcardCourse === c
+                    ? 'bg-red-600 text-white shadow-xs'
+                    : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                }`}
+              >
+                {c === 'all' ? 'Semua Mata Kuliah' : c}
+              </button>
+            ))}
+          </div>
+
           {/* Card Counter & Mastery */}
           <div className="flex items-center justify-between text-xs text-slate-500 font-medium px-1">
-            <span>Kartu {currentCardIndex + 1} dari {flashcardsList.length}</span>
+            <span>
+              Kartu {filteredFlashcards.length > 0 ? currentCardIndex + 1 : 0} dari {filteredFlashcards.length}
+            </span>
             <div className="flex items-center gap-2">
               <span className="text-emerald-600 font-bold flex items-center gap-1">
                 <Check size={13} />
@@ -540,14 +625,14 @@ export default function ClassUTS({
           </div>
 
           {/* Interactive 3D Flip Card */}
-          {flashcardsList[currentCardIndex] && (
+          {filteredFlashcards[currentCardIndex] ? (
             <div
               onClick={() => setIsFlipped(!isFlipped)}
               className="relative min-h-[220px] sm:min-h-[260px] w-full rounded-3xl bg-white border-2 border-rose-200/90 shadow-lg shadow-rose-500/5 p-6 sm:p-8 flex flex-col justify-between text-center cursor-pointer select-none transition-all duration-300 hover:border-red-400 active:scale-[0.99]"
             >
               <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
                 <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-mono">
-                  {flashcardsList[currentCardIndex].course || 'Konsep UTS'}
+                  {filteredFlashcards[currentCardIndex].course || 'Konsep UTS'}
                 </span>
                 <span className="text-rose-500">Klik untuk membalik kartu 🔄</span>
               </div>
@@ -561,7 +646,7 @@ export default function ClassUTS({
                     ? 'text-sm sm:text-base text-slate-800 leading-relaxed' 
                     : 'text-base sm:text-xl text-slate-900 leading-snug font-extrabold'
                 }`}>
-                  {isFlipped ? flashcardsList[currentCardIndex].answer : flashcardsList[currentCardIndex].question}
+                  {isFlipped ? filteredFlashcards[currentCardIndex].answer : filteredFlashcards[currentCardIndex].question}
                 </h3>
               </div>
 
@@ -569,57 +654,85 @@ export default function ClassUTS({
                 {isFlipped ? 'Apakah kamu sudah paham materi ini?' : 'Coba tebak jawabannya sebelum membalik kartu'}
               </div>
             </div>
+          ) : (
+            <div className="p-8 text-center bg-white rounded-3xl border border-slate-200 text-xs text-slate-500">
+              Belum ada flashcard untuk mata kuliah ini.
+            </div>
           )}
 
           {/* Flashcard Action Buttons */}
-          <div className="flex items-center justify-between gap-3">
-            <button
-              onClick={() => {
-                setIsFlipped(false);
-                setCurrentCardIndex(prev => Math.max(0, prev - 1));
-              }}
-              disabled={currentCardIndex === 0}
-              className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer transition-all"
-            >
-              <ChevronLeft size={15} />
-              <span>Sebelumnya</span>
-            </button>
-
-            <div className="flex items-center gap-2">
+          {filteredFlashcards.length > 0 && (
+            <div className="flex items-center justify-between gap-3">
               <button
-                onClick={() => handleMarkCard(false)}
-                className="px-3.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                onClick={() => {
+                  setIsFlipped(false);
+                  setCurrentCardIndex(prev => Math.max(0, prev - 1));
+                }}
+                disabled={currentCardIndex === 0}
+                className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer transition-all"
               >
-                <RotateCcw size={13} />
-                <span>Perlu Ulang</span>
+                <ChevronLeft size={15} />
+                <span>Sebelumnya</span>
               </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleMarkCard(false)}
+                  className="px-3.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <RotateCcw size={13} />
+                  <span>Perlu Ulang</span>
+                </button>
+                <button
+                  onClick={() => handleMarkCard(true)}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check size={14} />
+                  <span>Sudah Paham</span>
+                </button>
+              </div>
+
               <button
-                onClick={() => handleMarkCard(true)}
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                onClick={() => {
+                  setIsFlipped(false);
+                  setCurrentCardIndex(prev => Math.min(filteredFlashcards.length - 1, prev + 1));
+                }}
+                disabled={currentCardIndex === filteredFlashcards.length - 1}
+                className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer transition-all"
               >
-                <Check size={14} />
-                <span>Sudah Paham</span>
+                <span>Berikutnya</span>
+                <ChevronRight size={15} />
               </button>
             </div>
-
-            <button
-              onClick={() => {
-                setIsFlipped(false);
-                setCurrentCardIndex(prev => Math.min(flashcardsList.length - 1, prev + 1));
-              }}
-              disabled={currentCardIndex === flashcardsList.length - 1}
-              className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer transition-all"
-            >
-              <span>Berikutnya</span>
-              <ChevronRight size={15} />
-            </button>
-          </div>
+          )}
         </div>
       )}
 
       {/* SECTION D: LATIHAN QUIZ */}
       {activeSection === 'quiz' && (
         <div className="space-y-6 animate-in fade-in duration-200 max-w-3xl mx-auto">
+          {/* Filter per Mata Kuliah */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+            {quizCourses.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => {
+                  setSelectedQuizCourse(c);
+                  setQuizSubmitted(false);
+                  setQuizAnswers({});
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  selectedQuizCourse === c
+                    ? 'bg-red-600 text-white shadow-xs'
+                    : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+                }`}
+              >
+                {c === 'all' ? 'Semua Mata Kuliah' : c}
+              </button>
+            ))}
+          </div>
+
           {quizSubmitted ? (
             /* Quiz Result Screen */
             <div className="bg-white rounded-3xl p-6 sm:p-8 border border-rose-200/80 shadow-md text-center space-y-4">
@@ -627,15 +740,17 @@ export default function ClassUTS({
                 <Award size={32} />
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Hasil Latihan Quiz UTS</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Hasil Quiz {selectedQuizCourse !== 'all' ? `• ${selectedQuizCourse}` : ''}
+                </p>
                 <h3 className="text-3xl font-black text-slate-900 mt-1">
                   Skor: <span className="text-red-600">{calculateQuizScore()}%</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
                   Kamu menjawab {Object.entries(quizAnswers).filter(([id, ans]) => {
-                    const q = quizzesList.find(item => item.id === id);
+                    const q = filteredQuizzes.find(item => item.id === id);
                     return q && q.answer === ans;
-                  }).length} dari {quizzesList.length} soal dengan benar.
+                  }).length} dari {filteredQuizzes.length} soal dengan benar.
                 </p>
               </div>
 
@@ -645,7 +760,7 @@ export default function ClassUTS({
                   className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-2 mx-auto cursor-pointer"
                 >
                   <RotateCcw size={14} />
-                  <span>Ulangi Quiz dari Awal</span>
+                  <span>Ulangi Quiz Mata Kuliah Ini</span>
                 </button>
               </div>
             </div>
@@ -653,7 +768,7 @@ export default function ClassUTS({
 
           {/* Quiz Questions List */}
           <div className="space-y-4">
-            {quizzesList.map((quizItem, qIdx) => {
+            {filteredQuizzes.map((quizItem, qIdx) => {
               const selectedOption = quizAnswers[quizItem.id];
               const isAnswered = selectedOption !== undefined;
               const isCorrect = isAnswered && selectedOption === quizItem.answer;
@@ -720,12 +835,12 @@ export default function ClassUTS({
             })}
           </div>
 
-          {!quizSubmitted && (
+          {!quizSubmitted && filteredQuizzes.length > 0 && (
             <div className="flex justify-end pt-2">
               <button
                 type="button"
                 onClick={() => setQuizSubmitted(true)}
-                disabled={Object.keys(quizAnswers).length < quizzesList.length}
+                disabled={Object.keys(quizAnswers).length < filteredQuizzes.length}
                 className="px-6 py-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 disabled:opacity-40 text-white font-bold text-xs shadow-md shadow-rose-500/20 transition-all cursor-pointer disabled:cursor-not-allowed"
               >
                 Kumpulkan & Periksa Jawaban
