@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   X, 
   Save, 
@@ -13,10 +13,25 @@ import {
   Check, 
   AlertCircle,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  FileSpreadsheet,
+  Download,
+  Upload,
+  ClipboardPaste,
+  Layers
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from '../ModalPortal';
+import {
+  downloadQuizExcelTemplate,
+  parseQuizFile,
+  parseQuizTsv,
+  downloadFlashcardExcelTemplate,
+  parseFlashcardFile,
+  parseFlashcardTsv
+} from '../../utils/utsExcelHelper';
 
 export default function UtsManageModal({
   isOpen,
@@ -67,6 +82,15 @@ export default function UtsManageModal({
     ...fallbackCourses
   ].filter(Boolean))).sort((a, b) => a.localeCompare(b, 'id'));
 
+  // --- EXCEL & IMPORT REFS & STATES ---
+  const fileInputQuizRef = useRef(null);
+  const [showPasteQuiz, setShowPasteQuiz] = useState(false);
+  const [pasteQuizText, setPasteQuizText] = useState('');
+
+  const fileInputFcRef = useRef(null);
+  const [showPasteFc, setShowPasteFc] = useState(false);
+  const [pasteFcText, setPasteFcText] = useState('');
+
   // --- FLASHCARD FORM STATE ---
   const [editingFcId, setEditingFcId] = useState(null);
   const [fcCourse, setFcCourse] = useState(existingCourses[0] || 'Pengantar Logistik');
@@ -83,12 +107,22 @@ export default function UtsManageModal({
   const [qzAnswer, setQzAnswer] = useState(0); // 0=A, 1=B, 2=C, 3=D
   const [qzExplanation, setQzExplanation] = useState('');
 
-  // --- MATERIAL FORM STATE ---
+  // --- MATERIAL & SUMMARY MODULES FORM STATE ---
   const [editingMatId, setEditingMatId] = useState(null);
   const [matCourse, setMatCourse] = useState(existingCourses[0] || 'Pengantar Logistik');
   const [matCode, setMatCode] = useState('');
   const [matDescription, setMatDescription] = useState('');
   const [matTopicsText, setMatTopicsText] = useState(''); // newline separated
+  const [matModules, setMatModules] = useState([]); // Array of summary modules
+
+  // Module sub-form state
+  const [showModForm, setShowModForm] = useState(false);
+  const [editingModIndex, setEditingModIndex] = useState(null);
+  const [modTitle, setModTitle] = useState('');
+  const [modKeyPointsText, setModKeyPointsText] = useState('');
+  const [modCheatsheet, setModCheatsheet] = useState('');
+  const [modExamTip, setModExamTip] = useState('');
+  const [modSampleQuestion, setModSampleQuestion] = useState('');
 
   // --- SCHEDULE FORM STATE ---
   const [editingSchId, setEditingSchId] = useState(null);
@@ -153,6 +187,41 @@ export default function UtsManageModal({
     }
   };
 
+  const handleUploadFcFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const toastId = toast.loading('Membaca file Excel / CSV flashcard...');
+      const parsed = await parseFlashcardFile(file);
+      if (!parsed || parsed.length === 0) {
+        return toast.error('Format file tidak sesuai atau tidak ada baris flashcard valid.', { id: toastId });
+      }
+      setLocalFlashcards(prev => [...parsed, ...prev]);
+      toast.success(`Berhasil mengimpor ${parsed.length} flashcard dari ${file.name}!`, { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal membaca file: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleApplyPasteFc = () => {
+    if (!pasteFcText.trim()) return toast.error('Silakan paste data baris tabel terlebih dahulu!');
+    try {
+      const parsed = parseFlashcardTsv(pasteFcText);
+      if (!parsed || parsed.length === 0) {
+        return toast.error('Format data tidak sesuai.');
+      }
+      setLocalFlashcards(prev => [...parsed, ...prev]);
+      toast.success(`Berhasil menambahkan ${parsed.length} flashcard!`);
+      setPasteFcText('');
+      setShowPasteFc(false);
+    } catch (err) {
+      toast.error('Gagal memproses data: ' + err.message);
+    }
+  };
+
   // -------------------------------------------------------------
   // HANDLERS FOR QUIZZES
   // -------------------------------------------------------------
@@ -210,6 +279,109 @@ export default function UtsManageModal({
     }
   };
 
+  const handleUploadQuizFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const toastId = toast.loading('Membaca file Excel / CSV soal quiz...');
+      const parsed = await parseQuizFile(file);
+      if (!parsed || parsed.length === 0) {
+        return toast.error('Format file tidak sesuai atau tidak ada baris soal valid.', { id: toastId });
+      }
+      setLocalQuizzes(prev => [...parsed, ...prev]);
+      toast.success(`Berhasil mengimpor ${parsed.length} soal quiz dari ${file.name}!`, { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal membaca file: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleApplyPasteQuiz = () => {
+    if (!pasteQuizText.trim()) return toast.error('Silakan paste data baris tabel terlebih dahulu!');
+    try {
+      const parsed = parseQuizTsv(pasteQuizText);
+      if (!parsed || parsed.length === 0) {
+        return toast.error('Format data tidak sesuai.');
+      }
+      setLocalQuizzes(prev => [...parsed, ...prev]);
+      toast.success(`Berhasil menambahkan ${parsed.length} soal quiz!`);
+      setPasteQuizText('');
+      setShowPasteQuiz(false);
+    } catch (err) {
+      toast.error('Gagal memproses data: ' + err.message);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // HANDLERS FOR SUMMARY MODULES INSIDE MATERIAL
+  // -------------------------------------------------------------
+  const handleOpenAddModule = () => {
+    setEditingModIndex(null);
+    setModTitle('');
+    setModKeyPointsText('');
+    setModCheatsheet('');
+    setModExamTip('');
+    setModSampleQuestion('');
+    setShowModForm(true);
+  };
+
+  const handleEditModule = (mod, index) => {
+    setEditingModIndex(index);
+    setModTitle(mod.title || '');
+    setModKeyPointsText((mod.keyPoints || []).join('\n'));
+    setModCheatsheet(mod.cheatsheet || '');
+    setModExamTip(mod.examTip || '');
+    setModSampleQuestion(mod.sampleQuestion || '');
+    setShowModForm(true);
+  };
+
+  const handleSaveModule = (e) => {
+    e?.preventDefault();
+    if (!modTitle.trim()) return toast.error('Judul modul rangkuman wajib diisi!');
+
+    const keyPointsArray = modKeyPointsText
+      .split('\n')
+      .map(k => k.trim())
+      .filter(Boolean);
+
+    const moduleObj = {
+      id: editingModIndex !== null && matModules[editingModIndex]?.id 
+        ? matModules[editingModIndex].id 
+        : `mod-${Date.now()}`,
+      title: modTitle.trim(),
+      keyPoints: keyPointsArray.length > 0 ? keyPointsArray : ['Poin materi 1', 'Poin materi 2'],
+      cheatsheet: modCheatsheet.trim(),
+      examTip: modExamTip.trim(),
+      sampleQuestion: modSampleQuestion.trim()
+    };
+
+    if (editingModIndex !== null) {
+      setMatModules(prev => prev.map((m, idx) => idx === editingModIndex ? moduleObj : m));
+      toast.success('Modul rangkuman diperbarui!');
+    } else {
+      setMatModules(prev => [...prev, moduleObj]);
+      toast.success('Modul rangkuman ditambahkan!');
+    }
+
+    setShowModForm(false);
+    setEditingModIndex(null);
+    setModTitle('');
+    setModKeyPointsText('');
+    setModCheatsheet('');
+    setModExamTip('');
+    setModSampleQuestion('');
+  };
+
+  const handleDeleteModule = (index) => {
+    if (confirm('Hapus modul rangkuman ini?')) {
+      setMatModules(prev => prev.filter((_, idx) => idx !== index));
+      toast.success('Modul rangkuman dihapus.');
+      if (editingModIndex === index) setShowModForm(false);
+    }
+  };
+
   // -------------------------------------------------------------
   // HANDLERS FOR MATERIALS
   // -------------------------------------------------------------
@@ -228,9 +400,10 @@ export default function UtsManageModal({
         course: matCourse.trim(),
         code: matCode.trim() || 'MK',
         description: matDescription.trim(),
-        topics: topicsArray.length > 0 ? topicsArray : m.topics
+        topics: topicsArray.length > 0 ? topicsArray : m.topics,
+        modules: matModules
       } : m));
-      toast.success('Mata kuliah berhasil diperbarui!');
+      toast.success('Mata kuliah & modul rangkuman berhasil diperbarui!');
     } else {
       const newMat = {
         id: `mat-${Date.now()}`,
@@ -238,7 +411,7 @@ export default function UtsManageModal({
         code: matCode.trim() || `MK-${localMaterials.length + 1}`,
         description: matDescription.trim() || 'Rangkuman materi dan kisi-kisi ujian.',
         topics: topicsArray.length > 0 ? topicsArray : ['Kisi-kisi topik 1', 'Kisi-kisi topik 2'],
-        modules: []
+        modules: matModules
       };
       setLocalMaterials(prev => [...prev, newMat]);
       toast.success('Mata kuliah baru ditambahkan!');
@@ -249,6 +422,8 @@ export default function UtsManageModal({
     setMatCode('');
     setMatDescription('');
     setMatTopicsText('');
+    setMatModules([]);
+    setShowModForm(false);
   };
 
   const handleEditMat = (mat) => {
@@ -257,13 +432,19 @@ export default function UtsManageModal({
     setMatCode(mat.code || '');
     setMatDescription(mat.description || '');
     setMatTopicsText((mat.topics || []).join('\n'));
+    setMatModules(mat.modules || []);
+    setShowModForm(false);
   };
 
   const handleDeleteMat = (id) => {
     if (confirm('Hapus mata kuliah ini beserta seluruh topiknya?')) {
       setLocalMaterials(prev => prev.filter(m => m.id !== id));
       toast.success('Mata kuliah dihapus.');
-      if (editingMatId === id) setEditingMatId(null);
+      if (editingMatId === id) {
+        setEditingMatId(null);
+        setMatModules([]);
+        setShowModForm(false);
+      }
     }
   };
 
@@ -436,6 +617,99 @@ export default function UtsManageModal({
           {/* ========================================================= */}
           {activeTab === 'quiz' && (
             <div className="space-y-6">
+
+              {/* Excel Template & Bulk Import Action Bar */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 p-4 rounded-2xl border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <FileSpreadsheet size={18} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-emerald-950">
+                      Import Massal Soal Quiz via Excel / Spreadsheet
+                    </h4>
+                    <p className="text-[11px] text-emerald-700">
+                      Unduh template, isi puluhan soal di Microsoft Excel, lalu upload atau paste ke sini sekaligus.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={downloadQuizExcelTemplate}
+                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Download size={13} />
+                    <span>Download Template (.xlsx)</span>
+                  </button>
+
+                  <input
+                    type="file"
+                    ref={fileInputQuizRef}
+                    onChange={handleUploadQuizFile}
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputQuizRef.current?.click()}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Upload size={13} />
+                    <span>Upload File Excel</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPasteQuiz(!showPasteQuiz)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ClipboardPaste size={13} />
+                    <span>{showPasteQuiz ? 'Tutup Paste' : 'Paste dari Excel'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Paste from Excel drawer */}
+              {showPasteQuiz && (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-300 space-y-2.5 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <ClipboardPaste size={14} className="text-emerald-600" />
+                      <span>Paste Baris Tabel dari Excel / Google Sheets:</span>
+                    </label>
+                    <span className="text-[10px] text-slate-500">
+                      Format kolom: Mata Kuliah | Soal | Opsi A | Opsi B | Opsi C | Opsi D | Kunci | Pembahasan
+                    </span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={pasteQuizText}
+                    onChange={(e) => setPasteQuizText(e.target.value)}
+                    placeholder="Copy beberapa baris dari file Excel lalu paste di sini (Ctrl+V)..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono bg-white focus:outline-none focus:border-emerald-500"
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowPasteQuiz(false)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyPasteQuiz}
+                      className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer"
+                    >
+                      Impor Soal Sekarang
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Form Tambah/Edit Quiz */}
               <form onSubmit={handleSaveQuiz} className="p-4 sm:p-5 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-3.5">
                 <div className="flex items-center justify-between">
@@ -618,6 +892,99 @@ export default function UtsManageModal({
           {/* ========================================================= */}
           {activeTab === 'flashcard' && (
             <div className="space-y-6">
+
+              {/* Excel Template & Bulk Import Action Bar for Flashcard */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 p-4 rounded-2xl border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <FileSpreadsheet size={18} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-emerald-950">
+                      Import Massal Flashcard via Excel / Spreadsheet
+                    </h4>
+                    <p className="text-[11px] text-emerald-700">
+                      Unduh template, tulis puluhan pertanyaan & jawaban di Excel, lalu upload atau paste sekaligus.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={downloadFlashcardExcelTemplate}
+                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Download size={13} />
+                    <span>Download Template (.xlsx)</span>
+                  </button>
+
+                  <input
+                    type="file"
+                    ref={fileInputFcRef}
+                    onChange={handleUploadFcFile}
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputFcRef.current?.click()}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Upload size={13} />
+                    <span>Upload File Excel</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPasteFc(!showPasteFc)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ClipboardPaste size={13} />
+                    <span>{showPasteFc ? 'Tutup Paste' : 'Paste dari Excel'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Paste from Excel drawer for Flashcard */}
+              {showPasteFc && (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-300 space-y-2.5 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <ClipboardPaste size={14} className="text-emerald-600" />
+                      <span>Paste Baris Tabel dari Excel / Google Sheets:</span>
+                    </label>
+                    <span className="text-[10px] text-slate-500">
+                      Format kolom: Mata Kuliah | Pertanyaan Depan Kartu | Jawaban Belakang Kartu
+                    </span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={pasteFcText}
+                    onChange={(e) => setPasteFcText(e.target.value)}
+                    placeholder="Copy baris flashcard dari file Excel lalu paste di sini (Ctrl+V)..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono bg-white focus:outline-none focus:border-emerald-500"
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowPasteFc(false)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyPasteFc}
+                      className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer"
+                    >
+                      Impor Flashcard Sekarang
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Form Tambah/Edit Flashcard */}
               <form onSubmit={handleSaveFlashcard} className="p-4 sm:p-5 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-3.5">
                 <div className="flex items-center justify-between">
@@ -826,11 +1193,182 @@ export default function UtsManageModal({
                   />
                 </div>
 
+                {/* SUB-SECTION: MODUL RANGKUMAN MATERI & FORMULA */}
+                <div className="pt-3 border-t border-rose-200/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h5 className="text-xs font-black text-rose-950 flex items-center gap-1.5">
+                        <Layers size={14} className="text-red-600" />
+                        <span>Modul Rangkuman Materi ({matModules.length} Modul Terpasang)</span>
+                      </h5>
+                      <p className="text-[10px] text-slate-500">
+                        Isi rangkuman komprehensif, poin konsep inti, rumus kunci, dan tips ujian per bab/pertemuan.
+                      </p>
+                    </div>
+
+                    {!showModForm && (
+                      <button
+                        type="button"
+                        onClick={handleOpenAddModule}
+                        className="px-3 py-1 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus size={12} />
+                        <span>Tambah Modul</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Form Input / Edit Modul */}
+                  {showModForm && (
+                    <div className="p-4 rounded-2xl bg-white border border-rose-300 shadow-sm space-y-3 animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <span className="text-xs font-black text-slate-900">
+                          {editingModIndex !== null ? `Edit Modul #${editingModIndex + 1}` : 'Tambah Modul Rangkuman Baru'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowModForm(false)}
+                          className="text-[11px] font-bold text-slate-400 hover:text-rose-600 cursor-pointer"
+                        >
+                          Tutup Form Modul
+                        </button>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-700">Judul Modul Rangkuman</label>
+                        <input
+                          type="text"
+                          value={modTitle}
+                          onChange={(e) => setModTitle(e.target.value)}
+                          placeholder="Contoh: Konsep Dasar & Prinsip 7R (Pertemuan 1 - 3)"
+                          className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-red-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-700">
+                          Poin-Poin Konsep Inti (Satu butir per baris)
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={modKeyPointsText}
+                          onChange={(e) => setModKeyPointsText(e.target.value)}
+                          placeholder="Poin 1: Penjelasan konsep inti&#10;Poin 2: Definisi dan perbedaannya&#10;Poin 3: Alur kerja dan tahapannya"
+                          className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-red-500"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-slate-700">
+                            Catatan Formula / Rumus Kunci / Cheatsheet
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={modCheatsheet}
+                            onChange={(e) => setModCheatsheet(e.target.value)}
+                            placeholder="Contoh rumus: BEP = FC / (P - VC) atau sintaks kode"
+                            className="w-full px-3 py-1.5 rounded-xl border border-slate-200 font-mono text-xs focus:outline-none focus:border-red-500"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-bold text-slate-700">Tips Ujian Dosen</label>
+                            <input
+                              type="text"
+                              value={modExamTip}
+                              onChange={(e) => setModExamTip(e.target.value)}
+                              placeholder="Contoh: Dosen sering menanyakan komparasi dalam tabel..."
+                              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-red-500"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-bold text-slate-700">Contoh Soal Ujian</label>
+                            <input
+                              type="text"
+                              value={modSampleQuestion}
+                              onChange={(e) => setModSampleQuestion(e.target.value)}
+                              placeholder="Contoh: Jelaskan perbedaan 7R logistik dan berikan contohnya!"
+                              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-red-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowModForm(false)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveModule}
+                          className="px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold cursor-pointer"
+                        >
+                          {editingModIndex !== null ? 'Simpan Modul Ini' : '+ Tambahkan ke Modul'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* List of installed modules */}
+                  {matModules.length > 0 ? (
+                    <div className="space-y-2">
+                      {matModules.map((mod, mIdx) => (
+                        <div 
+                          key={mod.id || mIdx}
+                          className="p-3 rounded-xl border border-rose-200/80 bg-white flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-md bg-rose-100 text-rose-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                {mIdx + 1}
+                              </span>
+                              <h6 className="font-bold text-slate-900 truncate">{mod.title}</h6>
+                            </div>
+                            <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5 ml-7">
+                              {mod.keyPoints?.length || 0} Poin Konsep • {mod.cheatsheet ? 'Formula ✓' : 'Tanpa Formula'} • {mod.examTip ? 'Tips Dosen ✓' : ''}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleEditModule(mod, mIdx)}
+                              className="p-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+                              title="Edit Modul"
+                            >
+                              <Edit3 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteModule(mIdx)}
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                              title="Hapus Modul"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-xl bg-white/70 border border-dashed border-rose-200 text-center text-[11px] text-slate-500">
+                      Belum ada modul rangkuman khusus. Klik <strong>+ Tambah Modul</strong> untuk menyusun rangkuman materi per pertemuan.
+                    </div>
+                  )}
+                </div>
+
                 <button
                   type="submit"
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors"
                 >
-                  {editingMatId ? 'Simpan Pembaruan Mata Kuliah' : '+ Tambahkan Mata Kuliah'}
+                  {editingMatId ? 'Simpan Pembaruan Mata Kuliah & Modul' : '+ Tambahkan Mata Kuliah'}
                 </button>
               </form>
 
@@ -844,9 +1382,14 @@ export default function UtsManageModal({
                   {localMaterials.map((mat, idx) => (
                     <div key={mat.id || idx} className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition-all space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-mono">
-                          {mat.code || `MK-${idx + 1}`}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-mono">
+                            {mat.code || `MK-${idx + 1}`}
+                          </span>
+                          <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                            {(mat.modules || []).length} Modul Rangkuman
+                          </span>
+                        </div>
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
