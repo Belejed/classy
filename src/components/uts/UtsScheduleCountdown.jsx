@@ -99,8 +99,12 @@ export default function UtsScheduleCountdown({ uts, schedules = [], onSelectCour
                 <span>📅 {targetExam.dayName || 'Jadwal'}, {targetExam.date}</span>
                 <span>•</span>
                 <span>⏰ {targetExam.time}</span>
-                <span>•</span>
-                <span>📍 {targetExam.room}</span>
+                {targetExam.room && (
+                  <>
+                    <span>•</span>
+                    <span>📍 {targetExam.room}</span>
+                  </>
+                )}
               </p>
             </div>
 
@@ -132,7 +136,7 @@ export default function UtsScheduleCountdown({ uts, schedules = [], onSelectCour
           <div className="flex items-center gap-2">
             <Calendar size={18} className="text-red-600" />
             <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
-              Jadwal Lengkap & Ruang Ujian UTS
+              Jadwal Lengkap Pelaksanaan UTS
             </h3>
           </div>
           <span className="text-xs font-bold text-slate-500">
@@ -172,10 +176,12 @@ export default function UtsScheduleCountdown({ uts, schedules = [], onSelectCour
                       <Clock size={13} className="text-slate-400 shrink-0" />
                       <span>{exam.time}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin size={13} className="text-slate-400 shrink-0" />
-                      <span className="font-semibold text-slate-800">{exam.room}</span>
-                    </div>
+                    {exam.room && (
+                      <div className="flex items-center gap-2">
+                        <MapPin size={13} className="text-slate-400 shrink-0" />
+                        <span className="font-semibold text-slate-800">{exam.room}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       <ShieldCheck size={13} className="text-slate-400 shrink-0" />
                       <span>Sifat: <strong className="text-rose-700">{exam.nature || 'Closed Book'}</strong></span>

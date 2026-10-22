@@ -779,7 +779,7 @@ export default function UtsManageModal({
       date: (s.date || '').trim(),
       dayName: (s.dayName || '').trim(),
       time: (s.time || '').trim(),
-      room: (s.room || '').trim(),
+      room: '', // Kosongkan karena ruangan berbeda per mahasiswa
       nature: (s.nature || '').trim(),
       lecturer: (s.lecturer || '').trim(),
       topics: (s.topics || '').trim()
@@ -2519,12 +2519,12 @@ export default function UtsManageModal({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-700">Ruangan Ujian</label>
+                    <label className="text-[11px] font-bold text-slate-700">Ruangan Ujian (Opsional)</label>
                     <input
                       type="text"
                       value={schRoom}
                       onChange={(e) => setSchRoom(e.target.value)}
-                      placeholder="Contoh: Lab Komputer 3"
+                      placeholder="Kosongkan jika beda anak beda ruangan"
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-red-500 bg-white"
                     />
                   </div>
@@ -2608,7 +2608,10 @@ export default function UtsManageModal({
                         </div>
 
                         <h4 className="text-sm font-black text-slate-900">{s.course}</h4>
-                        <p className="text-xs text-slate-600">⏰ {s.time} • 📍 {s.room}</p>
+                        <p className="text-xs text-slate-600">
+                          ⏰ {s.time}
+                          {s.room ? ` • 📍 ${s.room}` : ''}
+                        </p>
                         <p className="text-[11px] text-slate-400">Sifat: <strong className="text-rose-700">{s.nature}</strong></p>
                       </div>
                     </div>
